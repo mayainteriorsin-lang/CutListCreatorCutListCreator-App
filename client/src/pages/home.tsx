@@ -4398,7 +4398,7 @@ export default function Home() {
                             </div>
                           ) : (
                             globalLaminateMemory.map((code) => {
-                              const isEnabled = grainMap[code] === true;
+                              const isEnabled = woodGrainsPreferences[code] === true;
                               return (
                                 <div
                                   key={code}
