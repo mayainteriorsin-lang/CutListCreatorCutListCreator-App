@@ -1949,6 +1949,7 @@ export default function Home() {
     
     const panels: Panel[] = [
       { 
+        id: `${cabinet.name}-TOP-grain-${cabinet.topPanelGrainDirection === true}`,
         name: `${cabinet.name} - Top`, 
         width: dimensions.top.width, 
         height: dimensions.top.height, 
@@ -1960,6 +1961,7 @@ export default function Home() {
         nomH: dimensions.top.height
       },
       { 
+        id: `${cabinet.name}-BOTTOM-grain-${cabinet.bottomPanelGrainDirection === true}`,
         name: `${cabinet.name} - Bottom`, 
         width: dimensions.bottom.width, 
         height: dimensions.bottom.height, 
@@ -1971,6 +1973,7 @@ export default function Home() {
         nomH: dimensions.bottom.height
       },
       { 
+        id: `${cabinet.name}-LEFT-grain-${cabinet.leftPanelGrainDirection === true}`,
         name: `${cabinet.name} - Left`, 
         width: dimensions.left.width, 
         height: dimensions.left.height, 
@@ -1982,6 +1985,7 @@ export default function Home() {
         nomH: dimensions.left.height
       },
       { 
+        id: `${cabinet.name}-RIGHT-grain-${cabinet.rightPanelGrainDirection === true}`,
         name: `${cabinet.name} - Right`, 
         width: dimensions.right.width, 
         height: dimensions.right.height, 
@@ -2091,6 +2095,7 @@ export default function Home() {
     );
     
     panels.push({
+      id: `${cabinet.name}-BACK-grain-${cabinet.backPanelGrainDirection === true}`,
       name: `${cabinet.name} - Back Panel`,
       width: dimensions.back.width,
       height: dimensions.back.height,
