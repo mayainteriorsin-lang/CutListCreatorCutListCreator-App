@@ -83,9 +83,9 @@ function computeDisplayDims(panel: any) {
   let displayHeight = 0;  // Y
 
   if (type.includes('TOP') || type.includes('BOTTOM')) {
-    // TOP/BOTTOM: width -> Y, depth -> X  (show X×Y format)
-    displayWidth  = Number(panel.depth ?? panel.nomH ?? panel.h ?? panel.height ?? 0);   // X-axis
-    displayHeight = Number(panel.width ?? panel.nomW ?? panel.w ?? 0);   // Y-axis
+    // TOP/BOTTOM: height -> X, width -> Y  (show X×Y format)
+    displayWidth  = Number(panel.height ?? panel.nomH ?? panel.h ?? 0);   // X-axis (height)
+    displayHeight = Number(panel.width ?? panel.nomW ?? panel.w ?? 0);   // Y-axis (width)
   } else if (type.includes('LEFT') || type.includes('RIGHT')) {
     // LEFT/RIGHT: height -> X, width -> Y  (show X×Y format)
     displayWidth  = Number(panel.height ?? panel.nomH ?? panel.h ?? 0);   // X-axis (height)
