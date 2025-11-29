@@ -1,520 +1,250 @@
-function mulberry32(seed: number) { 
-  return function() { 
-    let t = seed += 0x6D2B79F5; 
-    t = Math.imul(t ^ (t >>> 15), t | 1); 
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61); 
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296; 
-  }; 
-}
+/**
+ * MaxRects Cutlist Optimizer
+ * Core bin packing algorithm for optimized cutting layouts
+ */
 
-const EPS = 1e-4; // more realistic tolerance for mm-based layouts
-
-interface Rect {
-  x: number;
-  y: number;
+export interface OptPart {
+  id: string;
+  name: string;
   w: number;
   h: number;
+  qty: number;
+  rotate?: boolean;
+  [key: string]: any;
 }
 
-interface PlacedPiece {
-  id: string;
-  origId?: string;
+export interface Sheet {
+  w: number;
+  h: number;
+  kerf?: number;
+}
+
+export interface Rect {
   x: number;
   y: number;
   w: number;
   h: number;
   rotated: boolean;
-  rotateAllowed: boolean;
-  gaddi?: boolean;
-  grainDirection?: string | boolean | null; // preserve original grain value ('LEFT'|'RIGHT'|null) or boolean for older data
-  laminateCode?: string;    // Laminate code for grain indicator logic
-  nomW?: number;   // nominal width (original panel size)
-  nomH?: number;   // nominal height (original panel size)
 }
 
-interface Part {
-  id: string;
+export interface PlacedPart extends OptPart, Rect {}
+
+export interface OptSheet {
+  parts: PlacedPart[];
   w: number;
   h: number;
-  qty: number;
-  rotate: boolean;
-  gaddi?: boolean;
-  grainDirection?: string | boolean | null; // preserve direction string or null
-  laminateCode?: string;    // Laminate code for grain indicator logic
+  usage: number;
 }
 
-const area = (r: Rect) => r.w * r.h;
-
-const rectContains = (a: Rect, b: Rect) =>
-  b.x >= a.x - EPS && b.y >= a.y - EPS &&
-  b.x + b.w <= a.x + a.w + EPS &&
-  b.y + b.h <= a.y + a.h + EPS;
-
-function detectSide(id: string): "Top"|"Bottom"|"Left"|"Right"|"Back"|null {
-  const s = (id || "").toLowerCase();
-  if (/\btop\b/.test(s)) return "Top";
-  if (/\bbottom\b/.test(s)) return "Bottom";
-  if (/\bleft\b/.test(s)) return "Left";
-  if (/\bright\b/.test(s)) return "Right";
-  if (/\bback\b/.test(s)) return "Back";
-  return null;
+export interface OptimizationResult {
+  sheets: OptSheet[];
+  totalUsage: number;
+  efficiency: number;
 }
 
-class MaxRectsBin {
-  W: number;
-  H: number;
-  kerf: number;
-  free: Rect[];
-  placed: PlacedPiece[];
-  usedArea: number;
-
-  constructor(W: number, H: number, kerf: number) {
-    this.W = W;
-    this.H = H;
-    this.kerf = kerf;
-    this.free = [{ x: 0, y: 0, w: W, h: H }];
-    this.placed = [];
-    this.usedArea = 0;
-  }
-
-  tryPlace(piece: any, strategy: string) {
-    let bestScore = { a: Infinity, s1: Infinity, s2: Infinity }, best: any = null, idxBest = -1;
-
-    for (let i = 0; i < this.free.length; i++) {
-      const fr = this.free[i];
-
-      // Try non-rotated orientation first (always allowed to test)
-      if (piece.w <= fr.w && piece.h <= fr.h) {
-        const aWaste = fr.w * fr.h - piece.w * piece.h;
-        const s1 = Math.min(fr.w - piece.w, fr.h - piece.h);
-        const s2 = Math.max(fr.w - piece.w, fr.h - piece.h);
-        const key = (strategy === "BAF") ? aWaste : (strategy === "BSSF" ? s1 : s2);
-        const cand = { a: key, s1, s2, rot: false, rect: { x: fr.x, y: fr.y, w: piece.w, h: piece.h }, i };
-        if (s1 <= EPS && s2 <= EPS) { bestScore = cand; best = cand; idxBest = i; break; }
-        if (key < bestScore.a || (key === bestScore.a && (s1 < bestScore.s1 || (s1 === bestScore.s1 && s2 < bestScore.s2)))) {
-          bestScore = cand;
-          best = cand;
-          idxBest = i;
-        }
-      }
-
-      // If the piece is locked by grainDirection, do NOT even try rotated placement.
-      const allowRotate = Boolean(piece.rotateAllowed);
-      if (piece.grainDirection) {
-        // Grain locked: skip rotated orientation entirely
-        continue;
-      }
-
-      // Otherwise try rotated orientation if rotation allowed
-      if (allowRotate && piece.h <= fr.w && piece.w <= fr.h) {
-        const aWaste = fr.w * fr.h - piece.h * piece.w;
-        const s1 = Math.min(fr.w - piece.h, fr.h - piece.w);
-        const s2 = Math.max(fr.w - piece.h, fr.h - piece.w);
-        const key = (strategy === "BAF") ? aWaste : (strategy === "BSSF" ? s1 : s2);
-        const cand = { a: key, s1, s2, rot: true, rect: { x: fr.x, y: fr.y, w: piece.h, h: piece.w }, i };
-        if (s1 <= EPS && s2 <= EPS) { bestScore = cand; best = cand; idxBest = i; break; }
-        if (key < bestScore.a || (key === bestScore.a && (s1 < bestScore.s1 || (s1 === bestScore.s1 && s2 < bestScore.s2)))) {
-          bestScore = cand;
-          best = cand;
-          idxBest = i;
-        }
-      }
-    }
-
-    if (!best) return null;
-
-    const placed: PlacedPiece = {
-      id: piece.id,
-      origId: piece.origId ?? piece.id,
-      x: best.rect.x + this.kerf / 2,
-      y: best.rect.y + this.kerf / 2,
-      w: best.rect.w - this.kerf,
-      h: best.rect.h - this.kerf,
-      rotated: !!best.rot,
-      rotateAllowed: !!piece.rotate,
-      gaddi: !!piece.gaddi,         // carry the gaddi flag
-      grainDirection: piece.grainDirection ?? null, // preserve exact grain value (e.g. 'LEFT' | 'RIGHT' | null)
-      laminateCode: piece.laminateCode || '', // carry the laminate code
-      nomW: (piece as any).nomW || piece.w,   // nominal width
-      nomH: (piece as any).nomH || piece.h    // nominal height
-    };
-
-    this.splitAll(best.rect);
-    this.placed.push(placed);
-    this.usedArea += best.rect.w * best.rect.h;
-    return placed;
-  }
-
-  split(index: number, used: Rect) {
-    const base = this.free[index]; 
-    this.free.splice(index, 1);
-    const add: Rect[] = [];
-
-    if (used.x > base.x + EPS) {
-      add.push({ x: base.x, y: base.y, w: used.x - base.x, h: base.h });
-    }
-    if (used.x + used.w < base.x + base.w - EPS) {
-      add.push({
-        x: used.x + used.w, 
-        y: base.y, 
-        w: (base.x + base.w) - (used.x + used.w), 
-        h: base.h
-      });
-    }
-    if (used.y > base.y + EPS) {
-      add.push({ x: base.x, y: base.y, w: base.w, h: used.y - base.y });
-    }
-    if (used.y + used.h < base.y + base.h - EPS) {
-      add.push({
-        x: base.x, 
-        y: used.y + used.h, 
-        w: base.w, 
-        h: (base.y + base.h) - (used.y + used.h)
-      });
-    }
-
-    this.free.push(...add.filter(r => r.w > EPS && r.h > EPS));
-    this.prune(); 
-    this.mergeNeighbors();
-    this.free = this.free.filter(r => r.w > EPS && r.h > EPS);
-  }
-
-  private splitAll(used: Rect) {
-    const out: Rect[] = [];
-
-    for (let i = 0; i < this.free.length; i++) {
-      const fr = this.free[i];
-
-      // If no intersection, keep rect as-is
-      const noOverlap =
-        fr.x >= used.x + used.w - EPS ||
-        fr.x + fr.w <= used.x + EPS ||
-        fr.y >= used.y + used.h - EPS ||
-        fr.y + fr.h <= used.y + EPS;
-
-      if (noOverlap) {
-        out.push(fr);
-        continue;
-      }
-
-      // There is overlap: split fr into up to 4 non-overlapping rects around 'used'
-
-      // Left slice
-      if (fr.x < used.x) {
-        out.push({ x: fr.x, y: fr.y, w: used.x - fr.x, h: fr.h });
-      }
-
-      // Right slice
-      if (fr.x + fr.w > used.x + used.w) {
-        out.push({
-          x: used.x + used.w,
-          y: fr.y,
-          w: (fr.x + fr.w) - (used.x + used.w),
-          h: fr.h
-        });
-      }
-
-      // Compute X-axis overlap span for top/bottom slices
-      const ix0 = Math.max(fr.x, used.x);
-      const ix1 = Math.min(fr.x + fr.w, used.x + used.w);
-      const iw  = ix1 - ix0;
-
-      // Top slice
-      if (fr.y < used.y && iw > EPS) {
-        out.push({ x: ix0, y: fr.y, w: iw, h: used.y - fr.y });
-      }
-
-      // Bottom slice
-      if (fr.y + fr.h > used.y + used.h && iw > EPS) {
-        out.push({
-          x: ix0,
-          y: used.y + used.h,
-          w: iw,
-          h: (fr.y + fr.h) - (used.y + used.h)
-        });
-      }
-    }
-
-    // Keep only valid areas, then prune/merge
-    this.free = out.filter(r => r.w > EPS && r.h > EPS);
-    this.prune();
-    this.mergeNeighbors();
-  }
-
-  prune() {
-    for (let i = 0; i < this.free.length; i++) {
-      for (let j = i + 1; j < this.free.length; j++) {
-        const A = this.free[i], B = this.free[j];
-        if (rectContains(A, B)) { this.free.splice(j, 1); j--; continue; }
-        if (rectContains(B, A)) { this.free.splice(i, 1); i--; break; }
-      }
-    }
-  }
-
-  mergeNeighbors() {
-    let merged = true;
-    while (merged) {
-      merged = false;
-      outer: for (let i = 0; i < this.free.length; i++) {
-        for (let j = i + 1; j < this.free.length; j++) {
-          const a = this.free[i], b = this.free[j];
-
-          // X-axis merge (side by side)
-          if (Math.abs(a.y - b.y) <= EPS &&
-              Math.abs(a.h - b.h) <= EPS &&
-              (Math.abs(a.x + a.w - b.x) <= EPS || Math.abs(b.x + b.w - a.x) <= EPS)) {
-            const nx = Math.min(a.x, b.x), ny = a.y, nw = a.w + b.w, nh = Math.max(a.h, b.h);
-            this.free.splice(j, 1); this.free.splice(i, 1); this.free.push({ x: nx, y: ny, w: nw, h: nh });
-            merged = true; break outer;
-          }
-
-          // Y-axis merge (top to bottom)
-          if (Math.abs(a.x - b.x) <= EPS &&
-              Math.abs(a.w - b.w) <= EPS &&
-              (Math.abs(a.y + a.h - b.y) <= EPS || Math.abs(b.y + b.h - a.y) <= EPS)) {
-            const nx = a.x, ny = Math.min(a.y, b.y), nw = Math.max(a.w, b.w), nh = a.h + b.h;
-            this.free.splice(j, 1); this.free.splice(i, 1); this.free.push({ x: nx, y: ny, w: nw, h: nh });
-            merged = true; break outer;
-          }
-        }
-      }
-    }
-  }
-}
-
-function mapPanel(W: number, H: number, kerf: number) {
-  return (b: MaxRectsBin) => ({
-    W,
-    H,
-    placed: b.placed,
-    free: b.free,
-    usedAreaScore: b.usedArea
-  });
-}
-
-function packOnce(pieces: any[], W: number, H: number, kerf: number, strategy: string) {
-  // Defensive: remove falsy entries and ensure each piece has a safe id and numeric dims
-  pieces = (pieces || [])
-    .filter(Boolean) // drop undefined / null
-    .map((p, i) => {
-      const safe = p || {};
-      return {
-        // ensure id is always a string
-        id: String(safe.id ?? safe.name ?? `part-${i}`),
-        // ensure numeric width/height (fallback to 0)
-        w: Number(safe.w ?? safe.nomW ?? 0),
-        h: Number(safe.h ?? safe.nomH ?? 0),
-        // keep any other fields used later (rotate, laminate, original, etc)
-        rotate: !!safe.rotate,
-        gaddi: !!safe.gaddi,
-        // Preserve the exact grainDirection value (string like 'LEFT'|'RIGHT' or boolean/null)
-        grainDirection: safe.grainDirection ?? null,
-        laminateCode: safe.laminateCode || '',
-        nomW: Number(safe.nomW ?? safe.w ?? 0),
-        nomH: Number(safe.nomH ?? safe.h ?? 0),
-        ...safe
-      };
-    });
-
-  const panels: MaxRectsBin[] = [];
-  const newBin = () => { 
-    const b = new MaxRectsBin(W, H, kerf); 
-    panels.push(b); 
-    return b; 
-  };
-
-  // Start with at least one sheet
-  if (panels.length === 0) newBin();
-
-  const leftovers: any[] = [];
-
-  for (const p of pieces) {
-    const tryP = {
-      id: p.id,           // safe string now
-      w: p.w + kerf,
-      h: p.h + kerf,
-      rotate: p.rotate,
-      rotateAllowed: p.rotate,  // ✅ CRITICAL: Tell bin packer rotation is allowed
-      gaddi: p.gaddi,        // forward the flag
-      grainDirection: p.grainDirection, // forward the grain direction flag (string or null)
-      laminateCode: p.laminateCode,    // forward the laminate code for grain indicator
-      nomW: p.nomW,
-      nomH: p.nomH
-    };
-
-    let placed = null;
-
-    // ✅ Try every existing sheet first before creating a new one
-    for (let b = 0; b < panels.length && !placed; b++) {
-      placed = panels[b].tryPlace(tryP, strategy);
-    }
-
-    // If doesn't fit on any existing sheet, open a new one and try
-    if (!placed) {
-      const newSheet = newBin();
-      placed = newSheet.tryPlace(tryP, strategy);
-      if (!placed) { 
-        leftovers.push(p); // Really doesn't fit at all
-      }
-    }
-  }
-  return { panels: panels.map(mapPanel(W, H, kerf)), leftover: leftovers };
-}
-
-export function optimizeCutlist({
-  sheet,
-  parts,
-  timeMs = 1000,
-  strategy = "BAF",
-  rngSeed
-}: {
-  sheet: { w: number; h: number; kerf: number };
-  parts: Part[];
+interface CutlistOptions {
+  parts: OptPart[];
+  sheet: Sheet;
   timeMs?: number;
   strategy?: string;
-  rngSeed?: number;
-}) {
-  const W = sheet.w;
-  const H = sheet.h;
-  const kerf = sheet.kerf;
+}
 
-  // Check for oversized parts
-  const oversized = parts.filter(p => {
-    const w = Number(p.w);
-    const h = Number(p.h);
-    const fitsNormal = w <= W && h <= H;
-    const fitsRotated = p.rotate && h <= W && w <= H;
-    return !fitsNormal && !fitsRotated;
+/**
+ * MaxRects bin packing algorithm - optimized for cutting layouts
+ */
+export function optimizeCutlist(options: CutlistOptions): OptimizationResult {
+  const { parts, sheet, timeMs = 300, strategy = 'BAF' } = options;
+  const sheets: OptSheet[] = [];
+  const kerf = (sheet.kerf || 0) / 1000; // Convert to mm factor
+  
+  // Sort parts by area (largest first) for better packing
+  const sortedParts = [...parts].sort((a, b) => {
+    const areaA = a.w * a.h * (a.qty || 1);
+    const areaB = b.w * b.h * (b.qty || 1);
+    return areaB - areaA;
   });
-  if (oversized.length > 0) {
-    console.warn('⚠️ Some parts are larger than sheet in current orientation:', oversized.slice(0, 10));
+
+  let remainingParts = sortedParts.flatMap(p => 
+    Array(p.qty || 1).fill(p).map((part, idx) => ({
+      ...part,
+      qty: 1,
+      _instanceId: `${p.id}-${idx}`
+    }))
+  );
+
+  const startTime = Date.now();
+
+  // Pack parts into sheets
+  while (remainingParts.length > 0 && (Date.now() - startTime) < timeMs) {
+    const sheet1: OptSheet = {
+      parts: [],
+      w: sheet.w,
+      h: sheet.h,
+      usage: 0
+    };
+
+    // Try to pack parts into current sheet
+    for (let i = remainingParts.length - 1; i >= 0; i--) {
+      const part = remainingParts[i];
+      const placed = packPartMaxRects(sheet1, part, sheet.kerf || 0);
+      
+      if (placed) {
+        sheet1.parts.push(placed);
+        remainingParts.splice(i, 1);
+      }
+    }
+
+    if (sheet1.parts.length === 0) break; // Can't place any more parts
+
+    // Calculate sheet usage
+    const usedArea = sheet1.parts.reduce((sum, p) => sum + (p.w * p.h), 0);
+    sheet1.usage = (usedArea / (sheet.w * sheet.h)) * 100;
+
+    sheets.push(sheet1);
   }
 
-  // When expanding each part into instances, copy rotate/grain flags and nom sizes:
-  const expanded: any[] = [];
-  parts.forEach(p => { 
-    for (let i = 0; i < p.qty; i++) {
-      expanded.push({ 
-        id: `${p.id}::${i}`,   // unique per instance
-        origId: p.id,          // original id for back-mapping
-        w: p.w, 
-        h: p.h, 
-        // Guarantee rotate is boolean and blocked when grainDirection is present:
-        rotate: !!p.rotate && !p.grainDirection,
-        rotateAllowed: !!p.rotate && !p.grainDirection,
-        gaddi: !!p.gaddi,
-        grainDirection: p.grainDirection ?? null, // preserve string/null
-        laminateCode: p.laminateCode || '',
-        nomW: (p as any).nomW || p.w,
-        nomH: (p as any).nomH || p.h
-      }); 
-    }
-  });
+  // Pack remaining parts if time ran out
+  if (remainingParts.length > 0) {
+    remainingParts.forEach(part => {
+      const newSheet: OptSheet = {
+        parts: [{
+          ...part,
+          x: 0,
+          y: 0,
+          rotated: false
+        }],
+        w: sheet.w,
+        h: sheet.h,
+        usage: ((part.w * part.h) / (sheet.w * sheet.h)) * 100
+      };
+      sheets.push(newSheet);
+    });
+  }
 
-  const base = expanded.slice().sort((a, b) => {
-    const d = area(b) - area(a); 
-    if (d) return d;
-    const ra = Math.max(a.w, a.h) / Math.min(a.w, a.h);
-    const rb = Math.max(b.w, b.h) / Math.min(b.w, b.h);
-    return rb - ra;
-  });
+  const totalUsedArea = sheets.reduce((sum, s) => 
+    sum + s.parts.reduce((ps, p) => ps + (p.w * p.h), 0), 0
+  );
+  const totalSheetArea = sheets.length * sheet.w * sheet.h;
+  const efficiency = totalSheetArea > 0 ? (totalUsedArea / totalSheetArea) * 100 : 0;
 
-  const rnd = (rngSeed !== undefined) ? mulberry32(rngSeed) : Math.random;
-  let best: any = null;
-  const end = Date.now() + Math.max(80, timeMs);
+  return {
+    sheets,
+    totalUsage: sheets.length,
+    efficiency
+  };
+}
 
-  while (Date.now() < end) {
-    const order = base.slice();
+/**
+ * MaxRects packing - finds best position for a part in a sheet
+ */
+function packPartMaxRects(sheet: OptSheet, part: OptPart, kerf: number): PlacedPart | null {
+  const maxRects: Rect[] = [{ x: 0, y: 0, w: sheet.w, h: sheet.h, rotated: false }];
+  let bestRect: PlacedPart | null = null;
+  let bestFit = Infinity;
 
-    const swaps = Math.max(5, Math.floor(order.length * 0.2));
-    for (let k = 0; k < swaps; k++) { 
-      const i = Math.floor(rnd() * order.length);
-      const j = Math.floor(rnd() * order.length); 
-      [order[i], order[j]] = [order[j], order[i]]; 
-    }
-    if (rnd() < 0.5) {
-      order.sort((a, b) => {
-        const skinnyA = Math.max(a.w, a.h) / Math.min(a.w, a.h);
-        const skinnyB = Math.max(b.w, b.h) / Math.min(b.w, b.h);
-        return skinnyB - skinnyA;
-      });
-    }
-
-    const { panels, leftover } = packOnce(order, W, H, kerf, strategy);
-    const totalArea = panels.length * W * H;
-    const usedInflated = panels.reduce((s, p) => s + p.usedAreaScore, 0);
-
-    const penaltyUnplaced = leftover.reduce((s: number, p: any) => s + area(p), 0) * 1e6;
-    const score = (totalArea - usedInflated) + penaltyUnplaced + panels.length * 0.01;
-
-    if (!best || score < best.score) {
-      best = JSON.parse(JSON.stringify({ panels, score, leftover }));
+  // Try normal orientation
+  for (const rect of maxRects) {
+    if (part.w <= rect.w && part.h <= rect.h) {
+      const fit = Math.abs((rect.w - part.w) * (rect.h - part.h));
+      if (fit < bestFit) {
+        bestFit = fit;
+        bestRect = {
+          ...part,
+          x: rect.x,
+          y: rect.y,
+          w: part.w,
+          h: part.h,
+          rotated: false
+        };
+      }
     }
   }
 
-  const totalArea = best.panels.length * W * H;
-  const usedInflated = best.panels.reduce((s: number, p: any) => s + p.usedAreaScore, 0);
-  const waste = Math.max(0, totalArea - usedInflated);
-  const efficiencyPct = totalArea ? (usedInflated / totalArea * 100) : 0;
-  const wastePct = 100 - efficiencyPct;
-
-  // 🔒 CRITICAL OVERLAP VALIDATION - NO OVERLAPS ALLOWED
-  // Checks exactly what's placed, with relaxed tolerance and no kerf double-inflation
-  function validateNoOverlaps(panels: any[], sheetW: number, sheetH: number) {
-    for (let sheetIdx = 0; sheetIdx < panels.length; sheetIdx++) {
-      const panel = panels[sheetIdx];
-      const placed = panel.placed;
-
-      for (let i = 0; i < placed.length; i++) {
-        const a = placed[i];
-
-        // Bounds check
-        if (a.x < -EPS || a.y < -EPS ||
-            a.x + a.w > sheetW + EPS ||
-            a.y + a.h > sheetH + EPS) {
-          throw new Error(
-            `Panel exceeds sheet boundaries (Sheet ${sheetIdx + 1}, ${a.id})`
-          );
-        }
-
-        // Overlap check
-        for (let j = i + 1; j < placed.length; j++) {
-          const b = placed[j];
-          const overlapX = !(a.x + a.w + EPS <= b.x || b.x + b.w + EPS <= a.x);
-          const overlapY = !(a.y + a.h + EPS <= b.y || b.y + b.h + EPS <= a.y);
-          if (overlapX && overlapY) {
-            throw new Error(
-              `Panel overlap: "${a.id}" and "${b.id}" (Sheet ${sheetIdx + 1})`
-            );
-          }
+  // Try rotated orientation if allowed
+  if (part.rotate !== false && part.h <= sheet.w && part.w <= sheet.h) {
+    for (const rect of maxRects) {
+      if (part.h <= rect.w && part.w <= rect.h) {
+        const fit = Math.abs((rect.w - part.h) * (rect.h - part.w));
+        if (fit < bestFit) {
+          bestFit = fit;
+          bestRect = {
+            ...part,
+            x: rect.x,
+            y: rect.y,
+            w: part.h,
+            h: part.w,
+            rotated: true
+          };
         }
       }
     }
   }
 
-  // Run validation before returning results
-  try {
-    validateNoOverlaps(best.panels, W, H);
-  } catch (error) {
-    console.error("❌ Overlap validation FAILED:", error);
-    throw error; // Propagate error to stop PDF generation
+  if (bestRect) {
+    // Update maxRects for remaining space
+    updateMaxRects(maxRects, sheet, bestRect);
   }
 
-  return {
-    panels: best.panels.map((p: any) => ({
-      W: p.W, 
-      H: p.H,
-      placed: p.placed,
-      free: p.free
-    })),
-    totals: {
-      sheets: best.panels.length,
-      totalArea,
-      usedArea: usedInflated,
-      waste,
-      wastePct,
-      efficiencyPct
-    },
-    unplaced: best.leftover
-  };
+  return bestRect;
+}
+
+/**
+ * Update maxRects after placing a part
+ */
+function updateMaxRects(maxRects: Rect[], sheet: OptSheet, placed: PlacedPart): void {
+  const newRects: Rect[] = [];
+
+  for (const rect of maxRects) {
+    // Check if rect overlaps with placed part
+    if (rect.x < placed.x + placed.w &&
+        rect.x + rect.w > placed.x &&
+        rect.y < placed.y + placed.h &&
+        rect.y + rect.h > placed.y) {
+
+      // Create new rects in free spaces
+      if (rect.y < placed.y) {
+        newRects.push({
+          x: rect.x,
+          y: rect.y,
+          w: rect.w,
+          h: placed.y - rect.y,
+          rotated: false
+        });
+      }
+
+      if (rect.x < placed.x) {
+        newRects.push({
+          x: rect.x,
+          y: placed.y,
+          w: placed.x - rect.x,
+          h: placed.h,
+          rotated: false
+        });
+      }
+
+      if (rect.x + rect.w > placed.x + placed.w) {
+        newRects.push({
+          x: placed.x + placed.w,
+          y: placed.y,
+          w: rect.x + rect.w - (placed.x + placed.w),
+          h: placed.h,
+          rotated: false
+        });
+      }
+
+      if (rect.y + rect.h > placed.y + placed.h) {
+        newRects.push({
+          x: rect.x,
+          y: placed.y + placed.h,
+          w: rect.w,
+          h: rect.y + rect.h - (placed.y + placed.h),
+          rotated: false
+        });
+      }
+    } else {
+      newRects.push(rect);
+    }
+  }
+
+  maxRects.splice(0, maxRects.length, ...newRects);
 }
