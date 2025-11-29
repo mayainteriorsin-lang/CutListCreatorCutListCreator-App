@@ -4417,12 +4417,23 @@ export default function Home() {
                                     type="button"
                                     size="sm"
                                     variant="outline"
-                                    onClick={() => {
+                                    onClick={async () => {
                                       const newValue = !isEnabled;
-                                      toast({
-                                        title: newValue ? "Wood Grain Enabled" : "Wood Grain Disabled",
-                                        description: `${code} ${newValue ? 'now uses' : 'no longer uses'} wood grain memory`,
-                                      });
+                                      try {
+                                        const response = await apiRequest('POST', '/api/wood-grains-preference', { laminateCode: code, woodGrainsEnabled: newValue });
+                                        setWoodGrainsPreferences((prev) => ({ ...prev, [code]: newValue }));
+                                        toast({
+                                          title: newValue ? "Wood Grain Enabled" : "Wood Grain Disabled",
+                                          description: `${code} ${newValue ? 'now uses' : 'no longer uses'} wood grain memory`,
+                                        });
+                                      } catch (error) {
+                                        console.error('Error toggling wood grains:', error);
+                                        toast({
+                                          title: "Error",
+                                          description: "Failed to update wood grain preference",
+                                          variant: "destructive"
+                                        });
+                                      }
                                     }}
                                     className={`h-8 px-3 text-xs ${isEnabled ? 'bg-green-100 border-green-400 text-green-700 hover:bg-green-200' : 'hover:bg-gray-100'}`}
                                     data-testid={`toggle-wood-grain-${code}`}
