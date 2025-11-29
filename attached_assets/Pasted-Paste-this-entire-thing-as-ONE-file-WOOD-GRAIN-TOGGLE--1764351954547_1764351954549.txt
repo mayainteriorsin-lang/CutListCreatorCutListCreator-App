@@ -1,0 +1,77 @@
+Paste this entire thing as ONE file.
+
+/**************************************
+ *  WOOD GRAIN TOGGLE – LIFETIME MEMORY
+ *  Single complete working code
+ **************************************/
+
+// ------------------------------
+// A. LOCAL STORAGE SAVE/LOAD
+// ------------------------------
+export function saveWoodGrain(laminateCode: string, enabled: boolean) {
+  if (!laminateCode) return;
+  localStorage.setItem("woodgrain-" + laminateCode, JSON.stringify(enabled));
+}
+
+export function loadWoodGrain(laminateCode: string): boolean {
+  if (!laminateCode) return false;
+  const v = localStorage.getItem("woodgrain-" + laminateCode);
+  return v ? JSON.parse(v) : false;
+}
+
+// ------------------------------
+// B. CONNECT UI TO TOGGLE SWITCH
+// (Use this for ON/OFF button)
+// ------------------------------
+export function onToggleWoodGrain(laminateCode: string, newValue: boolean, updateUI: Function) {
+  saveWoodGrain(laminateCode, newValue);  // 🔥 Save permanently
+  updateUI(laminateCode, newValue);       // 🔵 Update your UI (React or JS)
+}
+
+// ------------------------------
+// C. RESTORE TOGGLE IN UI
+// (Use when rendering page)
+// ------------------------------
+export function getWoodGrainState(laminateCode: string) {
+  return loadWoodGrain(laminateCode); // returns true/false
+}
+
+// ------------------------------
+// D. APPLY BEFORE OPTIMIZER
+// Use this when building parts array
+// ------------------------------
+export function applyWoodGrainToParts(parts: any[]) {
+  return parts.map(p => ({
+    ...p,
+    grainDirection: loadWoodGrain(p.laminateCode)   // 🔥 memory applied
+  }));
+}
+
+/**************************************
+ * HOW TO USE THIS FILE IN YOUR APP
+ **************************************/
+
+/*
+----------------------------------------------------------
+1️⃣ UI TOGGLE BUTTON (React example)
+----------------------------------------------------------
+<Toggle
+  checked={getWoodGrainState(code)}
+  onChange={(v) => onToggleWoodGrain(code, v, updateUIFunction)}
+/>
+
+----------------------------------------------------------
+2️⃣ BEFORE CALLING optimizeCutlist()
+----------------------------------------------------------
+const partsWithGrain = applyWoodGrainToParts(parts);
+
+optimizeCutlist({
+  sheet,
+  parts: partsWithGrain,
+  timeMs: 1000,
+});
+
+----------------------------------------------------------
+That's all — wood grain memory is now permanent!
+----------------------------------------------------------
+*/

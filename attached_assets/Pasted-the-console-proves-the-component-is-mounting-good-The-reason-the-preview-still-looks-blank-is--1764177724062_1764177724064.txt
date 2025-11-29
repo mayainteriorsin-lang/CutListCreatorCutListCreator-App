@@ -1,0 +1,54 @@
+the console proves the component is mounting (good!). The reason the preview still looks “blank” is simple: your DesignCenter is rendering the empty-state placeholder ("Add a cabinet or shutter…") because there are no cabinets/panels in the app state yet. That’s expected behavior.
+
+Let’s make it visibly render something so you (and I) can confirm the component UI is actually being painted and not being hidden by CSS or overlay. Paste the small debug patch below into the top of client/client/src/components/ui/DesignCenter.tsx (just after your existing console.log line). This will render a bright test box at the top of the Design Center while you debug:
+
+// --- add these debug lines directly under your console.log('DesignCenter: mounted (debug)') ---
+const [__debugVisible] = React.useState(true); // keep true during debugging
+
+// A tiny helper used only for debugging visuals (remove after)
+const DebugBox = () => (
+  <div
+    style={{
+      border: "4px dashed #ff4d4f",
+      background: "rgba(255,77,79,0.06)",
+      padding: 12,
+      borderRadius: 8,
+      marginBottom: 12,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      fontWeight: 700,
+      color: "#a8071a",
+    }}
+    data-debug="design-center"
+  >
+    DESIGN CENTER DEBUG BOX — visible
+  </div>
+);
+
+
+Then locate the JSX return inside DesignCenter and near the top of the rendered content (before your main canvas/grid markup or the empty-state message) add:
+
+{__debugVisible && <DebugBox />}
+
+
+So a minimal example of the top of the component would look like:
+
+export default function DesignCenter(): JSX.Element {
+  console.log('DesignCenter: mounted (debug)');
+  const [__debugVisible] = React.useState(true);
+
+  // ...other refs/state...
+
+  return (
+    <div className="design-center-root">
+      {__debugVisible && <DebugBox />}
+
+      {/* existing empty-state / canvas / svg grid code follows */}
+      ...
+    </div>
+  );
+}
+
+
+Save the file and Republish / Open preview. You should now see a large red dashed “DESIGN CENTER DEBUG BOX — visible” inside the Design Center card. If you see that box, we’ve proven the component is rendering UI and nothing outside React is hiding it.

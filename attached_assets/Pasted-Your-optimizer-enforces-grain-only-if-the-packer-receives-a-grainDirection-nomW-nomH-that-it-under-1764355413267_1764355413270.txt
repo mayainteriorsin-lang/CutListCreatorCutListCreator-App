@@ -1,0 +1,108 @@
+Your optimizer enforces grain only if the packer receives a grainDirection + nomW/nomH that it understands. Your apply... helper set rotateAllowed/rotate but did not set grainDirection/nom sizes, so the packer’s grain checks sometimes ignored the lock.
+
+The packer’s grain-check currently does a weird dimension comparison (comparing physicalHeight to nomW) — this is fragile and can falsely permit rotations.
+→ Result: pieces appear rotated in output even when the UI shows grain locked.
+
+What I’ll fix (two small changes)
+
+Make parts explicitly carry grainDirection: true and nomW/nomH when grain is ON. (So the packer can detect them reliably.)
+
+Simplify the packer logic: if grainDirection is true, do not attempt rotated placement — only try the non-rotated placement. (This is the simplest, most robust enforcement of “top/bottom width → Y axis” requirement.)
+
+Do both fixes (one in your memory file, one in the optimizer). Paste both blocks below into the indicated files.
+
+1) Replace applyWoodGrainToParts (memory.ts)
+
+Replace the existing applyWoodGrainToParts function with this one. It preserves your immutability, sets grainDirection, and keeps the original nominal dimensions so the packer sees them.
+
+// Paste/replace this function in client/src/features/wood-grain/memory.ts
+export function applyWoodGrainToParts(parts: any[]): any[] {
+  if (!Array.isArray(parts)) return parts;
+  const prefs = loadAllPrefs();
+
+  return parts.map(p => {
+    // determine laminate code (robust)
+    const code = p.laminateCode ?? String(p.laminate || p.code || "");
+    const locked = Boolean(prefs[code]); // true => wood grain ON => locked
+
+    // preserve original nominal sizes (use nomW/nomH if present, else w/h)
+    const nomW = Number(p.nomW ?? p.w ?? 0);
+    const nomH = Number(p.nomH ?? p.h ?? 0);
+
+    // When locked -> mark grainDirection true and explicitly disable rotation.
+    // When unlocked -> ensure grainDirection false so packer may rotate.
+    const grainDirection = locked === true;
+
+    // rotateAllowed/rotate reflect whether rotation is permitted by grain pref
+    const rotateAllowed = !locked && Boolean(p.rotate);
+    const rotate = rotateAllowed; // main rotate flag used by packer
+
+    return {
+      ...p,
+      nomW,
+      nomH,
+      grainDirection,
+      rotate,
+      rotateAllowed
+    };
+  });
+}
+
+
+Why this helps: packer now receives grainDirection and nomW/nomH consistently for locked parts.
+
+2) Simplify/enforce in the packer (cutlist-optimizer file)
+
+Open your cutlist-optimizer file (the big one you uploaded). Find MaxRectsBin.tryPlace(...) — replace the two grain checks (both the non-rotated and rotated checks) with a simple rule:
+
+If piece.grainDirection === true → do not consider rotated placement at all. Only consider the non-rotated placement.
+
+Keep the existing non-rotated placement test as-is (so the piece still gets placed if it fits).
+
+Replace the tryPlace loops that check orientation with this edited version (only the orientation-related parts shown — paste replacing the entire for (let i = 0; i < this.free.length; i++) { ... } block in tryPlace with the code below):
+
+for (let i = 0; i < this.free.length; i++) {
+  const fr = this.free[i];
+
+  // Try non-rotated orientation first (always allowed to test)
+  if (piece.w <= fr.w && piece.h <= fr.h) {
+    // If piece has grainDirection set, we MUST keep this non-rotated orientation.
+    // (No extra dimensional match checks — simple: locked -> no rotate)
+    const aWaste = fr.w * fr.h - piece.w * piece.h;
+    const s1 = Math.min(fr.w - piece.w, fr.h - piece.h);
+    const s2 = Math.max(fr.w - piece.w, fr.h - piece.h);
+    const key = (strategy === "BAF") ? aWaste : (strategy === "BSSF" ? s1 : s2);
+    const cand = { a: key, s1, s2, rot: false, rect: { x: fr.x, y: fr.y, w: piece.w, h: piece.h }, i };
+    if (s1 <= EPS && s2 <= EPS) { bestScore = cand; best = cand; idxBest = i; break; }
+    if (key < bestScore.a || (key === bestScore.a && (s1 < bestScore.s1 || (s1 === bestScore.s1 && s2 < bestScore.s2)))) {
+      bestScore = cand;
+      best = cand;
+      idxBest = i;
+    }
+  }
+
+  // If the piece is locked by grainDirection, do NOT even try rotated placement.
+  const allowRotate = Boolean(piece.rotateAllowed);
+  if (piece.grainDirection) {
+    // Grain locked: skip rotated orientation entirely
+    continue;
+  }
+
+  // Otherwise try rotated orientation if rotation allowed
+  if (allowRotate && piece.h <= fr.w && piece.w <= fr.h) {
+    const aWaste = fr.w * fr.h - piece.h * piece.w;
+    const s1 = Math.min(fr.w - piece.h, fr.h - piece.w);
+    const s2 = Math.max(fr.w - piece.h, fr.h - piece.w);
+    const key = (strategy === "BAF") ? aWaste : (strategy === "BSSF" ? s1 : s2);
+    const cand = { a: key, s1, s2, rot: true, rect: { x: fr.x, y: fr.y, w: piece.h, h: piece.w }, i };
+    if (s1 <= EPS && s2 <= EPS) { bestScore = cand; best = cand; idxBest = i; break; }
+    if (key < bestScore.a || (key === bestScore.a && (s1 < bestScore.s1 || (s1 === bestScore.s1 && s2 < bestScore.s2)))) {
+      bestScore = cand;
+      best = cand;
+      idxBest = i;
+    }
+  }
+}
+
+
+Why this helps: it's deterministic and safe — when grain is locked, no rotated placements will be attempted anywhere, which directly enforces the “top/bottom width → Y axis” requirement.

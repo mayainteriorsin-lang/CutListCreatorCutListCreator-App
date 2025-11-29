@@ -1,0 +1,301 @@
+import React, { useEffect, useRef, useState } from "react";
+
+/**
+ * Simple DesignCenter canvas:
+ * - draws a grid in millimetres (nominal grid size = 50mm)
+ * - draws a sample cabinet (1200 x 600 mm) centered and scaled to fit
+ * - draws dimension lines and labels in mm
+ *
+ * Paste this entire file over client/client/src/components/ui/DesignCenter.tsx
+ * Save and preview.
+ */
+
+const SAMPLE_CABINET = { widthMm: 1200, heightMm: 600 };
+const GRID_STEP_MM = 50; // grid spacing in mm
+const MARGIN_MM = 40; // margin around drawing in mm
+
+// conversion constants: we convert mm -> "design units" then scale to pixels to fit canvas
+// final scale is computed dynamically to fit the cabinet in available canvas area.
+
+export default function DesignCenter(): JSX.Element {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [ready, setReady] = useState(false);
+
+  // on mount mark ready and draw; also redraw on resize
+  useEffect(() => {
+    setReady(true);
+    const onResize = () => draw();
+    window.addEventListener("resize", onResize);
+    // small delay then draw (ensures layout is settled)
+    const id = window.setTimeout(draw, 80);
+    return () => {
+      window.clearTimeout(id);
+      window.removeEventListener("resize", onResize);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // main draw routine
+  function draw() {
+    const canvas = canvasRef.current;
+    const container = containerRef.current;
+    if (!canvas || !container) return;
+
+    const rect = container.getBoundingClientRect();
+    const cssWidth = Math.max(300, Math.floor(rect.width - 24)); // keep padding
+    const cssHeight = Math.max(240, Math.floor(rect.height - 28));
+
+    // high-DPI support
+    const dpr = window.devicePixelRatio || 1;
+    canvas.style.width = `${cssWidth}px`;
+    canvas.style.height = `${cssHeight}px`;
+    canvas.width = Math.floor(cssWidth * dpr);
+    canvas.height = Math.floor(cssHeight * dpr);
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // scale drawing to CSS pixels
+
+    // clear
+    ctx.clearRect(0, 0, cssWidth, cssHeight);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, cssWidth, cssHeight);
+
+    // compute scale: mm -> px
+    const availableWidthMm = cssWidth; // we will convert px to mm via scale later
+    // We'll compute scale so that cabinet fits into (cssWidth - 2*padPx) / widthMm
+    // Convert margin from mm to px loosely by estimating 1mm in px (we compute scale below)
+    // Approach: compute scalePxPerMm such that cabinet fits with MARGIN_MM on both sides.
+    // We need to calculate scalePxPerMm = min((cssWidth - 2*padPx)/cabinetWidthMm, (cssHeight - 2*padPx)/cabinetHeightMm)
+    // But padPx depends on scalePxPerMm; to solve simply: pick padPx = 8% of smaller canvas dimension in px,
+    // then calculate scale.
+
+    const padPx = Math.max(16, Math.floor(Math.min(cssWidth, cssHeight) * 0.06));
+    const scalePxPerMm = Math.min(
+      (cssWidth - padPx * 2) / (SAMPLE_CABINET.widthMm + MARGIN_MM),
+      (cssHeight - padPx * 2) / (SAMPLE_CABINET.heightMm + MARGIN_MM)
+    );
+
+    // draw subtle background grid (every GRID_STEP_MM)
+    drawGrid(ctx, cssWidth, cssHeight, scalePxPerMm);
+
+    // compute cabinet box in px, centered
+    const cabinetPx = {
+      w: SAMPLE_CABINET.widthMm * scalePxPerMm,
+      h: SAMPLE_CABINET.heightMm * scalePxPerMm,
+    };
+    const cx = cssWidth / 2;
+    const cy = cssHeight / 2;
+    const left = cx - cabinetPx.w / 2;
+    const top = cy - cabinetPx.h / 2;
+    const right = left + cabinetPx.w;
+    const bottom = top + cabinetPx.h;
+
+    // draw cabinet background
+    ctx.fillStyle = "rgba(4, 115, 115, 0.04)"; // very light teal fill
+    roundRect(ctx, left, top, cabinetPx.w, cabinetPx.h, 6);
+    ctx.fill();
+
+    // draw cabinet frame
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "#00796b"; // teal outline
+    roundRect(ctx, left, top, cabinetPx.w, cabinetPx.h, 6);
+    ctx.stroke();
+
+    // label inside cabinet (center)
+    ctx.fillStyle = "#004d47";
+    ctx.font = "600 16px Inter, system-ui, -apple-system, 'Segoe UI', Roboto";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(
+      `SAMPLE CABINET — ${SAMPLE_CABINET.widthMm} × ${SAMPLE_CABINET.heightMm} (mm)`,
+      cx,
+      cy
+    );
+
+    // draw dimension lines (top width)
+    drawDimension(ctx, left, top - 20, right, top - 20, SAMPLE_CABINET.widthMm, scalePxPerMm);
+
+    // draw vertical dimension (right side)
+    drawDimension(ctx, right + 20, top, right + 20, bottom, SAMPLE_CABINET.heightMm, scalePxPerMm, true);
+
+    // draw small ruler text bottom-left with totals
+    ctx.fillStyle = "#666";
+    ctx.font = "13px Inter, system-ui, -apple-system, 'Segoe UI', Roboto";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "bottom";
+    ctx.fillText(`Total Cabinets: 0  |  Total Panels: 0`, left, bottom + 36);
+  }
+
+  // draws a grid using GRID_STEP_MM and the scale (we pass scale inside by capturing when called)
+  function drawGrid(ctx: CanvasRenderingContext2D, widthPx: number, heightPx: number, scalePxPerMm: number) {
+    const stepPx = GRID_STEP_MM * scalePxPerMm;
+    const fineStepPx = stepPx / 5;
+    // light background dots for fine grid
+    ctx.save();
+    ctx.fillStyle = "rgba(0,0,0,0.03)";
+    for (let x = 0; x <= widthPx; x += fineStepPx) {
+      for (let y = 0; y <= heightPx; y += fineStepPx) {
+        // draw a very faint dot every fineStep
+        if ((Math.round(x / fineStepPx) + Math.round(y / fineStepPx)) % 4 !== 0) continue;
+        ctx.fillRect(x, y, 0.6, 0.6);
+      }
+    }
+    ctx.restore();
+
+    // stronger grid lines every stepPx
+    ctx.save();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(0,0,0,0.06)";
+    ctx.beginPath();
+    for (let x = 0; x <= widthPx + 0.5; x += stepPx) {
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, heightPx);
+    }
+    for (let y = 0; y <= heightPx + 0.5; y += stepPx) {
+      ctx.moveTo(0, y);
+      ctx.lineTo(widthPx, y);
+    }
+    ctx.stroke();
+    ctx.restore();
+
+    // bolder axes at center
+    ctx.save();
+    ctx.strokeStyle = "rgba(0,0,0,0.09)";
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(0, heightPx / 2);
+    ctx.lineTo(widthPx, heightPx / 2);
+    ctx.moveTo(widthPx / 2, 0);
+    ctx.lineTo(widthPx / 2, heightPx);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // helper: draw dimension arrow and label (horizontal)
+  function drawDimension(
+    ctx: CanvasRenderingContext2D,
+    x1: number,
+    y1: number,
+    x2: number,
+    y2: number,
+    mmValue: number,
+    scalePxPerMm: number,
+    vertical = false
+  ) {
+    ctx.save();
+    ctx.strokeStyle = "#bdbdbd";
+    ctx.fillStyle = "#222";
+    ctx.lineWidth = 1.2;
+    ctx.setLineDash([4, 4]);
+
+    // main dashed between points
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+
+    // arrowheads
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    if (!vertical) {
+      // horizontal arrows
+      drawArrow(ctx, x1 + 6, y1 - 0.5, x1 + 14, y1 - 0.5, true);
+      drawArrow(ctx, x2 - 6, y2 - 0.5, x2 - 14, y2 - 0.5, false);
+      // label
+      ctx.font = "600 13px Inter, system-ui, 'Segoe UI', Roboto";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "bottom";
+      ctx.fillText(`${mmValue} mm`, (x1 + x2) / 2, y1 - 8);
+    } else {
+      // vertical arrows
+      drawArrow(ctx, x1 + 0.5, y1 + 6, x1 + 0.5, y1 + 14, true, true);
+      drawArrow(ctx, x2 + 0.5, y2 - 6, x2 + 0.5, y2 - 14, false, true);
+      ctx.font = "600 13px Inter, system-ui, 'Segoe UI', Roboto";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.fillText(`${mmValue} mm`, x1 + 10, (y1 + y2) / 2);
+    }
+
+    ctx.restore();
+  }
+
+  // draw a small arrow line between two points; when reverse true arrow points left/up
+  function drawArrow(
+    ctx: CanvasRenderingContext2D,
+    x1: number,
+    y1: number,
+    x2: number,
+    y2: number,
+    reverse = false,
+    vertical = false
+  ) {
+    ctx.save();
+    ctx.strokeStyle = "#9e9e9e";
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+
+    // arrow head
+    ctx.beginPath();
+    if (!vertical) {
+      const dir = reverse ? -1 : 1;
+      ctx.moveTo(x2, y2);
+      ctx.lineTo(x2 - 6 * dir, y2 - 4);
+      ctx.lineTo(x2 - 6 * dir, y2 + 4);
+      ctx.closePath();
+      ctx.fillStyle = "#9e9e9e";
+      ctx.fill();
+    } else {
+      const dir = reverse ? -1 : 1;
+      ctx.moveTo(x2, y2);
+      ctx.lineTo(x2 - 4, y2 - 6 * dir);
+      ctx.lineTo(x2 + 4, y2 - 6 * dir);
+      ctx.closePath();
+      ctx.fillStyle = "#9e9e9e";
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // rounded rectangle helper
+  function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+    ctx.beginPath();
+    const radius = Math.min(r, w / 2, h / 2);
+    ctx.moveTo(x + radius, y);
+    ctx.arcTo(x + w, y, x + w, y + h, radius);
+    ctx.arcTo(x + w, y + h, x, y + h, radius);
+    ctx.arcTo(x, y + h, x, y, radius);
+    ctx.arcTo(x, y, x + w, y, radius);
+    ctx.closePath();
+  }
+
+  return (
+    <div ref={containerRef} style={{ width: "100%", minHeight: 280, display: "flex", flexDirection: "column" }}>
+      <div style={{ padding: "8px 12px 6px 12px" }}>
+        {/* header row inside the card */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ fontSize: 18, fontWeight: 700, color: "#0f172a" }}>Design Center (Canvas)</div>
+          <div style={{ fontSize: 12, color: "#6b7280" }}>Preview mode</div>
+        </div>
+      </div>
+
+      <div style={{ flex: 1, padding: 12 }}>
+        <canvas
+          ref={canvasRef}
+          style={{
+            display: "block",
+            width: "100%",
+            height: "100%",
+            borderRadius: 10,
+            boxShadow: "inset 0 0 0 1px rgba(15,23,42,0.04)",
+            background: "linear-gradient(180deg, rgba(255,255,255,1) 0%, rgba(250,251,252,1) 100%)",
+          }}
+        />
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,85 @@
+/* ----------------------------------------------------------
+   WOOD GRAIN — LIFETIME MEMORY SYSTEM (FULL INTEGRATION)
+   Paste this whole block into home.tsx
+   ---------------------------------------------------------- */
+
+import {
+  onToggleWoodGrain,
+  getWoodGrainState,
+  applyWoodGrainToParts
+} from "./features/wood-grain/memory";
+
+// ------------------------------
+// 1) LOCAL STATE FOR TOGGLES
+// ------------------------------
+const [grainMap, setGrainMap] = useState<Record<string, boolean>>({});
+
+// ------------------------------
+// 2) LOAD MEMORY ON PAGE LOAD
+// ------------------------------
+useEffect(() => {
+  if (!laminates || laminates.length === 0) return;
+
+  const map: Record<string, boolean> = {};
+  laminates.forEach((lam: any) => {
+    map[lam.code] = getWoodGrainState(lam.code);
+  });
+
+  setGrainMap(map);
+}, [laminates]);
+
+// ------------------------------
+// 3) NEW TOGGLE HANDLER
+// ------------------------------
+function handleToggleLaminate(code: string, value: boolean) {
+  onToggleWoodGrain(code, value, (lamCode: string, newVal: boolean) => {
+    setGrainMap((s) => ({ ...s, [lamCode]: newVal }));
+  });
+}
+
+// ------------------------------------------------------------
+// 4) REPLACE YOUR TOGGLE JSX WITH THIS
+// ------------------------------------------------------------
+// (Use inside your laminate list rendering loop)
+//
+// <Toggle
+//    checked={grainMap[lam.code] ?? getWoodGrainState(lam.code)}
+//    onChange={(v) => handleToggleLaminate(lam.code, v)}
+// />
+//
+// ------------------------------------------------------------
+
+
+// ------------------------------------------------------------
+// 5) APPLY GRAIN MEMORY BEFORE OPTIMIZATION (ALL LOCATIONS)
+// ------------------------------------------------------------
+
+// ---- Replace ALL optimizeCutlist() calls with this format ----
+
+// A) First optimizer block (line ~2098)
+const result1 = optimizeCutlist({
+  sheet,
+  parts: applyWoodGrainToParts(parts),  // ✔ memory applied
+  timeMs: 1000,
+  strategy
+});
+
+// B) Second optimizer block (line ~2305)
+const result2 = optimizeCutlist({
+  sheet,
+  parts: applyWoodGrainToParts(generatedParts), // ✔ remember wood grain
+  timeMs: 1000,
+  strategy
+});
+
+// C) Third optimizer block (line ~3662)
+const result3 = optimizeCutlist({
+  sheet,
+  parts: applyWoodGrainToParts(partsForPreview), // ✔ memory
+  timeMs: 1000,
+  strategy
+});
+
+/* ----------------------------------------------------------
+   END OF SINGLE-SET PASTE BLOCK
+   ---------------------------------------------------------- */

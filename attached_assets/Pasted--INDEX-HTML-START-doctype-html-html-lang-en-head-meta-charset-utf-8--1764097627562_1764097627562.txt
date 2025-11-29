@@ -1,0 +1,72 @@
+<!-- INDEX.HTML START -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Design Center — Wardrobe Prototype</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>Design Center — Wardrobe (2D)</h1>
+    </header>
+
+    <main>
+      <aside class="controls">
+        <div class="control-group">
+          <label><strong>Units</strong></label>
+          <select id="units">
+            <option value="mm">mm</option>
+            <option value="in">in</option>
+            <option value="ft">ft</option>
+          </select>
+        </div>
+
+        <div class="control-group">
+          <label><strong>Plywood Thickness (mm)</strong></label>
+          <div class="thickness">
+            <button id="thick-dec">−</button>
+            <input id="thickness" type="number" value="18" min="1" />
+            <button id="thick-inc">+</button>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <label><input id="toggle-shutter" type="checkbox" checked> Shutter Preview</label>
+        </div>
+
+        <div class="control-group">
+          <label><input id="toggle-inner-dim" type="checkbox"> Show Inner Dimensions</label>
+        </div>
+
+        <div class="control-group">
+          <label><strong>Wardrobe Size</strong></label>
+          <div class="size-row">
+            <label>W (mm) <input id="wardrobe-w" type="number" value="1800" /></label>
+            <label>H (mm) <input id="wardrobe-h" type="number" value="2100" /></label>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <button id="reset">Reset View</button>
+        </div>
+
+        <small class="note">Front-elevation 2D prototype — no 3D shading. Paste code into Replit and press Run.</small>
+      </aside>
+
+      <section class="canvas-area">
+        <canvas id="c"></canvas>
+      </section>
+    </main>
+
+    <footer>
+      <span>Prototype — Export & cutlist not included</span>
+    </footer>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
+<!-- INDEX.HTML END -->

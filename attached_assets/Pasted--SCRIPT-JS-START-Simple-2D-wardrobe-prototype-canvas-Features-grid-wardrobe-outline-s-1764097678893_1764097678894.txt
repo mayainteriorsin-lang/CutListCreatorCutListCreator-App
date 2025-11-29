@@ -1,0 +1,256 @@
+// SCRIPT.JS START
+// Simple 2D wardrobe prototype (canvas)
+// Features: grid, wardrobe outline, shutters toggle, outer+inner dims, thickness control
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+function fitCanvas(){
+  const area = document.querySelector('.canvas-area');
+  canvas.width = Math.min(area.clientWidth - 24, 1200);
+  canvas.height = Math.min(area.clientHeight - 24, 900);
+  draw();
+}
+
+// UI elements
+const unitsEl = document.getElementById('units');
+const thickEl = document.getElementById('thickness');
+const incBtn = document.getElementById('thick-inc');
+const decBtn = document.getElementById('thick-dec');
+const shutterToggle = document.getElementById('toggle-shutter');
+const innerDimToggle = document.getElementById('toggle-inner-dim');
+const wardrobeWEl = document.getElementById('wardrobe-w');
+const wardrobeHEl = document.getElementById('wardrobe-h');
+const resetBtn = document.getElementById('reset');
+
+incBtn.onclick = ()=>{ thickEl.value = Math.max(1, Number(thickEl.value)+1); draw(); }
+decBtn.onclick = ()=>{ thickEl.value = Math.max(1, Number(thickEl.value)-1); draw(); }
+thickEl.onchange = ()=> draw();
+unitsEl.onchange = ()=> draw();
+shutterToggle.onchange = ()=> draw();
+innerDimToggle.onchange = ()=> draw();
+wardrobeWEl.onchange = ()=> draw();
+wardrobeHEl.onchange = ()=> draw();
+resetBtn.onclick = ()=>{ thickEl.value=18; wardrobeWEl.value=1800; wardrobeHEl.value=2100; shutterToggle.checked=true; innerDimToggle.checked=false; draw(); }
+
+window.addEventListener('resize', fitCanvas);
+fitCanvas();
+
+// Model (in mm)
+function model(){
+  return {
+    wardrobeW: Number(wardrobeWEl.value) || 1800,
+    wardrobeH: Number(wardrobeHEl.value) || 2100,
+    thickness: Number(thickEl.value) || 18,
+    shutters: shutterToggle.checked,
+    innerDim: innerDimToggle.checked,
+    units: unitsEl.value
+  };
+}
+
+// helpers: convert mm-> display units
+function toDisplay(valueMm){
+  const m = model();
+  if(m.units === 'mm') return `${Math.round(valueMm)} mm`;
+  if(m.units === 'in') return `${(valueMm/25.4).toFixed(2)} in`;
+  if(m.units === 'ft') {
+    const ft = Math.floor(valueMm/304.8);
+    const inches = Math.round(((valueMm/25.4) - ft*12));
+    return `${ft}' ${inches}"`;
+  }
+  return `${valueMm} mm`;
+}
+
+// drawing
+function draw(){
+  const m = model();
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  // canvas padding
+  const pad = 40;
+  const availW = canvas.width - pad*2;
+  const availH = canvas.height - pad*2;
+
+  // compute scale to fit wardrobe in canvas while keeping aspect ratio
+  const scaleX = availW / m.wardrobeW;
+  const scaleY = availH / m.wardrobeH;
+  const scale = Math.min(scaleX, scaleY) * 0.95; // small margin
+  const w = m.wardrobeW * scale;
+  const h = m.wardrobeH * scale;
+  const originX = (canvas.width - w)/2;
+  const originY = (canvas.height - h)/2;
+
+  // draw light grid
+  drawGrid(scale, originX, originY, w, h);
+
+  // draw outer frame (single-line CAD)
+  ctx.strokeStyle = '#111';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(originX, originY, w, h);
+
+  // side panels are full height; represent as double-line offset by thickness
+  const tPx = m.thickness * scale;
+  // left side inner edge X
+  const leftInnerX = originX + tPx;
+  const rightInnerX = originX + w - tPx;
+  // top inner Y
+  const topInnerY = originY + tPx;
+  const bottomInnerY = originY + h - tPx;
+
+  // draw internal layout: split into two equal sections for prototype
+  const leftSectionW = w/2;
+  const rightSectionW = w - leftSectionW;
+
+  ctx.lineWidth = 1.2;
+  ctx.strokeStyle = '#111';
+
+  // horizontal shelves in left section (example)
+  const shelfCount = 4;
+  for(let i=1;i<=shelfCount;i++){
+    const y = originY + (h * i/(shelfCount+1));
+    ctx.beginPath();
+    ctx.moveTo(originX + 0.5, y);
+    ctx.lineTo(originX + leftSectionW - 0.5, y);
+    ctx.stroke();
+  }
+
+  // horizontal shelf in right area
+  ctx.beginPath();
+  ctx.moveTo(originX + leftSectionW + 0.5, originY + h*0.6);
+  ctx.lineTo(originX + w - 0.5, originY + h*0.6);
+  ctx.stroke();
+
+  // center divider
+  const centerX = originX + leftSectionW;
+  ctx.beginPath();
+  ctx.moveTo(centerX, originY);
+  ctx.lineTo(centerX, originY + h);
+  ctx.stroke();
+
+  // shutters (front panels)
+  if(m.shutters){
+    ctx.lineWidth = 1.6;
+    ctx.strokeStyle = '#111';
+    ctx.strokeRect(originX+1, originY+1, leftSectionW-2, h-2);
+    ctx.strokeRect(originX+leftSectionW+1, originY+1, rightSectionW-2, h-2);
+
+    // handles
+    drawHandle(originX + leftSectionW - 40, originY + h/2 - 20);
+    drawHandle(originX + leftSectionW + 24, originY + h/2 - 20);
+  }
+
+  // outer dimensions
+  drawOuterDimensions(originX, originY, w, h, m);
+
+  // inner dimensions
+  if(m.innerDim){
+    drawInnerDimensions(originX, originY, w, h, centerX, m, scale);
+  }
+
+  // thickness label
+  ctx.fillStyle = '#666';
+  ctx.font = '12px Arial';
+  ctx.fillText(`Thickness: ${m.thickness} mm`, originX + 6, originY + h + 18);
+}
+
+function drawGrid(scale, originX, originY, w, h){
+  ctx.save();
+  ctx.strokeStyle = '#e6e6e6';
+  ctx.lineWidth = 1;
+  const targetPx = 28;
+  let mmPerCell = Math.max(10, Math.round(targetPx/scale));
+  const pxPerCell = mmPerCell * scale;
+
+  const left = 0, top = 0, right = canvas.width, bottom = canvas.height;
+  for (let x = 0; x <= right; x += pxPerCell) {
+    ctx.beginPath();
+    ctx.moveTo(x + 0.5, top);
+    ctx.lineTo(x + 0.5, bottom);
+    ctx.stroke();
+  }
+  for (let y = 0; y <= bottom; y += pxPerCell) {
+    ctx.beginPath();
+    ctx.moveTo(left, y + 0.5);
+    ctx.lineTo(right, y + 0.5);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawHandle(x,y){
+  ctx.beginPath();
+  ctx.lineWidth = 6;
+  ctx.strokeStyle = '#111';
+  ctx.moveTo(x+4, y+8);
+  ctx.lineTo(x+4, y+28);
+  ctx.stroke();
+  ctx.lineWidth = 1;
+}
+
+function drawOuterDimensions(x,y,w,h,m){
+  ctx.save();
+  ctx.strokeStyle = '#1e90ff';
+  ctx.fillStyle = '#1e90ff';
+  ctx.lineWidth = 1.4;
+  ctx.font = '14px Arial';
+
+  drawDimLine(x, y - 18, x + w, y - 18, `${Math.round(m.wardrobeW)} mm`);
+  drawDimLine(x - 18, y, x - 18, y + h, `${Math.round(m.wardrobeH)} mm`, true);
+
+  ctx.restore();
+}
+
+function drawInnerDimensions(x,y,w,h,centerX,m,scale){
+  ctx.save();
+  ctx.strokeStyle = '#2b7be4';
+  ctx.fillStyle = '#2b7be4';
+  ctx.font = '13px Arial';
+  ctx.lineWidth = 1;
+
+  const leftWmm = Math.round(m.wardrobeW/2);
+  drawDimLine(x + 8, y + h + 22, centerX - 8, y + h + 22, `${leftWmm} mm`);
+
+  const rightWmm = Math.round(m.wardrobeW - leftWmm);
+  drawDimLine(centerX + 8, y + h + 22, x + w - 8, y + h + 22, `${rightWmm} mm`);
+
+  const shelfCount = 4;
+  for(let i=1;i<=shelfCount;i++){
+    const yPos = y + h * i/(shelfCount+1);
+    drawDimLine(x - 8, yPos - 18, x - 8, yPos + 18, `${Math.round(m.wardrobeH/(shelfCount+1))} mm`, true);
+  }
+
+  ctx.restore();
+}
+
+function drawDimLine(x1,y1,x2,y2,label,vertical=false){
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+
+  ctx.save();
+  ctx.fillStyle = ctx.strokeStyle;
+  const angle = Math.atan2(y2 - y1, x2 - x1);
+  drawArrowhead(x1,y1,angle);
+  drawArrowhead(x2,y2,angle+Math.PI);
+
+  ctx.font = '13px Arial';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const mx = (x1 + x2)/2;
+  const my = (y1 + y2)/2;
+  ctx.fillText(label, mx, my - (vertical ? -10 : -8));
+  ctx.restore();
+}
+
+function drawArrowhead(x,y,angle){
+  ctx.beginPath();
+  const size = 6;
+  ctx.moveTo(x, y);
+  ctx.lineTo(x + Math.cos(angle + 0.3)*size, y + Math.sin(angle + 0.3)*size);
+  ctx.lineTo(x + Math.cos(angle - 0.3)*size, y + Math.sin(angle - 0.3)*size);
+  ctx.closePath();
+  ctx.fill();
+}
+
+draw();
+// SCRIPT.JS END

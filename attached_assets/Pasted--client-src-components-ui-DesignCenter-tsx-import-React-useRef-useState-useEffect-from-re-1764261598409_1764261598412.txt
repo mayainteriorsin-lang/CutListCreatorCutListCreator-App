@@ -1,0 +1,392 @@
+// client/src/components/ui/DesignCenter.tsx
+import React, { useRef, useState, useEffect } from "react";
+
+/**
+ * Simple DesignCenter: Lines, Rectangles, Move, Grid, Dimensions
+ * - Single-file component for easy paste
+ * - Uses SVG for accuracy and crisp export
+ *
+ * Usage: <DesignCenter />
+ *
+ * Notes:
+ * - Coordinates / displayed units assume mm. (1 SVG unit = 1 mm for simplicity)
+ * - Grid snap is configurable.
+ */
+
+type Mode = "select" | "line" | "rect" | "move";
+type Id = string;
+
+type BaseShape = {
+  id: Id;
+  type: "line" | "rect";
+};
+
+type LineShape = BaseShape & {
+  type: "line";
+  x1: number; y1: number; x2: number; y2: number;
+};
+
+type RectShape = BaseShape & {
+  type: "rect";
+  x: number; y: number; w: number; h: number;
+};
+
+type Shape = LineShape | RectShape;
+
+const uid = (prefix = "") => `${prefix}${Math.random().toString(36).slice(2, 9)}`;
+
+const GRID = 10; // mm grid spacing
+const SNAP = (v: number) => Math.round(v / GRID) * GRID;
+
+export default function DesignCenter() {
+  const [mode, setMode] = useState<Mode>("select");
+  const [shapes, setShapes] = useState<Shape[]>([]);
+  const [temp, setTemp] = useState<Partial<Shape> | null>(null); // for drawing in progress
+  const [selectedId, setSelectedId] = useState<Id | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const panRef = useRef({ x: 0, y: 0 }); // not used for complex pan yet
+  const [canvasSize, setCanvasSize] = useState({ w: 1200, h: 800 });
+
+  // Helpers: SVG coordinate from mouse
+  function getSvgPoint(evt: React.MouseEvent) {
+    const svg = svgRef.current!;
+    const pt = svg.createSVGPoint();
+    pt.x = evt.clientX;
+    pt.y = evt.clientY;
+    const cursor = pt.matrixTransform(svg.getScreenCTM()?.inverse());
+    return { x: cursor.x - panRef.current.x, y: cursor.y - panRef.current.y };
+  }
+
+  // Mode handlers
+  function onMouseDown(e: React.MouseEvent) {
+    const p = getSvgPoint(e);
+    const snapped = { x: SNAP(p.x), y: SNAP(p.y) };
+
+    if (mode === "line") {
+      const id = uid("L-");
+      const l: LineShape = { id, type: "line", x1: snapped.x, y1: snapped.y, x2: snapped.x, y2: snapped.y };
+      setTemp(l);
+      setSelectedId(id);
+    } else if (mode === "rect") {
+      const id = uid("R-");
+      const r: RectShape = { id, type: "rect", x: snapped.x, y: snapped.y, w: 0, h: 0 };
+      setTemp(r);
+      setSelectedId(id);
+    } else if (mode === "move") {
+      // detect shape under pointer and start dragging if found
+      const hit = hitTest(snapped.x, snapped.y);
+      if (hit) {
+        setSelectedId(hit.id);
+        // mark dragging start by storing a small temp containing offset
+        setTemp({ ...(hit as any), __dragOrigin: snapped } as any);
+        setIsDragging(true);
+      } else {
+        setSelectedId(null);
+      }
+    } else {
+      // select mode: pick shape if clicked
+      const hit = hitTest(snapped.x, snapped.y);
+      setSelectedId(hit ? hit.id : null);
+    }
+  }
+
+  function onMouseMove(e: React.MouseEvent) {
+    const p = getSvgPoint(e);
+    const snapped = { x: SNAP(p.x), y: SNAP(p.y) };
+
+    if (!temp) return;
+
+    if (mode === "line" && temp.type === "line") {
+      setTemp({ ...temp, x2: snapped.x, y2: snapped.y });
+    } else if (mode === "rect" && temp.type === "rect") {
+      const dx = snapped.x - (temp.x ?? 0);
+      const dy = snapped.y - (temp.y ?? 0);
+      const w = Math.abs(dx);
+      const h = Math.abs(dy);
+      const x = dx < 0 ? snapped.x : temp.x ?? 0;
+      const y = dy < 0 ? snapped.y : temp.y ?? 0;
+      setTemp({ ...temp, x, y, w, h });
+    } else if (mode === "move" && isDragging && temp) {
+      // temp holds initial shape + __dragOrigin
+      const origin = (temp as any).__dragOrigin as { x: number; y: number } | undefined;
+      if (!origin) return;
+      const dx = snapped.x - origin.x;
+      const dy = snapped.y - origin.y;
+      const dragged = shapes.find(s => s.id === temp.id);
+      if (!dragged) return;
+      // compute new shape repositioned and snap
+      if (dragged.type === "rect") {
+        const r = dragged as RectShape;
+        const nx = SNAP(r.x + dx);
+        const ny = SNAP(r.y + dy);
+        // update temp.__dragOrigin for next move step
+        setTemp({ ...temp, __dragOrigin: snapped } as any);
+        setShapes(prev => prev.map(s => s.id === r.id ? { ...r, x: nx, y: ny } : s));
+      } else if (dragged.type === "line") {
+        const l = dragged as LineShape;
+        const nx1 = SNAP(l.x1 + dx);
+        const ny1 = SNAP(l.y1 + dy);
+        const nx2 = SNAP(l.x2 + dx);
+        const ny2 = SNAP(l.y2 + dy);
+        setTemp({ ...temp, __dragOrigin: snapped } as any);
+        setShapes(prev => prev.map(s => s.id === l.id ? { ...l, x1: nx1, y1: ny1, x2: nx2, y2: ny2 } : s));
+      }
+    }
+  }
+
+  function onMouseUp(e: React.MouseEvent) {
+    const p = getSvgPoint(e);
+    const snapped = { x: SNAP(p.x), y: SNAP(p.y) };
+
+    if (mode === "line" && temp && (temp as any).type === "line") {
+      const l = temp as LineShape;
+      const fixed = { ...l, x2: snapped.x, y2: snapped.y };
+      setShapes(prev => [...prev.filter(s => s.id !== fixed.id), fixed]);
+      setTemp(null);
+    } else if (mode === "rect" && temp && (temp as any).type === "rect") {
+      const r = temp as RectShape;
+      // if very small, ignore
+      if ((r.w ?? 0) > 0 && (r.h ?? 0) > 0) {
+        setShapes(prev => [...prev.filter(s => s.id !== r.id), r]);
+      }
+      setTemp(null);
+    } else if (mode === "move") {
+      // finish dragging
+      setIsDragging(false);
+      setTemp(null);
+    }
+  }
+
+  // Hit test: basic bounding box test (snap to grid already applied)
+  function hitTest(x: number, y: number): Shape | null {
+    for (let i = shapes.length - 1; i >= 0; i--) {
+      const s = shapes[i];
+      if (s.type === "rect") {
+        const r = s as RectShape;
+        if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) return r;
+      } else {
+        const l = s as LineShape;
+        // distance to segment
+        const d = pointToSegmentDistance(x, y, l.x1, l.y1, l.x2, l.y2);
+        if (d < GRID * 0.6) return l;
+      }
+    }
+    return null;
+  }
+
+  // math helper
+  function pointToSegmentDistance(px: number, py: number, x1: number, y1: number, x2: number, y2: number) {
+    const vx = x2 - x1, vy = y2 - y1;
+    const wx = px - x1, wy = py - y1;
+    const c1 = vx * wx + vy * wy;
+    if (c1 <= 0) return Math.hypot(px - x1, py - y1);
+    const c2 = vx * vx + vy * vy;
+    if (c2 <= c1) return Math.hypot(px - x2, py - y2);
+    const b = c1 / c2;
+    const bx = x1 + b * vx, by = y1 + b * vy;
+    return Math.hypot(px - bx, py - by);
+  }
+
+  // Simple clear
+  function clearAll() {
+    setShapes([]);
+    setTemp(null);
+    setSelectedId(null);
+  }
+
+  // Export SVG as PNG (small helper) - optional
+  async function exportPNG() {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const serializer = new XMLSerializer();
+    const source = serializer.serializeToString(svg);
+    const img = new Image();
+    const svgBlob = new Blob([source], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(svgBlob);
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = canvasSize.w;
+      canvas.height = canvasSize.h;
+      const ctx = canvas.getContext("2d")!;
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
+      URL.revokeObjectURL(url);
+      const a = document.createElement("a");
+      a.href = canvas.toDataURL("image/png");
+      a.download = "design-center.png";
+      a.click();
+    };
+    img.src = url;
+  }
+
+  // Resize canvas to fit container
+  useEffect(() => {
+    const onResize = () => {
+      const container = svgRef.current?.parentElement;
+      if (!container) return;
+      setCanvasSize({ w: Math.max(600, container.clientWidth - 320), h: Math.max(400, container.clientHeight - 40) });
+    };
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  // Quick sample (if none)
+  useEffect(() => {
+    if (shapes.length === 0) {
+      const sample: Shape[] = [
+        { id: uid("R-"), type: "rect", x: 100, y: 120, w: 600, h: 300 },
+        { id: uid("L-"), type: "line", x1: 120, y1: 150, x2: 680, y2: 150 },
+      ];
+      setShapes(sample);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Rendering helpers
+  function renderGrid() {
+    const lines: JSX.Element[] = [];
+    const step = GRID;
+    for (let x = 0; x <= canvasSize.w; x += step) {
+      lines.push(<line key={`vx-${x}`} x1={x} y1={0} x2={x} y2={canvasSize.h} stroke="#eee" strokeWidth={1} />);
+    }
+    for (let y = 0; y <= canvasSize.h; y += step) {
+      lines.push(<line key={`hy-${y}`} x1={0} y1={y} x2={canvasSize.w} y2={y} stroke="#eee" strokeWidth={1} />);
+    }
+    return <g>{lines}</g>;
+  }
+
+  function renderShape(s: Shape) {
+    const isSelected = s.id === selectedId;
+    if (s.type === "rect") {
+      const r = s as RectShape;
+      return (
+        <g key={r.id}>
+          <rect x={r.x} y={r.y} width={r.w} height={r.h} rx={8} ry={8}
+            fill="#e9fbf7" stroke="#0b7a6b" strokeWidth={4} opacity={0.95} />
+          {isSelected && (
+            <g>
+              {/* small handle */}
+              <rect x={r.x - 6} y={r.y - 6} width={12} height={12} fill="#fff" stroke="#0b7a6b" />
+            </g>
+          )}
+          {/* dimension label */}
+          <text x={r.x + r.w / 2} y={r.y + r.h / 2} textAnchor="middle" alignmentBaseline="middle"
+            fontSize={20} fontWeight={700} fill="#0b7a6b">{`${r.w} × ${r.h} mm`}</text>
+        </g>
+      );
+    } else {
+      const l = s as LineShape;
+      // midpoint for text
+      const mx = (l.x1 + l.x2) / 2;
+      const my = (l.y1 + l.y2) / 2;
+      const len = Math.round(Math.hypot(l.x2 - l.x1, l.y2 - l.y1));
+      return (
+        <g key={l.id}>
+          <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke="#0b7a6b" strokeWidth={3} />
+          {/* little circle at ends */}
+          <circle cx={l.x1} cy={l.y1} r={4} fill="#fff" stroke="#0b7a6b" />
+          <circle cx={l.x2} cy={l.y2} r={4} fill="#fff" stroke="#0b7a6b" />
+          {isSelected && (
+            <>
+              <rect x={l.x1 - 6} y={l.y1 - 6} width={12} height={12} fill="#fff" stroke="#0b7a6b" />
+              <rect x={l.x2 - 6} y={l.y2 - 6} width={12} height={12} fill="#fff" stroke="#0b7a6b" />
+            </>
+          )}
+          <text x={mx} y={my - 8} textAnchor="middle" fontSize={14} fill="#0b7a6b" fontWeight={600}>
+            {`${len} mm`}
+          </text>
+        </g>
+      );
+    }
+  }
+
+  return (
+    <div style={{ display: "flex", gap: 12, height: "100%" }}>
+      {/* left: toolbar */}
+      <div style={{ width: 320, padding: 12, boxSizing: "border-box", borderRight: "1px solid #eee", background: "#fafafa" }}>
+        <h3 style={{ marginTop: 0 }}>Design Center — Mini CAD</h3>
+
+        <div style={{ marginBottom: 8 }}>
+          <button onClick={() => setMode("select")} style={{ marginRight: 6, background: mode === "select" ? "#0b7a6b" : undefined, color: mode === "select" ? "#fff" : undefined }}>Select</button>
+          <button onClick={() => setMode("line")} style={{ marginRight: 6, background: mode === "line" ? "#0b7a6b" : undefined, color: mode === "line" ? "#fff" : undefined }}>Line</button>
+          <button onClick={() => setMode("rect")} style={{ marginRight: 6, background: mode === "rect" ? "#0b7a6b" : undefined, color: mode === "rect" ? "#fff" : undefined }}>Rect</button>
+          <button onClick={() => setMode("move")} style={{ background: mode === "move" ? "#0b7a6b" : undefined, color: mode === "move" ? "#fff" : undefined }}>Move</button>
+        </div>
+
+        <div style={{ marginTop: 10 }}>
+          <div>Grid: {GRID} mm (snap to {GRID} mm)</div>
+        </div>
+
+        <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
+          <button onClick={clearAll}>Clear</button>
+          <button onClick={() => exportPNG()}>Export PNG</button>
+        </div>
+
+        <hr style={{ margin: "16px 0" }} />
+
+        <div>
+          <strong>Quick help</strong>
+          <ul>
+            <li>Line: click start, click end</li>
+            <li>Rect: click start, move, click end</li>
+            <li>Move: click and drag a shape</li>
+            <li>Everything snaps to grid</li>
+            <li>Click shape to select and see dimensions</li>
+          </ul>
+        </div>
+
+        <div style={{ marginTop: 8 }}>
+          <strong>Selected:</strong> {selectedId ?? "none"}
+        </div>
+      </div>
+
+      {/* center: canvas */}
+      <div style={{ flex: 1, position: "relative", padding: 12 }}>
+        <svg
+          ref={svgRef}
+          width="100%"
+          height={canvasSize.h}
+          viewBox={`0 0 ${canvasSize.w} ${canvasSize.h}`}
+          style={{ background: "#fff", borderRadius: 10, boxShadow: "0 6px 20px rgba(0,0,0,0.06)" }}
+          onMouseDown={onMouseDown}
+          onMouseMove={onMouseMove}
+          onMouseUp={onMouseUp}
+        >
+          <defs>
+            <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+              <feDropShadow dx="0" dy="4" stdDeviation="6" floodColor="#000" floodOpacity="0.08" />
+            </filter>
+          </defs>
+
+          {/* grid */}
+          <g transform={`translate(0,0)`}>
+            {renderGrid()}
+          </g>
+
+          {/* shapes */}
+          <g>
+            {shapes.map(s => renderShape(s))}
+            {/* temp shape on top */}
+            {temp && (temp as any).type === "rect" && (() => {
+              const r = temp as RectShape;
+              return <rect x={r.x} y={r.y} width={r.w} height={r.h} rx={6} ry={6} fill="rgba(11,122,107,0.08)" stroke="#0b7a6b" strokeDasharray="6 6" />;
+            })()}
+            {temp && (temp as any).type === "line" && (() => {
+              const l = temp as LineShape;
+              return <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke="#0b7a6b" strokeDasharray="4 4" />;
+            })()}
+          </g>
+
+          {/* rulers / basic top dimension guide */}
+          <g>
+            <text x={canvasSize.w / 2} y={18} fontSize={14} textAnchor="middle" fill="#333">Top ruler (mm)</text>
+            <line x1={0} y1={24} x2={canvasSize.w} y2={24} stroke="#ddd" strokeWidth={1} />
+          </g>
+        </svg>
+      </div>
+    </div>
+  );
+}

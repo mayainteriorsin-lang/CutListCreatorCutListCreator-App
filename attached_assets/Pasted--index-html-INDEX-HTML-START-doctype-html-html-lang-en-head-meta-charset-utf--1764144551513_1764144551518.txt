@@ -1,0 +1,872 @@
+) index.html
+<!-- INDEX.HTML START -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Design Center — Wardrobe Prototype</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>Design Center — Wardrobe (2D)</h1>
+    </header>
+
+    <main>
+      <!-- LEFT controls (kept minimal) -->
+      <aside class="controls left">
+        <div class="control-group">
+          <label><strong>Units</strong></label>
+          <select id="units">
+            <option value="mm">mm</option>
+            <option value="in">in</option>
+            <option value="ft">ft</option>
+          </select>
+        </div>
+
+        <div class="control-group">
+          <label><strong>Plywood Thickness (mm)</strong></label>
+          <div class="thickness">
+            <button id="thick-dec">−</button>
+            <input id="thickness" type="number" value="18" min="1" />
+            <button id="thick-inc">+</button>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <label><input id="toggle-shutter" type="checkbox" checked> Shutter Preview</label>
+        </div>
+
+        <div class="control-group">
+          <label><input id="toggle-inner-dim" type="checkbox"> Show Inner Dimensions</label>
+        </div>
+
+        <div class="control-group">
+          <label><strong>Wardrobe Size</strong></label>
+          <div class="size-row">
+            <label>W (mm) <input id="wardrobe-w" type="number" value="1800" /></label>
+            <label>H (mm) <input id="wardrobe-h" type="number" value="2100" /></label>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <button id="reset">Reset View</button>
+        </div>
+
+        <small class="note">Front-elevation 2D prototype — no 3D shading.</small>
+      </aside>
+
+      <!-- CENTER canvas -->
+      <section class="canvas-area">
+        <canvas id="c"></canvas>
+      </section>
+
+      <!-- RIGHT tools panel (Sections 1-8) -->
+      <aside class="controls right">
+        <!-- SECTION 1 — View & Grid Tools -->
+        <div class="panel">
+          <h3>View & Grid</h3>
+          <label><input id="grid-toggle" type="checkbox" checked> Show Grid</label>
+          <label>Grid Opacity <input id="grid-opacity" type="range" min="0" max="100" value="30"></label>
+          <label>Snap Mode
+            <select id="snap-mode">
+              <option value="hard">Hard Snap</option>
+              <option value="soft">Soft Snap</option>
+              <option value="off">Off</option>
+            </select>
+          </label>
+          <label>Grid Presets
+            <select id="grid-preset">
+              <option value="5">5×5</option>
+              <option value="10" selected>10×10</option>
+              <option value="20">20×20</option>
+            </select>
+          </label>
+          <div class="row">
+            <button id="zoom-in">Zoom +</button>
+            <button id="zoom-out">Zoom −</button>
+            <button id="reset-view">Reset View</button>
+          </div>
+        </div>
+
+        <!-- SECTION 2 — Wardrobe Controls -->
+        <div class="panel">
+          <h3>Wardrobe</h3>
+          <label>Width (mm) <input id="wc-w" type="number" value="1800"></label>
+          <label>Height (mm) <input id="wc-h" type="number" value="2100"></label>
+          <label>Depth (mm) <input id="wc-d" type="number" value="600"></label>
+          <label><input id="fullheight-side" type="checkbox" checked> Full-height Side Panels</label>
+        </div>
+
+        <!-- SECTION 3 — Plywood & Material -->
+        <div class="panel">
+          <h3>Material</h3>
+          <label>Back Panel Thickness
+            <select id="back-thickness">
+              <option value="6">6 mm</option>
+              <option value="9">9 mm</option>
+            </select>
+          </label>
+          <label>Material Type
+            <select id="material-type">
+              <option value="plywood">Plywood</option>
+              <option value="mdf">MDF</option>
+              <option value="prelam">Prelam</option>
+              <option value="glass">Glass</option>
+            </select>
+          </label>
+          <label>Fill Color
+            <input id="material-color" type="color" value="#ffffff">
+          </label>
+        </div>
+
+        <!-- SECTION 4 — Shutter Tools -->
+        <div class="panel">
+          <h3>Shutters</h3>
+          <label>Type
+            <select id="shutter-type">
+              <option value="swing">Swing (Hinged)</option>
+              <option value="sliding">Sliding</option>
+            </select>
+          </label>
+          <label>Count
+            <select id="shutter-count">
+              <option value="1">1</option>
+              <option value="2" selected>2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+            </select>
+          </label>
+          <label>Handle Side
+            <select id="handle-side">
+              <option value="center">Center</option>
+              <option value="left">Left</option>
+              <option value="right">Right</option>
+            </select>
+          </label>
+        </div>
+
+        <!-- SECTION 5 — Dimensions -->
+        <div class="panel">
+          <h3>Dimensions</h3>
+          <label><input id="outer-dim" type="checkbox" checked disabled> Outer (always on)</label>
+          <label><input id="inner-dim" type="checkbox"> Inner Dimensions</label>
+          <label>Style
+            <select id="dim-style">
+              <option value="arrows">Arrows</option>
+              <option value="ticks">Ticks</option>
+            </select>
+          </label>
+        </div>
+
+        <!-- SECTION 6 — Components (Drag & Drop) -->
+        <div class="panel">
+          <h3>Components</h3>
+          <div class="row">
+            <button id="add-shelf">+ Add Shelf</button>
+            <button id="add-drawer">+ Add Drawer</button>
+            <button id="add-rod">+ Add Rod</button>
+          </div>
+          <div class="row">
+            <button id="add-div">+ Add Divider</button>
+            <button id="add-loft">+ Add Loft</button>
+          </div>
+          <div class="row small">
+            <button id="delete-selected">Delete</button>
+            <button id="dup-selected">Duplicate</button>
+            <button id="lock-selected">Lock</button>
+          </div>
+        </div>
+
+        <!-- SECTION 7 — Panel Editing -->
+        <div class="panel">
+          <h3>Panel Edit</h3>
+          <label>Selected ID: <span id="sel-id">none</span></label>
+          <label>Width <input id="sel-w" type="number" /></label>
+          <label>Height <input id="sel-h" type="number" /></label>
+          <div class="row">
+            <button id="move-left">←</button>
+            <button id="move-right">→</button>
+            <button id="move-up">↑</button>
+            <button id="move-down">↓</button>
+          </div>
+          <div class="row">
+            <button id="split-vert">Split Vert</button>
+            <button id="merge">Merge</button>
+          </div>
+        </div>
+
+        <!-- SECTION 8 — Save & Export -->
+        <div class="panel">
+          <h3>Save & Export</h3>
+          <div class="row">
+            <button id="save-proj">Save</button>
+            <button id="load-proj">Load</button>
+          </div>
+          <div class="row">
+            <button id="export-png">Export PNG</button>
+            <button id="export-svg">Export SVG</button>
+            <button id="export-csv">Export CSV</button>
+          </div>
+        </div>
+
+        <small class="note">Right panel contains all tools (Sections 1–8). Many actions update canvas live.</small>
+      </aside>
+    </main>
+
+    <footer>
+      <span>Prototype — core tools wired. Tell me which export or editor to finalize next.</span>
+    </footer>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
+<!-- INDEX.HTML END -->
+
+2) style.css
+/* STYLE.CSS START */
+:root{
+  --bg:#fbfbfb;
+  --panel:#fff;
+  --muted:#9aa0a6;
+  --accent:#2b7be4;
+  --line:#222;
+}
+*{box-sizing:border-box;font-family:Inter,Segoe UI,Arial,sans-serif}
+body{margin:0;background:var(--bg);color:var(--line)}
+.app{display:flex;flex-direction:column;height:100vh}
+header{padding:10px 16px;border-bottom:1px solid #eee;background:#fff}
+main{display:flex;flex:1;overflow:hidden}
+.controls{width:300px;padding:12px;border-right:1px solid #eee;background:#fff;overflow:auto}
+.controls.left{border-right:1px solid #eee}
+.controls.right{border-left:1px solid #eee}
+.canvas-area{flex:1;display:flex;align-items:stretch;justify-content:center;padding:12px;background:transparent}
+canvas{background:#fff;border:1px solid #e6e6e6;max-width:100%;max-height:100%}
+.panel{border:1px solid #f0f0f0;padding:10px;margin-bottom:10px;border-radius:6px;background:#fff}
+.panel h3{margin:0 0 8px 0;font-size:14px}
+.control-group{margin-bottom:14px}
+.control-group label{display:block;margin-bottom:6px}
+.thickness{display:flex;gap:6px;align-items:center}
+.thickness button{width:36px;height:36px;border-radius:6px;border:1px solid #ddd;background:#f7f7f7;font-size:18px;cursor:pointer}
+.thickness input{width:70px;padding:6px;border:1px solid #ddd;border-radius:6px}
+.size-row{display:flex;gap:8px}
+.size-row input{width:100px;padding:6px;border:1px solid #ddd;border-radius:6px}
+.row{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.row.small button{font-size:13px;padding:6px 8px}
+button{cursor:pointer;padding:8px 12px;border-radius:6px;border:1px solid #ddd;background:#fafafa}
+input[type="number"],select{padding:6px;border-radius:6px;border:1px solid #ddd}
+.note{color:var(--muted);font-size:12px;display:block;margin-top:8px}
+footer{height:36px;padding:6px 12px;border-top:1px solid #eee;background:#fff;display:flex;align-items:center}
+/* responsive */
+@media (max-width:1200px){
+  .controls.right{display:none}
+}
+@media (max-width:900px){
+  .controls.left{display:none}
+  .controls.right{display:none}
+  canvas{max-width:100%}
+}
+/* STYLE.CSS END */
+
+3) script.js
+// SCRIPT.JS START
+// Extended 2D wardrobe prototype — tools panel (Sections 1-8)
+// The code wires most controls to the canvas and basic model objects.
+// Advanced features (full panel reflow, export details) are placeholders and logged.
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+// --- UI references (many)
+const gridToggle = document.getElementById('grid-toggle');
+const gridOpacity = document.getElementById('grid-opacity');
+const snapMode = document.getElementById('snap-mode');
+const gridPreset = document.getElementById('grid-preset');
+const zoomInBtn = document.getElementById('zoom-in');
+const zoomOutBtn = document.getElementById('zoom-out');
+const resetViewBtn = document.getElementById('reset-view');
+
+const wcW = document.getElementById('wc-w');
+const wcH = document.getElementById('wc-h');
+const wcD = document.getElementById('wc-d');
+const fullHeightSide = document.getElementById('fullheight-side');
+
+const backThickness = document.getElementById('back-thickness');
+const materialType = document.getElementById('material-type');
+const materialColor = document.getElementById('material-color');
+
+const shutterType = document.getElementById('shutter-type');
+const shutterCount = document.getElementById('shutter-count');
+const handleSide = document.getElementById('handle-side');
+
+const innerDimCheck = document.getElementById('inner-dim');
+const dimStyle = document.getElementById('dim-style');
+
+const addShelfBtn = document.getElementById('add-shelf');
+const addDrawerBtn = document.getElementById('add-drawer');
+const addRodBtn = document.getElementById('add-rod');
+const addDivBtn = document.getElementById('add-div');
+const addLoftBtn = document.getElementById('add-loft');
+
+const deleteBtn = document.getElementById('delete-selected');
+const dupBtn = document.getElementById('dup-selected');
+const lockBtn = document.getElementById('lock-selected');
+
+const selIdSpan = document.getElementById('sel-id');
+const selWInput = document.getElementById('sel-w');
+const selHInput = document.getElementById('sel-h');
+const moveLeftBtn = document.getElementById('move-left');
+const moveRightBtn = document.getElementById('move-right');
+const moveUpBtn = document.getElementById('move-up');
+const moveDownBtn = document.getElementById('move-down');
+const splitVertBtn = document.getElementById('split-vert');
+const mergeBtn = document.getElementById('merge');
+
+const saveBtn = document.getElementById('save-proj');
+const loadBtn = document.getElementById('load-proj');
+const exportPngBtn = document.getElementById('export-png');
+const exportSvgBtn = document.getElementById('export-svg');
+const exportCsvBtn = document.getElementById('export-csv');
+
+// Left panel controls (existing)
+const unitsEl = document.getElementById('units');
+const thickEl = document.getElementById('thickness');
+const incBtn = document.getElementById('thick-inc');
+const decBtn = document.getElementById('thick-dec');
+const shutterToggle = document.getElementById('toggle-shutter');
+const innerDimToggle = document.getElementById('toggle-inner-dim');
+const wardrobeWEl = document.getElementById('wardrobe-w');
+const wardrobeHEl = document.getElementById('wardrobe-h');
+const resetBtn = document.getElementById('reset');
+
+// --- model
+const state = {
+  wardrobeW: 1800,
+  wardrobeH: 2100,
+  wardrobeD: 600,
+  thickness: 18,
+  backThickness: 6,
+  shuttersOn: true,
+  shutterType: 'swing',
+  shutterCount: 2,
+  handleSide: 'center',
+  units: 'mm',
+  grid: {
+    show: true,
+    opacity: 0.3,
+    preset: 10,
+    snap: 'hard'
+  },
+  material: {
+    type: 'plywood',
+    color: '#ffffff'
+  },
+  view: {
+    zoom: 1
+  },
+  innerDims: false,
+  // simple list of components (panes/shelves) — minimal for prototype
+  components: [],
+  selectedId: null
+};
+
+// --- utility
+function uid(prefix='id'){ return prefix + '_' + Math.random().toString(36).slice(2,9); }
+
+// --- hookup UI -> state
+function hookUI(){
+  // grid & view
+  gridToggle.onchange = ()=>{ state.grid.show = gridToggle.checked; draw(); }
+  gridOpacity.oninput = ()=>{ state.grid.opacity = Number(gridOpacity.value)/100; draw(); }
+  snapMode.onchange = ()=>{ state.grid.snap = snapMode.value; console.log('snapMode', state.grid.snap); }
+  gridPreset.onchange = ()=>{ state.grid.preset = Number(gridPreset.value); draw(); }
+  zoomInBtn.onclick = ()=>{ state.view.zoom*=1.1; draw(); }
+  zoomOutBtn.onclick = ()=>{ state.view.zoom/=1.1; draw(); }
+  resetViewBtn.onclick = ()=>{ state.view.zoom=1; draw(); }
+
+  // wardrobe
+  wcW.onchange = ()=>{ state.wardrobeW = Number(wcW.value)||1800; draw(); }
+  wcH.onchange = ()=>{ state.wardrobeH = Number(wcH.value)||2100; draw(); }
+  wcD.onchange = ()=>{ state.wardrobeD = Number(wcD.value)||600; draw(); }
+  fullHeightSide.onchange = ()=>{ draw(); }
+
+  // material
+  backThickness.onchange = ()=>{ state.backThickness = Number(backThickness.value); draw(); }
+  materialType.onchange = ()=>{ state.material.type = materialType.value; draw(); }
+  materialColor.oninput = ()=>{ state.material.color = materialColor.value; draw(); }
+
+  // shutters
+  shutterType.onchange = ()=>{ state.shutterType = shutterType.value; draw(); }
+  shutterCount.onchange = ()=>{ state.shutterCount = Number(shutterCount.value); draw(); }
+  handleSide.onchange = ()=>{ state.handleSide = handleSide.value; draw(); }
+
+  // dims
+  innerDimCheck.onchange = ()=>{ state.innerDims = innerDimCheck.checked; draw(); }
+  dimStyle.onchange = ()=>{ draw(); }
+
+  // components
+  addShelfBtn.onclick = ()=>{ addComponent('shelf'); }
+  addDrawerBtn.onclick = ()=>{ addComponent('drawer'); }
+  addRodBtn.onclick = ()=>{ addComponent('rod'); }
+  addDivBtn.onclick = ()=>{ addComponent('divider'); }
+  addLoftBtn.onclick = ()=>{ addComponent('loft'); }
+
+  deleteBtn.onclick = deleteSelected;
+  dupBtn.onclick = duplicateSelected;
+  lockBtn.onclick = toggleLockSelected;
+
+  selWInput.onchange = ()=>{ if(state.selectedId) updateSelectedSize('w', Number(selWInput.value)); }
+  selHInput.onchange = ()=>{ if(state.selectedId) updateSelectedSize('h', Number(selHInput.value)); }
+
+  moveLeftBtn.onclick = ()=>nudgeSelected(-1,0);
+  moveRightBtn.onclick = ()=>nudgeSelected(1,0);
+  moveUpBtn.onclick = ()=>nudgeSelected(0,-1);
+  moveDownBtn.onclick = ()=>nudgeSelected(0,1);
+
+  splitVertBtn.onclick = ()=>console.log('Split requested (placeholder)');
+  mergeBtn.onclick = ()=>console.log('Merge requested (placeholder)');
+
+  // Save / Export placeholders
+  saveBtn.onclick = saveProject;
+  loadBtn.onclick = loadProject;
+  exportPngBtn.onclick = exportPNG;
+  exportSvgBtn.onclick = exportSVG;
+  exportCsvBtn.onclick = exportCSV;
+
+  // left panel
+  incBtn.onclick = ()=>{ thickEl.value = Math.max(1, Number(thickEl.value)+1); state.thickness=Number(thickEl.value); draw(); }
+  decBtn.onclick = ()=>{ thickEl.value = Math.max(1, Number(thickEl.value)-1); state.thickness=Number(thickEl.value); draw(); }
+  thickEl.onchange = ()=>{ state.thickness = Number(thickEl.value)||18; draw(); }
+  unitsEl.onchange = ()=>{ state.units = unitsEl.value; draw(); }
+  shutterToggle.onchange = ()=>{ state.shuttersOn = shutterToggle.checked; draw(); }
+  innerDimToggle.onchange = ()=>{ state.innerDims = innerDimToggle.checked; draw(); }
+  wardrobeWEl.onchange = ()=>{ state.wardrobeW = Number(wardrobeWEl.value)||1800; draw(); }
+  wardrobeHEl.onchange = ()=>{ state.wardrobeH = Number(wardrobeHEl.value)||2100; draw(); }
+
+  resetBtn.onclick = ()=>{ thickEl.value=18; wardrobeWEl.value=1800; wardrobeHEl.value=2100; shutterToggle.checked=true; innerDimToggle.checked=false; state.thickness=18; state.wardrobeW=1800; state.wardrobeH=2100; state.shuttersOn=true; state.innerDims=false; draw(); }
+}
+
+hookUI();
+
+// --- simple components management
+function addComponent(type){
+  const id = uid(type);
+  const comp = {
+    id,
+    type,
+    x: 0, y: 0, w: Math.round(state.wardrobeW/4), h: Math.round(state.wardrobeH/10),
+    locked: false
+  };
+  // place components inside first column area as default
+  comp.x = Math.round(state.wardrobeW*0.05);
+  comp.y = Math.round(state.wardrobeH*0.2 + state.components.length*20);
+  state.components.push(comp);
+  selectComponent(id);
+  draw();
+  console.log('Added', comp);
+}
+
+function selectComponent(id){
+  state.selectedId = id;
+  selIdSpan.textContent = id || 'none';
+  const c = state.components.find(x=>x.id===id);
+  if(c){
+    selWInput.value = c.w;
+    selHInput.value = c.h;
+  } else {
+    selWInput.value=''; selHInput.value='';
+  }
+}
+
+function deleteSelected(){
+  if(!state.selectedId) return;
+  state.components = state.components.filter(c=>c.id!==state.selectedId);
+  state.selectedId = null;
+  selectComponent(null);
+  draw();
+}
+function duplicateSelected(){
+  if(!state.selectedId) return;
+  const orig = state.components.find(c=>c.id===state.selectedId);
+  if(!orig) return;
+  const copy = {...orig, id: uid(orig.type), x: orig.x + 50};
+  state.components.push(copy);
+  selectComponent(copy.id);
+  draw();
+}
+function toggleLockSelected(){
+  if(!state.selectedId) return;
+  const c = state.components.find(x=>x.id===state.selectedId);
+  if(c){ c.locked = !c.locked; console.log('Locked', c.id, c.locked); draw(); }
+}
+function updateSelectedSize(axis, val){
+  if(!state.selectedId) return;
+  const c = state.components.find(x=>x.id===state.selectedId);
+  if(!c) return;
+  if(axis==='w') c.w = val;
+  if(axis==='h') c.h = val;
+  draw();
+}
+function nudgeSelected(dx,dy){
+  if(!state.selectedId) return;
+  const c = state.components.find(x=>x.id===state.selectedId);
+  if(!c || c.locked) return;
+  // apply snap mode: if hard snap, move by grid cell mm
+  const gridStep = state.grid.preset ? Math.round(state.wardrobeW / state.grid.preset) : 50;
+  const step = (state.grid.snap==='hard') ? gridStep : 5;
+  c.x += dx * step;
+  c.y += dy * step;
+  selWInput.value = c.w;
+  selHInput.value = c.h;
+  draw();
+}
+
+// Save / load / export basic placeholders
+function saveProject(){
+  const data = JSON.stringify(state);
+  localStorage.setItem('design_center_proj', data);
+  alert('Project saved to localStorage (key: design_center_proj)');
+}
+function loadProject(){
+  const raw = localStorage.getItem('design_center_proj');
+  if(!raw){ alert('No saved project found'); return; }
+  try{
+    const obj = JSON.parse(raw);
+    // simple merge
+    Object.assign(state, obj);
+    // sync UI
+    syncUIFromState();
+    draw();
+    alert('Project loaded from localStorage');
+  }catch(e){ console.error(e); alert('Failed to load'); }
+}
+function exportPNG(){
+  const url = canvas.toDataURL('image/png');
+  const a = document.createElement('a');
+  a.href = url; a.download = 'wardrobe.png'; a.click();
+}
+function exportSVG(){
+  alert('SVG export placeholder — implement when needed.');
+  console.log('Export SVG requested');
+}
+function exportCSV(){
+  // basic CSV of components
+  let csv = 'id,type,x,y,w,h\n';
+  for(const c of state.components) csv += `${c.id},${c.type},${c.x},${c.y},${c.w},${c.h}\n`;
+  const blob = new Blob([csv], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='components.csv'; a.click();
+}
+
+// --- CANVAS DRAWING (based on previous prototype) ---
+function fitCanvas(){
+  const area = document.querySelector('.canvas-area');
+  canvas.width = Math.min(area.clientWidth - 24, 1200);
+  canvas.height = Math.min(area.clientHeight - 24, 1000);
+  draw();
+}
+window.addEventListener('resize', fitCanvas);
+fitCanvas();
+
+// helpers
+function mmToPx(mm, scale){ return mm * scale; }
+function pxToMm(px, scale){ return px / scale; }
+
+// main draw
+function draw(){
+  // sync small state from UI where needed
+  state.thickness = Number(thickEl.value) || state.thickness;
+  state.units = unitsEl.value || state.units;
+  // clear
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  const pad = 40;
+  const availW = canvas.width - pad*2;
+  const availH = canvas.height - pad*2;
+
+  // scale: fit wardrobe to canvas
+  const scaleX = availW / state.wardrobeW;
+  const scaleY = availH / state.wardrobeH;
+  const scale = Math.min(scaleX, scaleY) * 0.95 * state.view.zoom;
+  const w = state.wardrobeW * scale;
+  const h = state.wardrobeH * scale;
+  const originX = (canvas.width - w)/2;
+  const originY = (canvas.height - h)/2;
+
+  // grid
+  if(state.grid.show){
+    drawGrid(scale, originX, originY, w, h, state.grid.preset, state.grid.opacity);
+  }
+
+  // frame
+  ctx.strokeStyle = '#111';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(originX, originY, w, h);
+
+  // side panels (full height by rule)
+  const tPx = state.thickness * scale;
+  const leftInnerX = originX + tPx;
+  const rightInnerX = originX + w - tPx;
+
+  // layout: dynamic shutters split by count
+  const shutterCountVal = state.shutterCount || 2;
+  const shutterWidths = [];
+  for(let i=0;i<shutterCountVal;i++) shutterWidths.push(w/shutterCountVal);
+
+  // draw internal layout example (left section shelves)
+  ctx.lineWidth = 1.2;
+  ctx.strokeStyle = '#111';
+
+  // draw components (convert mm pos -> px)
+  for(const comp of state.components){
+    // comp.x, comp.y are in mm model coords. Convert to px
+    const xPx = originX + (comp.x/ state.wardrobeW) * w;
+    const yPx = originY + (comp.y/ state.wardrobeH) * h;
+    const wPx = (comp.w / state.wardrobeW) * w;
+    const hPx = (comp.h / state.wardrobeH) * h;
+    ctx.save();
+    ctx.strokeStyle = comp.locked ? '#b00' : '#111';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(xPx, yPx, wPx, hPx);
+    ctx.fillStyle = 'rgba(0,0,0,0.04)';
+    ctx.fillRect(xPx, yPx, wPx, hPx);
+    ctx.fillStyle = '#333';
+    ctx.font = '11px Arial';
+    ctx.fillText(comp.type, xPx + 6, yPx + 14);
+    ctx.restore();
+  }
+
+  // draw center divider(s)
+  let accX = originX;
+  for(let i=0;i<shutterWidths.length;i++){
+    const sw = shutterWidths[i];
+    // shutter outline (front)
+    ctx.lineWidth = 1.6;
+    ctx.strokeStyle = '#111';
+    ctx.strokeRect(accX+1, originY+1, sw-2, h-2);
+    accX += sw;
+  }
+
+  // draw handles based on handleSide and count
+  drawHandles(originX, originY, w, h, shutterCountVal, state.handleSide);
+
+  // outer dims
+  drawOuterDimensions(originX, originY, w, h);
+
+  // inner dims if enabled (faint)
+  if(state.innerDims){
+    drawInnerDimensions(originX, originY, w, h, shutterCountVal, state);
+  }
+
+  // thickness label
+  ctx.fillStyle = '#666';
+  ctx.font = '12px Arial';
+  ctx.fillText(`Thickness: ${state.thickness} mm`, originX + 6, originY + h + 18);
+
+  // selected highlight
+  if(state.selectedId){
+    const s = state.components.find(c=>c.id===state.selectedId);
+    if(s){
+      const xPx = originX + (s.x/ state.wardrobeW) * w;
+      const yPx = originY + (s.y/ state.wardrobeH) * h;
+      const wPx = (s.w / state.wardrobeW) * w;
+      const hPx = (s.h / state.wardrobeH) * h;
+      ctx.save();
+      ctx.strokeStyle = '#2b7be4';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(xPx-2, yPx-2, wPx+4, hPx+4);
+      ctx.restore();
+    }
+  }
+}
+
+// draw handles
+function drawHandles(originX, originY, w, h, count, handleSide){
+  ctx.save();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = '#111';
+  // compute per-shutter center x
+  const sw = w/count;
+  for(let i=0;i<count;i++){
+    let hx;
+    if(handleSide==='center'){
+      hx = originX + i*sw + sw/2 - 4;
+    } else if(handleSide==='left'){
+      hx = originX + i*sw + 12;
+    } else {
+      hx = originX + i*sw + sw - 20;
+    }
+    const hy = originY + h/2 - 20;
+    // draw simple vertical handle
+    ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(hx, hy+40); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// draw grid (fast)
+function drawGrid(scale, originX, originY, w, h, cells=10, opacity=0.3){
+  ctx.save();
+  ctx.globalAlpha = opacity;
+  ctx.strokeStyle = '#dcdcdc';
+  ctx.lineWidth = 1;
+  // draw grid covering canvas area (but we primarily care inside wardrobe area)
+  const cellPx = w / cells;
+  // vertical lines (cover a bit beyond wardrobe for context)
+  const startX = originX - cellPx*2;
+  const endX = originX + w + cellPx*2;
+  for(let x = startX; x <= endX; x += cellPx){
+    ctx.beginPath();
+    ctx.moveTo(Math.round(x)+0.5, 0);
+    ctx.lineTo(Math.round(x)+0.5, canvas.height);
+    ctx.stroke();
+  }
+  // horizontal
+  const cellPy = h / cells;
+  const startY = originY - cellPy*2;
+  const endY = originY + h + cellPy*2;
+  for(let y = startY; y <= endY; y += cellPy){
+    ctx.beginPath();
+    ctx.moveTo(0, Math.round(y)+0.5);
+    ctx.lineTo(canvas.width, Math.round(y)+0.5);
+    ctx.stroke();
+  }
+
+  // draw major lines every 5 cells darker
+  ctx.strokeStyle = '#c4c4c4';
+  for(let i=0;i<=cells;i+=5){
+    const x = originX + i*cellPx;
+    ctx.beginPath(); ctx.moveTo(x+0.5, originY); ctx.lineTo(x+0.5, originY+h); ctx.stroke();
+    const y = originY + i*cellPy;
+    ctx.beginPath(); ctx.moveTo(originX, y+0.5); ctx.lineTo(originX+w, y+0.5); ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+function drawOuterDimensions(x,y,w,h){
+  ctx.save();
+  ctx.strokeStyle = '#1e90ff';
+  ctx.fillStyle = '#1e90ff';
+  ctx.lineWidth = 1.4;
+  ctx.font = '14px Arial';
+  // horizontal top
+  drawDimLine(x, y - 18, x + w, y - 18, `${Math.round(state.wardrobeW)} mm`);
+  // vertical left
+  drawDimLine(x - 18, y, x - 18, y + h, `${Math.round(state.wardrobeH)} mm`, true);
+  ctx.restore();
+}
+
+function drawInnerDimensions(x,y,w,h,count,s){
+  ctx.save();
+  ctx.strokeStyle = 'rgba(43,123,228,0.9)';
+  ctx.fillStyle = 'rgba(43,123,228,0.9)';
+  ctx.font = '13px Arial';
+  ctx.lineWidth = 1;
+
+  // widths per shutter
+  const per = Math.round(s.wardrobeW / count);
+  let acc = x;
+  for(let i=0;i<count;i++){
+    const x1 = acc + 8;
+    const x2 = acc + w/count - 8;
+    drawDimLine(x1, y + h + 20, x2, y + h + 20, `${per} mm`);
+    acc += w/count;
+  }
+
+  // sample vertical dims: show shelf spacing if components exist (simplified)
+  const shelfComps = s.components.filter(c=>c.type==='shelf');
+  for(let i=0;i<Math.min(4, shelfComps.length); i++){
+    const cy = y + (i+1) * (h / (shelfComps.length+1));
+    drawDimLine(x - 8, cy - 10, x - 8, cy + 10, `${Math.round(s.wardrobeH/(shelfComps.length+1))} mm`, true);
+  }
+
+  ctx.restore();
+}
+
+function drawDimLine(x1,y1,x2,y2,label,vertical=false){
+  ctx.beginPath();
+  ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+  ctx.save();
+  ctx.fillStyle = ctx.strokeStyle;
+  const angle = Math.atan2(y2-y1,x2-x1);
+  drawArrowhead(x1,y1,angle); drawArrowhead(x2,y2,angle+Math.PI);
+  ctx.font = '13px Arial';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const mx = (x1+x2)/2; const my = (y1+y2)/2;
+  ctx.fillText(label, mx, my - (vertical ? -10 : -8));
+  ctx.restore();
+}
+function drawArrowhead(x,y,angle){
+  ctx.beginPath();
+  const size = 6;
+  ctx.moveTo(x,y);
+  ctx.lineTo(x + Math.cos(angle+0.3)*size, y + Math.sin(angle+0.3)*size);
+  ctx.lineTo(x + Math.cos(angle-0.3)*size, y + Math.sin(angle-0.3)*size);
+  ctx.closePath();
+  ctx.fill();
+}
+
+// initial draw
+draw();
+
+// --- basic interactions: click select component (simple)
+canvas.addEventListener('click', (ev)=>{
+  const rect = canvas.getBoundingClientRect();
+  const cx = ev.clientX - rect.left, cy = ev.clientY - rect.top;
+  // compute model canvas frame coordinates used in draw()
+  // replicate scale logic to map mouse to model mm coords for selection
+  const pad = 40;
+  const availW = canvas.width - pad*2;
+  const availH = canvas.height - pad*2;
+  const scaleX = availW / state.wardrobeW;
+  const scaleY = availH / state.wardrobeH;
+  const scale = Math.min(scaleX, scaleY) * 0.95 * state.view.zoom;
+  const w = state.wardrobeW * scale;
+  const h = state.wardrobeH * scale;
+  const originX = (canvas.width - w)/2;
+  const originY = (canvas.height - h)/2;
+
+  let found = null;
+  for(const comp of state.components.slice().reverse()){
+    const xPx = originX + (comp.x/ state.wardrobeW) * w;
+    const yPx = originY + (comp.y/ state.wardrobeH) * h;
+    const wPx = (comp.w / state.wardrobeW) * w;
+    const hPx = (comp.h / state.wardrobeH) * h;
+    if(cx >= xPx && cx <= xPx + wPx && cy >= yPx && cy <= yPx + hPx){
+      found = comp; break;
+    }
+  }
+  if(found){ selectComponent(found.id); } else { selectComponent(null); }
+});
+
+// sync UI from loaded state
+function syncUIFromState(){
+  gridToggle.checked = state.grid.show;
+  gridOpacity.value = Math.round(state.grid.opacity * 100);
+  gridPreset.value = state.grid.preset;
+  snapMode.value = state.grid.snap;
+  wcW.value = state.wardrobeW;
+  wcH.value = state.wardrobeH;
+  wcD.value = state.wardrobeD;
+  fullHeightSide.checked = true;
+  backThickness.value = state.backThickness;
+  materialType.value = state.material.type;
+  materialColor.value = state.material.color;
+  shutterType.value = state.shutterType;
+  shutterCount.value = state.shutterCount;
+  handleSide.value = state.handleSide;
+  innerDimCheck.checked = state.innerDims;
+  thickEl.value = state.thickness;
+  unitsEl.value = state.units;
+  shutterToggle.checked = state.shuttersOn;
+  wardrobeWEl.value = state.wardrobeW;
+  wardrobeHEl.value = state.wardrobeH;
+  selIdSpan.textContent = state.selectedId || 'none';
+}
+
+syncUIFromState();
+// SCRIPT.JS END

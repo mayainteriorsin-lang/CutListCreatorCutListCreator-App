@@ -1,0 +1,342 @@
+/* client/client/src/pages/home.tsx
+   Full example wiring DesignCenter + form + snap-to-grid + resize + export PNG + save/load + optimizer call
+   ---------------------------
+   NOTE: If your optimizer function uses a different name or path, change the import at the top.
+*/
+
+import React, { useEffect, useState, useCallback, useRef } from "react";
+import DesignCenter, { type Cabinet } from "client/src/components/ui/DesignCenter";
+// If your optimizer export is different, adjust the import below.
+// Example expected export: export function optimizeNesting(cabinets: Cabinet[]): OptimResult
+import { optimizeNesting } from "client/src/lib/cutlist-optimizer"; // <- adjust if needed
+
+// --- small helpers ---
+function createId() {
+  return `c${Date.now()}`;
+}
+function snapToGrid(valueMm: number, gridMm = 10) {
+  return Math.round(valueMm / gridMm) * gridMm;
+}
+
+// --- page component ---
+export default function HomePage() {
+  // Cabinets state
+  const [cabinets, setCabinets] = useState<Cabinet[]>(() => {
+    try {
+      const raw = localStorage.getItem("my:cabinets");
+      if (!raw) return [];
+      return JSON.parse(raw) as Cabinet[];
+    } catch {
+      return [];
+    }
+  });
+
+  const [selectedCabinetId, setSelectedCabinetId] = useState<string | null>(null);
+
+  // Simple form inputs for adding / editing
+  const [formWidth, setFormWidth] = useState<number>(1200);
+  const [formHeight, setFormHeight] = useState<number>(600);
+
+  // Keep a simple project name for save/load
+  const [projectName, setProjectName] = useState<string>("my-project");
+
+  // A ref to allow canvas export: design center should render an SVG/DOM with id we can find
+  const previewRef = useRef<HTMLDivElement | null>(null);
+
+  // Persist cabinets to localStorage whenever they change
+  useEffect(() => {
+    try {
+      localStorage.setItem("my:cabinets", JSON.stringify(cabinets));
+    } catch {}
+  }, [cabinets]);
+
+  // Helper: add a new cabinet (from form)
+  function addCabinetFromForm() {
+    const newCab: Cabinet = {
+      id: createId(),
+      widthMm: snapToGrid(formWidth),
+      heightMm: snapToGrid(formHeight),
+      xMm: 0,
+      yMm: 0,
+      shelves: [],
+      shutter: true,
+    };
+    setCabinets(prev => [...prev, newCab]);
+    setSelectedCabinetId(newCab.id);
+  }
+
+  // Add a sample cabinet quickly
+  function addSampleCabinet() {
+    const newCab: Cabinet = {
+      id: createId(),
+      widthMm: 800,
+      heightMm: 720,
+      xMm: 0,
+      yMm: 0,
+      shelves: [200],
+      shutter: true,
+    };
+    setCabinets(prev => [...prev, newCab]);
+    setSelectedCabinetId(newCab.id);
+  }
+
+  // Called by DesignCenter when it wants to update a cabinet (e.g., dragging/resizing)
+  const handleUpdateCabinet = useCallback((updated: Cabinet) => {
+    // Snap to grid for position and size
+    const snapped: Cabinet = {
+      ...updated,
+      xMm: snapToGrid(updated.xMm ?? 0, 10),
+      yMm: snapToGrid(updated.yMm ?? 0, 10),
+      widthMm: snapToGrid(updated.widthMm ?? 0, 5),
+      heightMm: snapToGrid(updated.heightMm ?? 0, 5),
+    };
+
+    setCabinets(prev =>
+      prev.some(c => c.id === snapped.id)
+        ? prev.map(c => (c.id === snapped.id ? { ...c, ...snapped } : c))
+        : [...prev, snapped]
+    );
+  }, []);
+
+  // Called when user selects a cabinet on the canvas
+  function handleSelect(id: string | null) {
+    setSelectedCabinetId(id);
+    // Optionally bring up the selected cabinet's numbers in the form:
+    const sel = cabinets.find(c => c.id === id);
+    if (sel) {
+      setFormWidth(sel.widthMm);
+      setFormHeight(sel.heightMm);
+    }
+  }
+
+  // UI control to change the selected cabinet's size (simple resize handles substitute)
+  function resizeSelected(deltaW = 0, deltaH = 0) {
+    if (!selectedCabinetId) return;
+    setCabinets(prev =>
+      prev.map(c =>
+        c.id === selectedCabinetId
+          ? {
+              ...c,
+              widthMm: Math.max(10, snapToGrid(c.widthMm + deltaW, 5)),
+              heightMm: Math.max(10, snapToGrid(c.heightMm + deltaH, 5)),
+            }
+          : c
+      )
+    );
+  }
+
+  // Export the design canvas (SVG or DOM) to PNG file
+  async function exportCanvasToPNG() {
+    try {
+      // Try to find an SVG inside the DesignCenter. The DesignCenter might render an SVG with a class/id.
+      // We attempt a few selectors; adjust if your DesignCenter uses a different container.
+      const root = document.querySelector("#design-center-root") || document.querySelector(".design-center-canvas") || previewRef.current;
+      if (!root) {
+        alert("Can't find the canvas DOM element. Make sure DesignCenter renders an SVG or has id/class we can select.");
+        return;
+      }
+
+      // If the canvas renders an <svg>, serialize that to image and draw on a canvas
+      const svg = root.querySelector("svg") as SVGElement | null;
+      if (svg) {
+        const serializer = new XMLSerializer();
+        const svgString = serializer.serializeToString(svg);
+        const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+        const url = URL.createObjectURL(svgBlob);
+        const img = new Image();
+        // if your svg contains external fonts/images CORS can block it
+        img.onload = () => {
+          try {
+            const canvas = document.createElement("canvas");
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext("2d");
+            if (!ctx) throw new Error("no-canvas-ctx");
+            ctx.fillStyle = "#fff";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0);
+            canvas.toBlob(blob => {
+              if (!blob) {
+                alert("Failed to create PNG blob.");
+                return;
+              }
+              const link = document.createElement("a");
+              link.download = `${projectName || "design"}.png`;
+              link.href = URL.createObjectURL(blob);
+              link.click();
+              URL.revokeObjectURL(link.href);
+            }, "image/png");
+          } finally {
+            URL.revokeObjectURL(url);
+          }
+        };
+        img.onerror = () => {
+          alert("Failed to rasterize SVG. Try in a normal browser environment.");
+          URL.revokeObjectURL(url);
+        };
+        img.src = url;
+        return;
+      }
+
+      // Fallback: render root element to canvas via HTML to image technique (this is more complex and may fail without html2canvas)
+      alert("No SVG found. If you want a pixel export fallback, install or wire html2canvas or ensure DesignCenter renders an SVG element.");
+    } catch (err) {
+      console.error(err);
+      alert("Export failed: " + String(err));
+    }
+  }
+
+  // Save a named project to localStorage
+  function saveProject(name: string) {
+    try {
+      const key = `project:${name}`;
+      localStorage.setItem(key, JSON.stringify({ cabinets }));
+      alert("Saved project '" + name + "'");
+    } catch (err) {
+      alert("Save failed: " + String(err));
+    }
+  }
+
+  // Load a named project from localStorage
+  function loadProject(name: string) {
+    try {
+      const key = `project:${name}`;
+      const raw = localStorage.getItem(key);
+      if (!raw) {
+        alert("No project saved with name: " + name);
+        return;
+      }
+      const parsed = JSON.parse(raw);
+      if (parsed?.cabinets) {
+        setCabinets(parsed.cabinets);
+        alert("Loaded project '" + name + "'");
+      } else {
+        alert("Invalid project data.");
+      }
+    } catch (err) {
+      alert("Load failed: " + String(err));
+    }
+  }
+
+  // Run optimizer (best-effort)
+  function runOptimizer() {
+    try {
+      if (!optimizeNesting) {
+        alert("Optimizer not found. Check import.");
+        return;
+      }
+      // If optimizeNesting expects different inputs, adapt here.
+      const result = optimizeNesting(cabinets);
+      // For demo: show JSON
+      console.log("Optimizer result:", result);
+      alert("Optimizer run — check console for results.");
+    } catch (err) {
+      console.error(err);
+      alert("Optimizer failed: " + String(err));
+    }
+  }
+
+  // Remove selected cabinet
+  function removeSelectedCabinet() {
+    if (!selectedCabinetId) return;
+    if (!confirm("Remove selected cabinet?")) return;
+    setCabinets(prev => prev.filter(c => c.id !== selectedCabinetId));
+    setSelectedCabinetId(null);
+  }
+
+  return (
+    <div style={{ display: "flex", gap: 20, padding: 16 }}>
+      {/* Left column: controls and form */}
+      <div style={{ width: 360 }}>
+        <h2>Design Controls (simple)</h2>
+
+        <div style={{ marginBottom: 12 }}>
+          <label>Width (mm)</label>
+          <input
+            type="number"
+            value={formWidth}
+            onChange={e => setFormWidth(Number(e.target.value))}
+            style={{ width: "100%" }}
+          />
+        </div>
+
+        <div style={{ marginBottom: 12 }}>
+          <label>Height (mm)</label>
+          <input
+            type="number"
+            value={formHeight}
+            onChange={e => setFormHeight(Number(e.target.value))}
+            style={{ width: "100%" }}
+          />
+        </div>
+
+        <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+          <button onClick={addCabinetFromForm}>Add Cabinet</button>
+          <button onClick={addSampleCabinet}>Add Sample</button>
+        </div>
+
+        <div style={{ marginBottom: 12 }}>
+          <strong>Selected:</strong> {selectedCabinetId ?? "none"}
+          <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+            <button onClick={() => resizeSelected(-50, 0)}>-W 50mm</button>
+            <button onClick={() => resizeSelected(50, 0)}>+W 50mm</button>
+            <button onClick={() => resizeSelected(0, -50)}>-H 50mm</button>
+            <button onClick={() => resizeSelected(0, 50)}>+H 50mm</button>
+            <button onClick={removeSelectedCabinet} style={{ marginLeft: "auto", color: "darkred" }}>
+              Remove
+            </button>
+          </div>
+        </div>
+
+        <hr />
+
+        <div style={{ marginBottom: 12 }}>
+          <label>Project name</label>
+          <input value={projectName} onChange={e => setProjectName(e.target.value)} style={{ width: "100%" }} />
+          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+            <button onClick={() => saveProject(projectName)}>Save Project</button>
+            <button onClick={() => loadProject(projectName)}>Load Project</button>
+            <button onClick={() => { localStorage.removeItem(`project:${projectName}`); alert("Deleted project (if existed)."); }}>
+              Delete Project
+            </button>
+          </div>
+        </div>
+
+        <hr />
+
+        <div style={{ marginBottom: 12 }}>
+          <button onClick={exportCanvasToPNG}>Export Canvas PNG</button>
+          <button onClick={runOptimizer} style={{ marginLeft: 8 }}>
+            Run Optimizer
+          </button>
+        </div>
+
+        <div style={{ marginTop: 12 }}>
+          <h4>Quick help (kid style)</h4>
+          <ul>
+            <li>Click a cabinet in the canvas to select it.</li>
+            <li>Use the resize buttons to change size in 50 mm steps.</li>
+            <li>Positions and sizes snap to a 10 mm grid automatically.</li>
+            <li>Export saves an image (only if DesignCenter renders an &lt;svg&gt;).</li>
+          </ul>
+        </div>
+      </div>
+
+      {/* Right column: design center preview */}
+      <div style={{ flex: 1 }} ref={previewRef} id="design-center-root">
+        <h2>Design Center (Canvas)</h2>
+
+        {/* Render the DesignCenter component and wire props */}
+        <DesignCenter
+          cabinets={cabinets}
+          onSelect={(id) => handleSelect(id ?? null)}
+          onUpdate={handleUpdateCabinet}
+        />
+
+        <div style={{ marginTop: 12 }}>
+          <strong>Total Cabinets:</strong> {cabinets.length}
+        </div>
+      </div>
+    </div>
+  );
+}

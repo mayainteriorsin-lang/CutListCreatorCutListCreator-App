@@ -1,0 +1,79 @@
+Nice — the canvas looks good (that sample cabinet means the component is rendering). Here’s exactly what to do next and the copy-paste code you need to wire the DesignCenter into your app state (no more guessing).
+
+1) Wire DesignCenter to your home.tsx (paste this)
+
+Add these imports near the top of client/client/src/pages/home.tsx:
+
+import React, { useState } from "react";
+import DesignCenter, { type Cabinet } from "client/src/components/ui/DesignCenter";
+
+
+Then add this state + handlers inside your component (place near other hooks, e.g. after const [user, ...]):
+
+// ---- Design Center state + handlers ----
+const [cabinets, setCabinets] = useState<Cabinet[]>([
+  // example initial cabinet — you can replace or populate from your form
+  { id: "c1", widthMm: 1200, heightMm: 600, xMm: 0, yMm: 0, shelves: [200, 400], shutter: false },
+]);
+
+const [selectedCabinetId, setSelectedCabinetId] = useState<string | null>(null);
+
+function handleUpdateCabinet(updated: Cabinet) {
+  // Persist the updated cabinet into state (called by DesignCenter when dragging)
+  setCabinets(prev =>
+    prev.some(c => c.id === updated.id)
+      ? prev.map(c => (c.id === updated.id ? { ...c, ...updated } : c))
+      : [...prev, updated] // if missing, add it
+  );
+}
+
+
+Finally render the DesignCenter where the canvas should appear (replace the sample or placeholder):
+
+<DesignCenter
+  cabinets={cabinets}
+  onSelect={(id) => setSelectedCabinetId(id)}
+  onUpdate={handleUpdateCabinet}
+/>
+
+
+That’s all you need to get two-way updates: the canvas shows cabinets, selecting/dragging emits onSelect/onUpdate and your page state updates.
+
+2) Quick UX improvement: Add “Add Cabinet” button (optional)
+
+Paste this where your toolbar or controls are to create new cabinets from the UI (useful for testing):
+
+function createId() {
+  return `c${Date.now()}`;
+}
+
+function addSampleCabinet() {
+  const newCab: Cabinet = {
+    id: createId(),
+    widthMm: 800,
+    heightMm: 720,
+    xMm: 0,
+    yMm: 0,
+    shelves: [200],
+    shutter: true,
+  };
+  setCabinets(prev => [...prev, newCab]);
+}
+
+// Render a button somewhere:
+<button onClick={addSampleCabinet}>Add Sample Cabinet</button>
+
+3) Save/load (optional quick step)
+
+To persist between reloads, you can save cabinets to localStorage:
+
+// load once
+useEffect(() => {
+  const raw = localStorage.getItem("my:cabinets");
+  if (raw) setCabinets(JSON.parse(raw));
+}, []);
+
+// save on change
+useEffect(() => {
+  localStorage.setItem("my:cabinets", JSON.stringify(cabinets));
+}, [cabinets]);

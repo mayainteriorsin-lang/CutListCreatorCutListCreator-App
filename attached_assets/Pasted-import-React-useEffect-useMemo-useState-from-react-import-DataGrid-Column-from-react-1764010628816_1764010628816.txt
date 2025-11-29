@@ -1,0 +1,170 @@
+import React, { useEffect, useMemo, useState } from "react";
+import DataGrid, { Column } from "react-data-grid";
+import Papa from "papaparse";
+import { saveAs } from "file-saver";
+
+type Row = {
+  id: string; // unique id
+  Height: string;
+  Width: string;
+  Qty: string;
+  LaminateCode: string;
+  PanelType: string;
+  RoomName: string;
+};
+
+const LOCAL_KEY = "cutlist_spreadsheet_v1";
+
+const defaultRows = (): Row[] => [
+  { id: "r1", Height: "450", Width: "564", Qty: "1", LaminateCode: "456SF Terra Wood", PanelType: "TOP", RoomName: "Kitchen" },
+  { id: "r2", Height: "450", Width: "564", Qty: "1", LaminateCode: "456SF Terra Wood", PanelType: "BOTTOM", RoomName: "Kitchen" },
+  { id: "r3", Height: "800", Width: "450", Qty: "1", LaminateCode: "456SF Terra Wood", PanelType: "RIGHT", RoomName: "Kitchen" },
+];
+
+export default function Spreadsheet() {
+  const [rows, setRows] = useState<Row[]>(() => {
+    try {
+      const raw = localStorage.getItem(LOCAL_KEY);
+      if (raw) return JSON.parse(raw) as Row[];
+    } catch (e) { /* ignore */ }
+    return defaultRows();
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(LOCAL_KEY, JSON.stringify(rows));
+    } catch (e) {}
+  }, [rows]);
+
+  const columns: Column<Row>[] = useMemo(() => ([
+    { key: "Height", name: "Height (mm)", editable: true, resizable: true, width: 110 },
+    { key: "Width", name: "Width (mm)", editable: true, resizable: true, width: 110 },
+    { key: "Qty", name: "Qty", editable: true, resizable: true, width: 70 },
+    { key: "LaminateCode", name: "Laminate Code", editable: true, resizable: true },
+    { key: "PanelType", name: "Panel Type", editable: true, resizable: true },
+    { key: "RoomName", name: "Room Name", editable: true, resizable: true },
+  ]), []);
+
+  const onRowsChange = (newRows: Row[], changedRows: Row[] | undefined) => {
+    setRows(newRows);
+  };
+
+  // Add new blank row
+  const addRow = () => {
+    const id = `r${Date.now()}`;
+    setRows(prev => [...prev, { id, Height: "", Width: "", Qty: "1", LaminateCode: "", PanelType: "", RoomName: "" }]);
+  };
+
+  // Delete selected rows by index list
+  const deleteRowAt = (index: number) => {
+    setRows(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Export CSV
+  const exportCSV = () => {
+    const data = rows.map(r => ({
+      Height: r.Height, Width: r.Width, Qty: r.Qty,
+      "Laminate Code": r.LaminateCode, "Panel Type": r.PanelType, "Room Name": r.RoomName
+    }));
+    const csv = Papa.unparse(data);
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    saveAs(blob, "cutlist_export.csv");
+  };
+
+  // Import CSV (file input)
+  const handleFile = (file: File | null) => {
+    if (!file) return;
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (res) => {
+        const parsed = res.data as any[];
+        const mapped: Row[] = parsed.map((r, i) => ({
+          id: `imp-${Date.now()}-${i}`,
+          Height: r["Height"] ?? r["height"] ?? r["H"] ?? r["HIGHT"] ?? "",
+          Width: r["Width"] ?? r["width"] ?? r["W"] ?? "",
+          Qty: r["Qty"] ?? r["Quantity"] ?? r["QTY"] ?? "1",
+          LaminateCode: r["Laminate Code"] ?? r["LaminateCode"] ?? r["Laminate"] ?? "",
+          PanelType: r["Panel Type"] ?? r["PanelType"] ?? r["Type"] ?? "",
+          RoomName: r["Room Name"] ?? r["RoomName"] ?? r["Room"] ?? ""
+        }));
+        setRows(mapped);
+      }
+    });
+  };
+
+  // Paste CSV from clipboard (useful on mobile)
+  const pasteCSV = async () => {
+    try {
+      // Note: clipboard readText requires secure context & permission.
+      // If not available the catch will trigger.
+      // On Replit preview may need explicit paste by user into input.
+      // We support browser paste fallback below via a textarea.
+      const text = await navigator.clipboard.readText();
+      if (!text) return;
+      const parsed = Papa.parse(text, { header: true, skipEmptyLines: true });
+      const data = parsed.data as any[];
+      const mapped: Row[] = data.map((r, i) => ({
+        id: `paste-${Date.now()}-${i}`,
+        Height: r["Height"] ?? r["height"] ?? r["H"] ?? "",
+        Width: r["Width"] ?? r["width"] ?? r["W"] ?? "",
+        Qty: r["Qty"] ?? r["Quantity"] ?? "1",
+        LaminateCode: r["Laminate Code"] ?? r["LaminateCode"] ?? "",
+        PanelType: r["Panel Type"] ?? r["PanelType"] ?? "",
+        RoomName: r["Room Name"] ?? r["RoomName"] ?? ""
+      }));
+      setRows(mapped);
+    } catch (err) {
+      alert("Clipboard paste not available — try CSV file import instead.");
+    }
+  };
+
+  // Build grid rows for DataGrid
+  const gridRows = rows.map(r => ({ ...r }));
+
+  return (
+    <div style={{ padding: 12 }}>
+      <div style={{ marginBottom: 8, display: "flex", gap: 8, alignItems: "center" }}>
+        <button onClick={addRow}>➕ Add row</button>
+        <button onClick={() => { setRows(defaultRows()); }}>Reset sample</button>
+        <button onClick={exportCSV}>⬇ Export CSV</button>
+        <label style={{ display: "inline-block", padding: "6px 10px", border: "1px solid #ddd", cursor: "pointer" }}>
+          ⬆ Import CSV
+          <input
+            type="file"
+            accept=".csv,text/csv"
+            style={{ display: "none" }}
+            onChange={(e) => handleFile(e.target.files ? e.target.files[0] : null)}
+          />
+        </label>
+        <button onClick={pasteCSV}>📋 Paste CSV (from clipboard)</button>
+        <div style={{ marginLeft: "auto", color: "#666" }}>
+          <small>Template image: <code>/mnt/data/00B3D37E-A528-4830-B330-7D015C157424.jpeg</code></small>
+        </div>
+      </div>
+
+      <div style={{ height: 420 }}>
+        <DataGrid
+          columns={columns}
+          rows={gridRows}
+          onRowsChange={(newRows) => onRowsChange(newRows as Row[])}
+          rowKeyGetter={(row) => row.id}
+        />
+      </div>
+
+      <div style={{ marginTop: 10, display: "flex", gap: 8 }}>
+        <button onClick={() => {
+          // quick convert rows to JSON and print in console for debugging
+          console.log("Spreadsheet rows:", rows);
+          alert("Saved to localStorage (auto). Check console for JSON.");
+        }}>
+          Save (force)
+        </button>
+      </div>
+
+      <div style={{ marginTop: 12, color: "#444" }}>
+        <small>Columns required for app import: <b>Height, Width, Qty, Laminate Code, Panel Type, Room Name</b></small>
+      </div>
+    </div>
+  );
+}
