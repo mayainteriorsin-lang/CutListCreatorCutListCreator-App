@@ -7662,50 +7662,34 @@ export default function Home() {
                               </div>
                             )}
                           
-                            {(() => {
-                              console.group('🔍 WOOD GRAIN RENDER TEST - Panel Rendering');
-                              return sheetData.placed.map((panel: any, idx: number) => {
-                                const { displayW, displayH } = getDisplayDims(panel);
-                                const panelUniqueId = `${sheetId}-${panel.id}`;
-                                
-                                if (deletedPreviewPanels.has(panelUniqueId)) {
-                                  return null;
-                                }
-                                
-                                const x = panel.x * scale;
-                                const y = panel.y * scale;
-                                const w = panel.w * scale;
-                                const h = panel.h * scale;
-                                
-                                const panelName = panel.id.toUpperCase().includes('CENTER POST') ? 'CENTER POST' :
-                                                 panel.id.toUpperCase().includes('SHELF') ? 'SHELF' :
-                                                 panel.id.toUpperCase().includes('LEFT') ? 'LEFT' :
-                                                 panel.id.toUpperCase().includes('RIGHT') ? 'RIGHT' :
-                                                 panel.id.toUpperCase().includes('TOP') ? 'TOP' :
-                                                 panel.id.toUpperCase().includes('BOTTOM') ? 'BOTTOM' :
-                                                 panel.id.toUpperCase().includes('BACK') ? 'BACK' : 
-                                                 panel.id;
-                                
-                                const isGaddi = panel.gaddi === true;
-                                
-                                // For wood grain panels, show original nominal dimensions; otherwise show display dims
-                                const showW = (panel.grainDirection && panel.nomW) ? panel.nomW : displayW;
-                                const showH = (panel.grainDirection && panel.nomH) ? panel.nomH : displayH;
-                                
-                                console.log(`  Panel[${idx}] ${panelName}:`);
-                                console.log(`    - grainDirection: ${panel.grainDirection} (RESTORED: ${panel.grainDirection === true ? '✅' : '❌'})`);
-                                console.log(`    - rotate: ${panel.rotate} (SHOULD BE FALSE for grain=true)`);
-                                console.log(`    - nomW/nomH: ${panel.nomW}×${panel.nomH} (ORIGINAL)`);
-                                console.log(`    - displayW/displayH: ${displayW}×${displayH} (FROM OPTIMIZER)`);
-                                console.log(`    - showW/showH: ${showW}×${showH} (DISPLAYED TO USER) ${panel.grainDirection ? '← USING NOMINAL' : '← USING DISPLAY'}`);
-                                if (panelName === 'TOP' || panelName === 'BOTTOM') {
-                                  console.log(`    - TOP/BOTTOM CHECK: Showing nomW=${showW} on Y-axis, nomH=${showH} on X-axis ✅`);
-                                } else if (panelName === 'LEFT' || panelName === 'RIGHT') {
-                                  console.log(`    - LEFT/RIGHT CHECK: Showing nomW=${showW} on X-axis (depth), nomH=${showH} on Y-axis (height) ✅`);
-                                }
-                                console.log(`    - Verdict: ${panel.grainDirection && panel.rotate === false ? '✅ CORRECT' : '❌ ERROR'}`);
-                                
-                                return (
+                            {sheetData.placed.map((panel: any, idx: number) => {
+                              const { displayW, displayH } = getDisplayDims(panel);
+                              const panelUniqueId = `${sheetId}-${panel.id}`;
+                              
+                              if (deletedPreviewPanels.has(panelUniqueId)) {
+                                return null;
+                              }
+                              
+                              const x = panel.x * scale;
+                              const y = panel.y * scale;
+                              const w = panel.w * scale;
+                              const h = panel.h * scale;
+                              
+                              const panelName = panel.id.toUpperCase().includes('CENTER POST') ? 'CENTER POST' :
+                                               panel.id.toUpperCase().includes('SHELF') ? 'SHELF' :
+                                               panel.id.toUpperCase().includes('LEFT') ? 'LEFT' :
+                                               panel.id.toUpperCase().includes('RIGHT') ? 'RIGHT' :
+                                               panel.id.toUpperCase().includes('TOP') ? 'TOP' :
+                                               panel.id.toUpperCase().includes('BOTTOM') ? 'BOTTOM' :
+                                               panel.id.toUpperCase().includes('BACK') ? 'BACK' : 
+                                               panel.id;
+                              
+                              const isGaddi = panel.gaddi === true;
+                              
+                              const showW = (panel.grainDirection && panel.nomW) ? panel.nomW : displayW;
+                              const showH = (panel.grainDirection && panel.nomH) ? panel.nomH : displayH;
+                              
+                              return (
                                   <div
                                     key={idx}
                                     className="absolute border-2 border-black bg-white flex flex-col items-start justify-start p-1"
