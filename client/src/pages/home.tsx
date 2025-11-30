@@ -1985,10 +1985,9 @@ export default function Home() {
 
     // Add shelves if enabled
     if (cabinet.shelvesEnabled && cabinet.shelvesQuantity > 0) {
-      const effectiveWidth = cabinet.width - (cabinet.widthReduction || 36);
       const shelfWidth = cabinet.centerPostEnabled 
-        ? effectiveWidth - (cabinet.centerPostQuantity * 18)
-        : effectiveWidth;
+        ? cabinet.width - (cabinet.centerPostQuantity * 18)
+        : cabinet.width;
       
       for (let i = 0; i < cabinet.shelvesQuantity; i++) {
         const shelvesLaminateCode = composeLaminateCode(
@@ -5142,9 +5141,9 @@ export default function Home() {
                       </div>
                     </div>
                     
-                    {/* Panel Width Info */}
+                    {/* Panel Width Info - DISPLAY: width - 36 */}
                     <div className="text-xs text-slate-500 mb-4">
-                      Panel width: {watchedValues.width ?? 0}mm
+                      Panel width: {((watchedValues.width ?? 0) - 36)}mm
                     </div>
 
                     <div className="space-y-6 mt-[50px]">
@@ -5298,11 +5297,6 @@ export default function Home() {
                                   <Input
                                     type="number"
                                     value={watchedValues.width || 0}
-                                      if (width && watchedValues.centerPostEnabled) {
-                                        return width - (watchedValues.centerPostQuantity || 1) * 18;
-                                      }
-                                      return width || '';
-                                    })()}
                                     placeholder="Width"
                                     className="text-sm pr-8"
                                     onChange={(e) => form.setValue('width', parseInt(e.target.value) || 0)}
