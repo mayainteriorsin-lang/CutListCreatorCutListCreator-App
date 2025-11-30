@@ -5297,8 +5297,7 @@ export default function Home() {
                                 <div className="relative">
                                   <Input
                                     type="number"
-                                    value={(() => {
-                                      const width = (watchedValues.width || 0) - (watchedValues.widthReduction || 36);
+                                    value={watchedValues.width || 0}
                                       if (width && watchedValues.centerPostEnabled) {
                                         return width - (watchedValues.centerPostQuantity || 1) * 18;
                                       }
