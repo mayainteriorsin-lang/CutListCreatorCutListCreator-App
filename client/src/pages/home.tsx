@@ -2085,7 +2085,7 @@ export default function Home() {
       console.log('Group panels:', group.panels.length);
       console.groupEnd();
       
-      const rawParts = preparePartsForOptimizer(group.panels);
+      const rawParts = preparePartsForOptimizer(group.panels, woodGrainsPreferences);
       const parts = rawParts
         .filter((p: any) => Boolean(p))
         .map((p: any, i: number) => ({ ...p, id: String(p.id ?? p.name ?? `part-${i}`) }));
