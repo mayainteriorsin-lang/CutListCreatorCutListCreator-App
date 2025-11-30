@@ -89,11 +89,11 @@ export function prepareStandardParts(panels: Panel[], woodGrainsPreferences: Rec
     // Example: TOP_1_panel-123, BOTTOM_2_panel-456, LEFT_1_panel-789
     const uniqueId = `${panelType}_${typeCounters[panelType]}_${p.id ?? `idx${idx}`}`;
     
-    // 🆕 NEW PANEL-TYPE-SPECIFIC AXIS-LOCK RULE
-    // When wood grains enabled: ALLOW rotation, but FOLLOW axis-specific rule
-    // LEFT/RIGHT: height(Y) × depth(X) locked → axis constraint prevents rotation
-    // TOP/BOTTOM: width(Y) × depth(X) locked → axis constraint prevents rotation
-    // BACK: height(Y) × depth(X) locked → axis constraint prevents rotation
+    // 🆕 AXIS-LOCK RULE (nomW=X-axis, nomH=Y-axis)
+    // When wood grains enabled: axis is locked, preventing rotation
+    // LEFT/RIGHT: nomW=depth(X), nomH=height(Y) → depth(X)×height(Y) locked
+    // TOP/BOTTOM: nomW=depth(X), nomH=width(Y) → depth(X)×width(Y) locked
+    // BACK: nomW=width(X), nomH=height(Y) → width(X)×height(Y) locked
     
     let rotateAllowed = true;  // Default: allow rotation
     let axisLockReason = null;
@@ -104,11 +104,11 @@ export function prepareStandardParts(panels: Panel[], woodGrainsPreferences: Rec
       rotateAllowed = false;
       
       if (panelType === 'LEFT' || panelType === 'RIGHT') {
-        axisLockReason = 'height(Y)×depth(X)';  // Height-Y, Depth-X locked
+        axisLockReason = 'depth(X)×height(Y)';  // Depth on X, Height on Y locked
       } else if (panelType === 'TOP' || panelType === 'BOTTOM') {
-        axisLockReason = 'width(Y)×depth(X)';   // Width-Y, Depth-X locked
+        axisLockReason = 'depth(X)×width(Y)';   // Depth on X, Width on Y locked
       } else if (panelType === 'BACK') {
-        axisLockReason = 'height(Y)×depth(X)';  // Height-Y, Depth-X locked
+        axisLockReason = 'width(X)×height(Y)';  // Width on X, Height on Y locked
       }
     }
     
@@ -136,13 +136,13 @@ export function prepareStandardParts(panels: Panel[], woodGrainsPreferences: Rec
   sortParts(parts);
   
   // Debug logging
-  console.groupCollapsed('📦 PANEL UNIQUE IDs — AXIS-SPECIFIC RULES');
+  console.groupCollapsed('📦 PANEL UNIQUE IDs — AXIS-LOCK RULES');
   console.log(`Total Panels: ${parts.length}`);
   console.log(`Type Counters:`, typeCounters);
-  console.log('🆕 NEW RULE: When wood grains enabled, FOLLOW AXIS CONSTRAINT:');
-  console.log('   • LEFT/RIGHT: height(Y) × depth(X) locked → effectively 🔒 NO ROTATION');
-  console.log('   • TOP/BOTTOM: width(Y) × depth(X) locked → effectively 🔒 NO ROTATION');
-  console.log('   • BACK: height(Y) × depth(X) locked → effectively 🔒 NO ROTATION');
+  console.log('🔐 AXIS-LOCK CONSTRAINTS (nomW=X-axis, nomH=Y-axis):');
+  console.log('   • LEFT/RIGHT: depth(X) × height(Y) locked → 🔒 NO ROTATION');
+  console.log('   • TOP/BOTTOM: depth(X) × width(Y) locked → 🔒 NO ROTATION');
+  console.log('   • BACK: width(X) × height(Y) locked → 🔒 NO ROTATION');
   console.table(
     parts.map((pr: any) => ({
       uniqueId: pr.id,

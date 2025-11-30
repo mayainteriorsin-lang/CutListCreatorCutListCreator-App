@@ -80,17 +80,17 @@ function computeDisplayDims(panel: any) {
   let displayHeight = 0;  // Y
 
   if (type.includes('TOP') || type.includes('BOTTOM')) {
-    // TOP/BOTTOM: height -> X, width -> Y  (show X×Y format)
-    displayWidth  = Number(panel.height ?? panel.nomH ?? panel.h ?? 0);   // X-axis (height)
-    displayHeight = Number(panel.width ?? panel.nomW ?? panel.w ?? 0);   // Y-axis (width)
+    // TOP/BOTTOM: nomW=depth(X), nomH=width(Y) → depth×width display
+    displayWidth  = Number(panel.nomW ?? panel.w ?? panel.width ?? 0);    // X-axis (depth)
+    displayHeight = Number(panel.nomH ?? panel.h ?? panel.height ?? 0);   // Y-axis (width)
   } else if (type.includes('LEFT') || type.includes('RIGHT')) {
-    // LEFT/RIGHT: height -> X, width -> Y  (show X×Y format)
-    displayWidth  = Number(panel.height ?? panel.nomH ?? panel.h ?? 0);   // X-axis (height)
-    displayHeight = Number(panel.width ?? panel.nomW ?? panel.w ?? 0);   // Y-axis (width)
+    // LEFT/RIGHT: nomW=depth(X), nomH=height(Y) → depth×height display
+    displayWidth  = Number(panel.nomW ?? panel.w ?? panel.width ?? 0);    // X-axis (depth)
+    displayHeight = Number(panel.nomH ?? panel.h ?? panel.height ?? 0);   // Y-axis (height)
   } else {
-    // fallback: width -> X, height -> Y
-    displayWidth  = Number(panel.width ?? panel.w ?? 0);
-    displayHeight = Number(panel.height ?? panel.h ?? 0);
+    // BACK: nomW=width(X), nomH=height(Y) → width×height display
+    displayWidth  = Number(panel.nomW ?? panel.w ?? panel.width ?? 0);    // X-axis (width)
+    displayHeight = Number(panel.nomH ?? panel.h ?? panel.height ?? 0);   // Y-axis (height)
   }
 
   // Store computed dims back on panel so renderer & PDF can use them directly

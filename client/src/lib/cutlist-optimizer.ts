@@ -431,10 +431,10 @@ export function optimizeCutlist({
   
   // 📊 LOG ALL EXPANDED INSTANCES WITH AXIS-LOCK RULES
   console.groupCollapsed(`🆔 OPTIMIZER EXPANDED INSTANCES (Total: ${expanded.length}) — AXIS CONSTRAINTS`);
-  console.log('🆕 AXIS-LOCK RULES (When wood grains enabled):');
-  console.log('   • LEFT/RIGHT: height(Y) × depth(X) LOCKED → rotation prevented');
-  console.log('   • TOP/BOTTOM: width(Y) × depth(X) LOCKED → rotation prevented');
-  console.log('   • BACK: height(Y) × depth(X) LOCKED → rotation prevented');
+  console.log('🔐 AXIS-LOCK RULES (nomW=X-axis, nomH=Y-axis):');
+  console.log('   • LEFT/RIGHT: depth(X) × height(Y) LOCKED → rotation prevented');
+  console.log('   • TOP/BOTTOM: depth(X) × width(Y) LOCKED → rotation prevented');
+  console.log('   • BACK: width(X) × height(Y) LOCKED → rotation prevented');
   console.table(expandLog);
   console.groupEnd();
 
