@@ -77,26 +77,42 @@ export function prepareStandardParts(panels: Panel[], woodGrainsPreferences: Rec
   panels.forEach((panel, idx) => {
     const name = String(panel.name ?? panel.id ?? `panel-${idx}`);
     
-    // READ ACTUAL INPUT VALUES - NO HARDCODED DEFAULTS
-    const width = Number(panel.width ?? panel.nomW ?? panel.w ?? 0);
-    const depth = Number(panel.depth ?? 0);
-    const height = Number(panel.height ?? panel.nomH ?? panel.h ?? 0);
+    // Get panel type first
+    const panelType = getPanelType(name);
     
-    // Skip if all dimensions are 0 (invalid panel)
-    if (width === 0 && depth === 0 && height === 0) {
-      console.warn(`⚠️ Panel "${name}" has invalid dimensions (all 0), skipping`);
+    // READ VALUES based on panel type
+    // TOP/BOTTOM: nomW=cabinet.width, nomH=cabinet.depth
+    // LEFT/RIGHT: nomW=cabinet.depth, nomH=cabinet.height  
+    // BACK: nomW=cabinet.width, nomH=cabinet.height
+    const nomW = Number(panel.nomW ?? panel.width ?? 0);
+    const nomH = Number(panel.nomH ?? panel.height ?? 0);
+    
+    // Skip if invalid
+    if (nomW === 0 && nomH === 0) {
       return;
     }
-    
-    // Get panel type
-    const panelType = getPanelType(name);
     
     // Generate unique ID
     panelCounters[panelType] = (panelCounters[panelType] ?? 0) + 1;
     const uniqueId = `${panelType}_${panelCounters[panelType]}_${panel.id ?? idx}`;
     
-    // Map to X/Y axes
-    const { x, y } = mapAxes(panelType, width, depth, height);
+    // Map to X/Y axes based on panel type
+    let x = nomW;
+    let y = nomH;
+    
+    if (panelType === 'TOP' || panelType === 'BOTTOM') {
+      // TOP/BOTTOM: nomW=cabinet.width→Y, nomH=cabinet.depth→X
+      x = nomH;  // depth to X
+      y = nomW;  // width to Y
+    } else if (panelType === 'LEFT' || panelType === 'RIGHT') {
+      // LEFT/RIGHT: nomW=cabinet.depth→X, nomH=cabinet.height→Y
+      x = nomW;  // depth to X
+      y = nomH;  // height to Y
+    } else if (panelType === 'BACK') {
+      // BACK: nomW=cabinet.width→X, nomH=cabinet.height→Y
+      x = nomW;  // width to X
+      y = nomH;  // height to Y
+    }
     
     // Extract laminate code
     const laminateCode = String(panel.laminateCode ?? '').trim();
