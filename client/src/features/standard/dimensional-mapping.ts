@@ -76,9 +76,17 @@ export function prepareStandardParts(panels: Panel[], woodGrainsPreferences: Rec
   
   panels.forEach((panel, idx) => {
     const name = String(panel.name ?? panel.id ?? `panel-${idx}`);
-    const width = Number(panel.width ?? panel.nomW ?? panel.w ?? 564);
-    const depth = Number(panel.depth ?? 450);
-    const height = Number(panel.height ?? panel.nomH ?? panel.h ?? 800);
+    
+    // READ ACTUAL INPUT VALUES - NO HARDCODED DEFAULTS
+    const width = Number(panel.width ?? panel.nomW ?? panel.w ?? 0);
+    const depth = Number(panel.depth ?? 0);
+    const height = Number(panel.height ?? panel.nomH ?? panel.h ?? 0);
+    
+    // Skip if all dimensions are 0 (invalid panel)
+    if (width === 0 && depth === 0 && height === 0) {
+      console.warn(`⚠️ Panel "${name}" has invalid dimensions (all 0), skipping`);
+      return;
+    }
     
     // Get panel type
     const panelType = getPanelType(name);
