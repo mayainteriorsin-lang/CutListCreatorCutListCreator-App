@@ -136,24 +136,26 @@ export function prepareStandardParts(panels: Panel[], woodGrainsPreferences: Rec
   sortParts(parts);
   
   // Debug logging
-  console.groupCollapsed('📦 PANEL UNIQUE IDs — AXIS-SPECIFIC RULES');
+  console.groupCollapsed('✅ CHECKPOINT 1: dimensional-mapping - AXIS-SPECIFIC RULES');
   console.log(`Total Panels: ${parts.length}`);
   console.log(`Type Counters:`, typeCounters);
-  console.log('🆕 NEW RULE: When wood grains enabled, FOLLOW AXIS CONSTRAINT:');
-  console.log('   • LEFT/RIGHT: height(Y) × depth(X) locked → effectively 🔒 NO ROTATION');
-  console.log('   • TOP/BOTTOM: width(Y) × depth(X) locked → effectively 🔒 NO ROTATION');
-  console.log('   • BACK: height(Y) × depth(X) locked → effectively 🔒 NO ROTATION');
   console.table(
     parts.map((pr: any) => ({
       uniqueId: pr.id,
       type: pr.panelType || 'unknown',
       dimensions: `${pr.nomW}×${pr.nomH}mm`,
-      rotate: pr.rotate ? '✅ ALLOWED' : '📐 AXIS LOCKED',
+      rotate: pr.rotate === false ? '🔐 FALSE (LOCKED)' : pr.rotate === true ? '✅ TRUE (ALLOWED)' : '❌ UNDEFINED',
       laminate: pr.laminateCode,
       axisLock: pr.axisLockReason || 'none',
       woodGrain: pr.woodGrainsEnabled ? '🌾 YES' : '❌ NO',
     }))
   );
+  // Special debug for RIGHT/LEFT
+  parts.forEach((pr: any) => {
+    if (pr.panelType === 'RIGHT' || pr.panelType === 'LEFT') {
+      console.log(`📐 ${pr.panelType} panel check: rotate=${pr.rotate}, woodGrainsEnabled=${pr.woodGrainsEnabled}, axisLock=${pr.axisLockReason}`);
+    }
+  });
   console.groupEnd();
   
   return parts;

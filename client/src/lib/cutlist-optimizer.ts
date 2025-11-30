@@ -99,10 +99,10 @@ class MaxRectsBin {
       // 🔐 CHECK AXIS-LOCK CONSTRAINT - If axis is locked, rotation prevented
       const allowRotate = Boolean(piece.rotateAllowed);
       if (!allowRotate) {
-        // Axis is locked: rotation would break the constraint
-        const panelType = (piece as any).panelType || 'panel';
-        const axisLockReason = (piece as any).axisLockReason;
-        // Rotation prevention enforced by axis lock rule
+        // ✅ CHECKPOINT 4: Constraint check - axis locked
+        if ((piece as any).panelType === 'RIGHT' || (piece as any).panelType === 'LEFT') {
+          console.log(`✅ CHECKPOINT 4: AXIS LOCKED for ${piece.id}, skipping rotation attempts`);
+        }
         continue;  // ⛔ Skip rotation attempts - axis lock prevents rotation
       }
 
@@ -132,12 +132,17 @@ class MaxRectsBin {
       w: best.rect.w - this.kerf,
       h: best.rect.h - this.kerf,
       rotated: !!best.rot,
-      rotateAllowed: !!piece.rotate,  // 📐 Whether rotation was allowed by axis-lock
+      rotateAllowed: !!piece.rotate,
       gaddi: !!piece.gaddi,
       laminateCode: piece.laminateCode || '',
       nomW: (piece as any).nomW || piece.w,
       nomH: (piece as any).nomH || piece.h
     };
+    
+    // ✅ CHECKPOINT 5: Placement result
+    if ((piece as any).panelType === 'RIGHT' || (piece as any).panelType === 'LEFT') {
+      console.log(`✅ CHECKPOINT 5: ${placed.id} placed - rotated=${placed.rotated}, w=${placed.w}, h=${placed.h}, nomW=${placed.nomW}, nomH=${placed.nomH}`);
+    }
 
     this.splitAll(best.rect);
     this.placed.push(placed);
@@ -430,12 +435,14 @@ export function optimizeCutlist({
   });
   
   // 📊 LOG ALL EXPANDED INSTANCES WITH AXIS-LOCK RULES
-  console.groupCollapsed(`🆔 OPTIMIZER EXPANDED INSTANCES (Total: ${expanded.length}) — AXIS CONSTRAINTS`);
-  console.log('🆕 AXIS-LOCK RULES (When wood grains enabled):');
-  console.log('   • LEFT/RIGHT: height(Y) × depth(X) LOCKED → rotation prevented');
-  console.log('   • TOP/BOTTOM: width(Y) × depth(X) LOCKED → rotation prevented');
-  console.log('   • BACK: height(Y) × depth(X) LOCKED → rotation prevented');
+  console.groupCollapsed(`✅ CHECKPOINT 2: optimizer expanded - AXIS CONSTRAINTS (Total: ${expanded.length})`);
   console.table(expandLog);
+  // Special debug for RIGHT/LEFT
+  expanded.forEach((p: any) => {
+    if (p.panelType === 'RIGHT' || p.panelType === 'LEFT') {
+      console.log(`📐 Instance check: ${p.id}, rotate=${p.rotate}, rotateAllowed=${p.rotateAllowed}, axisLock=${p.axisLockReason}`);
+    }
+  });
   console.groupEnd();
 
   const base = expanded.slice().sort((a, b) => {
