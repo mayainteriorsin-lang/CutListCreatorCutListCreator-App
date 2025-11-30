@@ -2201,13 +2201,13 @@ export default function Home() {
       const targetSheet = targetBrandResult.result.panels[targetSheetIndex];
       const existingPanels = targetSheet.placed.map((p: any) => ({
         id: p.id, w: p.w, h: p.h, nomW: p.nomW ?? p.w, nomH: p.nomH ?? p.h,
-        qty: 1, rotate: p.grainDirection ? false : true, gaddi: p.gaddi === true,
+        qty: 1, rotate: p.rotateAllowed, gaddi: p.gaddi === true,
         grainDirection: p.grainDirection === true, laminateCode: p.laminateCode || ''
       }));
       
       const manualParts = Array(mp.quantity).fill(null).map(() => ({
         id: `${mp.name} (Manual)`, w: mp.width, h: mp.height, nomW: mp.width, nomH: mp.height,
-        qty: 1, rotate: mp.grainDirection ? false : true, gaddi: mp.gaddi === true,
+        qty: 1, rotate: !mp.grainDirection, gaddi: mp.gaddi === true,
         grainDirection: mp.grainDirection === true, laminateCode: mp.laminateCode || ''
       }));
       
@@ -7365,7 +7365,7 @@ export default function Home() {
                     nomW: mp.width,
                     nomH: mp.height,
                     qty: 1,
-                    rotate: mp.grainDirection ? false : true,
+                    rotate: !mp.grainDirection,
                     gaddi: mp.gaddi === true,
                     grainDirection: mp.grainDirection === true,
                     laminateCode: mp.laminateCode || ''
