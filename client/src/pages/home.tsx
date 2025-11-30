@@ -7415,7 +7415,7 @@ export default function Home() {
                 nomW: colourFrameForm.width,
                 nomH: colourFrameForm.height,
                 qty: 1,
-                rotate: colourFrameForm.grainDirection ? false : true,
+                rotate: !colourFrameForm.grainDirection,
                 gaddi: false,
                 grainDirection: colourFrameForm.grainDirection,
                 laminateCode: colourFrameForm.laminateCode || ''
@@ -7444,7 +7444,7 @@ export default function Home() {
                       nomW: p.nomW,
                       nomH: p.nomH,
                       qty: 1,
-                      rotate: p.rotated ? false : p.rotateAllowed,
+                      rotate: p.rotateAllowed,
                       gaddi: p.gaddi,
                       grainDirection: p.grainDirection,
                       laminateCode: p.laminateCode
