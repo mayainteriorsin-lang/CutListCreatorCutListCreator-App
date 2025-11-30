@@ -2081,21 +2081,27 @@ export default function Home() {
     const brandResults: Array<{ brand: string; laminateCode: string; laminateDisplay: string; result: any; isBackPanel: boolean }> = [];
     
     Object.entries(panelsByBrand).forEach(([groupKey, group]) => {
-      console.group('🔍 PREVIEW DIALOG - Preparing parts');
-      console.log('Group panels:', group.panels.length);
-      console.groupEnd();
-      
-      const rawParts = preparePartsForOptimizer(group.panels, woodGrainsPreferences);
-      const parts = rawParts
-        .filter((p: any) => Boolean(p))
-        .map((p: any, i: number) => ({ ...p, id: String(p.id ?? p.name ?? `part-${i}`) }));
-      
-      console.log('🌾 Optimizer received parts (first 10):', parts.slice(0, 10));
-      
-      // Use multi-pass optimization for maximum efficiency
-      const optimizedPanels = multiPassOptimize(parts, currentSheetWidth, currentSheetHeight);
-      const result = { panels: optimizedPanels };
-      const laminateDisplay = getLaminateDisplay(group.laminateCode);
+      try {
+        console.group('🔍 PREVIEW DIALOG - Preparing parts');
+        console.log('Group panels:', group.panels.length);
+        console.groupEnd();
+        
+        const rawParts = preparePartsForOptimizer(group.panels, woodGrainsPreferences);
+        console.log('✅ preparePartsForOptimizer returned:', rawParts.length, 'parts');
+        
+        const parts = rawParts
+          .filter((p: any) => Boolean(p))
+          .map((p: any, i: number) => ({ ...p, id: String(p.id ?? p.name ?? `part-${i}`) }));
+        
+        console.log('✅ After filtering:', parts.length, 'parts');
+        console.log('🌾 Optimizer received parts (first 10):', parts.slice(0, 10));
+        
+        // Use multi-pass optimization for maximum efficiency
+        const optimizedPanels = multiPassOptimize(parts, currentSheetWidth, currentSheetHeight);
+        console.log('✅ Optimization returned:', optimizedPanels.length, 'sheets');
+        
+        const result = { panels: optimizedPanels };
+        const laminateDisplay = getLaminateDisplay(group.laminateCode);
       
       // Assign stable sheet IDs
       if (result?.panels) {
@@ -2168,14 +2174,19 @@ export default function Home() {
         }
       }
       
-      const hasBackPanel = group.panels.some(p => p.name.includes('- Back Panel'));
-      brandResults.push({ 
-        brand: group.brand, 
-        laminateCode: group.laminateCode, 
-        laminateDisplay,
-        result, 
-        isBackPanel: hasBackPanel
-      });
+        const hasBackPanel = group.panels.some(p => p.name.includes('- Back Panel'));
+        brandResults.push({ 
+          brand: group.brand, 
+          laminateCode: group.laminateCode, 
+          laminateDisplay,
+          result, 
+          isBackPanel: hasBackPanel
+        });
+        console.log('✅ Added to brandResults, total now:', brandResults.length);
+      } catch (error) {
+        console.error('❌ ERROR in preview optimization for group:', groupKey, error);
+        console.error('Error details:', error instanceof Error ? error.message : String(error));
+      }
     });
     
     // Process manual panels
@@ -2221,6 +2232,7 @@ export default function Home() {
       }
     });
     
+    console.log('✅ FINAL previewBrandResults:', brandResults.length, 'groups with sheets');
     return brandResults;
   }, [showPreviewDialog, cabinets, woodGrainsPreferences, sheetWidth, sheetHeight, kerf, manualPanels, deletedPreviewSheets]);
 
