@@ -448,7 +448,7 @@ export function generateCutlistPDF({
         doc.setTextColor(0); // Reset to black
       }
       
-      // GADDI Dotted Line - Simple & Clean
+      // GADDI Dotted Line - Mark nomW for TOP/BOTTOM, nomH for LEFT/RIGHT
       if ((panel as any).gaddi === true) {
         const gaddiPanel: GaddiPanel = {
           panelType: panelName,
@@ -466,8 +466,8 @@ export function generateCutlistPDF({
           doc.setDrawColor(lineConfig.color);
           (doc as any).setLineDash(lineConfig.dashPattern);
           
-          if (lineConfig.sheetAxis === 'x') {
-            // Horizontal dotted line
+          if (lineConfig.lineDirection === 'x') {
+            // Mark nomW: horizontal dotted line
             doc.line(
               x + lineConfig.inset,
               y + lineConfig.inset,
@@ -475,7 +475,7 @@ export function generateCutlistPDF({
               y + lineConfig.inset
             );
           } else {
-            // Vertical dotted line
+            // Mark nomH: vertical dotted line
             doc.line(
               x + lineConfig.inset,
               y + lineConfig.inset,
