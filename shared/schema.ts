@@ -130,10 +130,11 @@ export const cabinetSchema = z.object({
   // Replaces: plywoodType, backPanelPlywoodBrand, shutterPlywoodBrand
   A: z.string().optional(),
   
-  // ✅ UNIFIED LAMINATE CODE FIELD (Secret code name: B)
-  // Backend consolidation field for laminate codes (front + inner composite)
-  // Keeps individual panel fields on frontend for UI, but uses B for storage
-  B: z.string().optional(),
+  // ✅ UNIFIED LAMINATE CODE FIELDS (Secret code names: B = front, C = inner)
+  // Backend consolidation fields for laminate codes
+  // Keeps individual panel fields on frontend for UI, but uses B/C for backend storage
+  B: z.string().optional(), // Front laminate codes consolidated
+  C: z.string().optional(), // Inner laminate codes consolidated
   
   // Shutter laminate code for Quick Shutter
   shutterLaminateCode: z.string().optional(),
