@@ -37,28 +37,30 @@ export function shouldShowGaddiMarking(panel: GaddiPanel): boolean {
 /**
  * Calculate GADDI dotted line direction
  * 
- * SIMPLE RULE - NO AXIS DETECTION:
- * - LEFT/RIGHT: ALWAYS mark HEIGHT (nomH) → VERTICAL dotted line (Y-axis)
- * - TOP/BOTTOM: ALWAYS mark WIDTH (nomW) → HORIZONTAL dotted line (X-axis)
+ * CORRECTED RULE:
+ * - LEFT/RIGHT: Mark HEIGHT (nomH) → VERTICAL dotted line (Y-axis)
+ * - TOP/BOTTOM: Mark WIDTH (which is nomH, not nomW!) → HORIZONTAL dotted line (X-axis)
+ * 
+ * Note: nomW = depth for both panel types
  */
 export function calculateGaddiLineDirection(panel: GaddiPanel): GaddiLineConfig {
-  const { panelType, nomW, nomH } = panel;
+  const { panelType, nomH } = panel;
   const type = (panelType || '').toUpperCase();
   
   let markDimension: 'width' | 'height';
   let sheetAxis: 'x' | 'y';
   
   if (type.includes('LEFT') || type.includes('RIGHT')) {
-    // LEFT/RIGHT: ALWAYS mark HEIGHT (nomH) on Y-axis (VERTICAL line)
+    // LEFT/RIGHT: Mark HEIGHT (nomH) → VERTICAL line on Y-axis
     markDimension = 'height';
     sheetAxis = 'y';
     console.log(`🔴 ${type}: Mark HEIGHT(${nomH}) → VERTICAL`);
     
   } else if (type.includes('TOP') || type.includes('BOTTOM')) {
-    // TOP/BOTTOM: ALWAYS mark WIDTH (nomW) on X-axis (HORIZONTAL line)
+    // TOP/BOTTOM: Mark WIDTH (nomH, not nomW!) → HORIZONTAL line on X-axis
     markDimension = 'width';
     sheetAxis = 'x';
-    console.log(`🔵 ${type}: Mark WIDTH(${nomW}) → HORIZONTAL`);
+    console.log(`🔵 ${type}: Mark WIDTH(${nomH}) → HORIZONTAL`);
     
   } else {
     markDimension = 'height';
