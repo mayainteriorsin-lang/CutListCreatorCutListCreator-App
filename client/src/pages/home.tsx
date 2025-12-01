@@ -5262,56 +5262,92 @@ export default function Home() {
                           />
                         </div>
                         {watchedValues.shelvesEnabled && (
-                          <div className="space-y-3">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                              <div className="space-y-2">
-                                <Label className="text-xs text-slate-600">Shelves Qty</Label>
-                                <Select
-                                  value={watchedValues.shelvesQuantity?.toString() || "1"}
-                                  onValueChange={(value) => {
-                                    form.setValue('shelvesQuantity', parseInt(value));
-                                  }}
-                                >
-                                  <SelectTrigger className="h-8 text-sm">
-                                    <SelectValue placeholder="Select" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="1">1</SelectItem>
-                                    <SelectItem value="2">2</SelectItem>
-                                    <SelectItem value="3">3</SelectItem>
-                                    <SelectItem value="4">4</SelectItem>
-                                    <SelectItem value="5">5</SelectItem>
-                                  </SelectContent>
-                                </Select>
+                          <div className="space-y-4 mt-4">
+                            <div className="space-y-2">
+                              <Label className="text-xs text-slate-600">Shelves Qty</Label>
+                              <Select
+                                value={watchedValues.shelvesQuantity?.toString() || "1"}
+                                onValueChange={(value) => {
+                                  form.setValue('shelvesQuantity', parseInt(value));
+                                }}
+                              >
+                                <SelectTrigger className="h-8 text-sm">
+                                  <SelectValue placeholder="Select" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="1">1</SelectItem>
+                                  <SelectItem value="2">2</SelectItem>
+                                  <SelectItem value="3">3</SelectItem>
+                                  <SelectItem value="4">4</SelectItem>
+                                  <SelectItem value="5">5</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <Label className="text-xs text-slate-600">Shelves Width</Label>
+                              <div className="relative">
+                                <Input
+                                  type="number"
+                                  value={watchedValues.width || 0}
+                                  placeholder="Width"
+                                  className="text-sm pr-8"
+                                  onChange={(e) => form.setValue('width', parseInt(e.target.value) || 0)}
+                                />
+                                <span className="absolute right-2 top-2 text-xs text-slate-500">mm</span>
                               </div>
-                              
-                              <div className="space-y-2">
-                                <Label className="text-xs text-slate-600">Shelves Width</Label>
-                                <div className="relative">
-                                  <Input
-                                    type="number"
-                                    value={watchedValues.width || 0}
-                                    placeholder="Width"
-                                    className="text-sm pr-8"
-                                    onChange={(e) => form.setValue('width', parseInt(e.target.value) || 0)}
-                                  />
-                                  <span className="absolute right-2 top-2 text-xs text-slate-500">mm</span>
-                                </div>
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <Label className="text-xs text-slate-600">Shelves Depth</Label>
+                              <div className="relative">
+                                <Input
+                                  type="number"
+                                  value={watchedValues.depth ? watchedValues.depth - 30 : ''}
+                                  placeholder="Depth"
+                                  className="text-sm pr-8"
+                                  onChange={(e) => form.setValue('depth', parseInt(e.target.value) || 0)}
+                                />
+                                <span className="absolute right-2 top-2 text-xs text-slate-500">mm</span>
                               </div>
-                              
-                              <div className="space-y-2">
-                                <Label className="text-xs text-slate-600">Shelves Depth</Label>
-                                <div className="relative">
-                                  <Input
-                                    type="number"
-                                    value={watchedValues.depth ? watchedValues.depth - 30 : ''}
-                                    placeholder="Depth"
-                                    className="text-sm pr-8"
-                                    onChange={(e) => form.setValue('depth', parseInt(e.target.value) || 0)}
-                                  />
-                                  <span className="absolute right-2 top-2 text-xs text-slate-500">mm</span>
-                                </div>
-                              </div>
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label className="text-xs text-slate-600">Front Laminate</Label>
+                              <Select
+                                value={watchedValues.shelvesLaminateCode || watchedValues.frontLaminateCode || ''}
+                                onValueChange={(value) => form.setValue('shelvesLaminateCode', value)}
+                              >
+                                <SelectTrigger className="h-8 text-sm">
+                                  <SelectValue placeholder="Select laminate" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {laminateCodeGodownData.map((laminate: LaminateCode) => (
+                                    <SelectItem key={laminate.id} value={laminate.code}>
+                                      {laminate.code}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label className="text-xs text-slate-600">Inner Laminate</Label>
+                              <Select
+                                value={watchedValues.shelvesInnerLaminateCode || watchedValues.innerLaminateCode || ''}
+                                onValueChange={(value) => form.setValue('shelvesInnerLaminateCode', value)}
+                              >
+                                <SelectTrigger className="h-8 text-sm">
+                                  <SelectValue placeholder="Select laminate" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {laminateCodeGodownData.map((laminate: LaminateCode) => (
+                                    <SelectItem key={laminate.id} value={laminate.code}>
+                                      {laminate.code}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
                             </div>
                           </div>
                         )}
