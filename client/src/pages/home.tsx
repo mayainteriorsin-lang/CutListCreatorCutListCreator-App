@@ -7795,7 +7795,7 @@ export default function Home() {
                                         )}
                                       </>
                                     )}
-                                    {/* Letter Code - ALWAYS visible on all panels - Bold Dark Blue */}
+                                    {/* Letter Code - ALWAYS visible on all panels - Bold Dark Gray */}
                                     {(() => {
                                       const sizeKey = `${Math.round(showW)}x${Math.round(showH)}`;
                                       const letterCode = panelSummary[sizeKey]?.letterCode || 'X';
@@ -7809,7 +7809,7 @@ export default function Home() {
                                             top: '50%',
                                             transform: 'translate(-50%, -50%)',
                                             fontSize: `${fontSize}px`,
-                                            color: '#1e3a8a'
+                                            color: '#374151'
                                           }}
                                         >
                                           {letterCode}
