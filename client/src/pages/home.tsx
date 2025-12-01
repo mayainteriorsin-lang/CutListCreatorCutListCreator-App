@@ -5964,7 +5964,7 @@ export default function Home() {
                           
                           <div className="flex gap-4">
                             <div className="space-y-1 flex-1">
-                              <Label className="text-xs text-slate-600">Front Laminate</Label>
+                              <Label className="text-xs text-slate-600">Front Laminate <span className="text-blue-600 font-bold">(M)</span></Label>
                               <Popover open={topLaminateOpen} onOpenChange={setTopLaminateOpen}>
                                   <PopoverTrigger asChild>
                                     <Button
@@ -6026,7 +6026,7 @@ export default function Home() {
                             </div>
                             
                             <div className="space-y-1 flex-1">
-                              <Label className="text-xs text-slate-600">Inner Laminate</Label>
+                              <Label className="text-xs text-slate-600">Inner Laminate <span className="text-blue-600 font-bold">(M)</span></Label>
                               <Popover open={topInnerLaminateOpen} onOpenChange={setTopInnerLaminateOpen}>
                                   <PopoverTrigger asChild>
                                     <Button
