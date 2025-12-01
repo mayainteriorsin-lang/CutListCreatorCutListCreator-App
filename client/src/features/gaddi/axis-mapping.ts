@@ -1,31 +1,23 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════
- * 🔒 LOCKED CODE - DO NOT MODIFY
- * ═══════════════════════════════════════════════════════════════════════
- * 
  * GADDI Axis Mapping Module
  * 
- * CRITICAL PRODUCTION CODE - Fixed after extensive debugging (Nov 23, 2025)
- * 
- * CORRECT MANUFACTURING RULE (2025-11-23 - FINAL):
- * ================================================
+ * MANUFACTURING RULE (Updated Dec 1, 2025 - NO ROTATION):
+ * ========================================================
  * For TOP/BOTTOM panels:
- *   - GADDI marks the WIDTH dimension of the cabinet
- *   - Line direction does NOT change even if optimizer rotates panel on sheet
+ *   - GADDI marks the WIDTH dimension on X-axis
+ *   - Never rotates (rotate=false always)
  * 
  * For LEFT/RIGHT panels:
- *   - GADDI marks the HEIGHT dimension of the cabinet
- *   - Line direction does NOT change even if optimizer rotates panel on sheet
+ *   - GADDI marks the HEIGHT dimension on Y-axis
+ *   - Never rotates (rotate=false always)
  * 
- * This module determines the correct GADDI line direction based on:
- * 1. Panel type only (TOP/BOTTOM → marks WIDTH, LEFT/RIGHT → marks HEIGHT)
- * 2. Panel rotation state is correctly detected using nomW/nomH (NOT displayW/displayH)
- * 3. Manufacturing requirements override optimization orientation
+ * For BACK panels:
+ *   - GADDI marks HEIGHT on Y-axis
+ *   - Never rotates (rotate=false always)
  * 
- * ⚠️ CRITICAL BUG FIXES APPLIED:
- *    - Case sensitivity: toUpperCase() normalization for panel types
- *    - Rotation detection: Uses nomW/nomH from optimizer (NOT displayW/displayH)
- *    - Dual return: Returns both markDimension AND sheetAxis for correct rendering
+ * ✅ SIMPLIFIED: Since all panels have rotate=false, axis mapping is fixed
+ *    No need to check for rotation or detect panel orientation changes
  * 
  * ═══════════════════════════════════════════════════════════════════════
  */
@@ -39,34 +31,29 @@ import type { GaddiPanel, GaddiLineConfig } from './types';
  * @returns Line configuration with direction
  */
 export function calculateGaddiLineDirection(panel: GaddiPanel): GaddiLineConfig {
-  const { panelType, nomW, nomH, w, h } = panel;
+  const { panelType } = panel;
   
   // Normalize panel type to uppercase for consistent comparisons
   const normalizedType = (panelType || '').toUpperCase();
   
-  // Check if panel is rotated (90 degrees)
-  // If rotated: nomW becomes h, nomH becomes w
-  const isRotated = Math.abs(w - nomH) < 0.5 && Math.abs(h - nomW) < 0.5;
+  // ✅ SIMPLIFIED FOR NO-ROTATION LOGIC:
+  // Since rotate=false always, panels never rotate on sheet
+  // Therefore, axes are always fixed regardless of w/h values
   
-  // Determine which dimension GADDI marks AND which axis to draw on
   let markDimension: 'width' | 'height';
   let sheetAxis: 'x' | 'y';
   
   if (normalizedType === 'TOP' || normalizedType === 'BOTTOM') {
-    // TOP/BOTTOM: GADDI marks WIDTH dimension
-    // - Manufacturing rule: GADDI marks the WIDTH dimension of cabinet
-    // - Dimension does NOT change even if optimizer rotates panel on sheet
+    // TOP/BOTTOM: GADDI marks WIDTH dimension on X-axis
+    // No rotation means WIDTH always stays on X-axis
     markDimension = 'width';
-    // Sheet axis: if rotated, WIDTH is on Y-axis; otherwise on X-axis
-    sheetAxis = isRotated ? 'y' : 'x';
+    sheetAxis = 'x';
     
   } else if (normalizedType === 'LEFT' || normalizedType === 'RIGHT') {
-    // LEFT/RIGHT: GADDI marks HEIGHT dimension
-    // - Manufacturing rule: GADDI marks the HEIGHT dimension of cabinet
-    // - Dimension does NOT change even if optimizer rotates panel on sheet
+    // LEFT/RIGHT: GADDI marks HEIGHT dimension on Y-axis
+    // No rotation means HEIGHT always stays on Y-axis
     markDimension = 'height';
-    // Sheet axis: if rotated, HEIGHT is on X-axis; otherwise on Y-axis
-    sheetAxis = isRotated ? 'x' : 'y';
+    sheetAxis = 'y';
     
   } else {
     // Other panel types (BACK, CENTER_POST, SHELF, SHUTTER)
