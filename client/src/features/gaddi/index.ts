@@ -23,6 +23,7 @@ export interface GaddiPanel {
   gaddi: boolean;
   nomW: number;  // Original width
   nomH: number;  // Original height
+  nomD?: number; // Original depth (for LEFT/RIGHT panels)
   w: number;     // Sheet placement width
   h: number;     // Sheet placement height
 }
@@ -46,41 +47,41 @@ export function shouldShowGaddiMarking(panel: GaddiPanel): boolean {
 /**
  * Calculate GADDI dotted line direction
  * 
- * IMPLEMENTATION OF RULES:
- * - LEFT/RIGHT: Mark nomH (HEIGHT)
- *   - Check: if w ≈ nomH? YES→X-axis(horizontal line), NO→Y-axis(vertical line)
+ * RULES WITH DEPTH:
+ * - LEFT/RIGHT: Mark HEIGHT (nomH) only
+ *   - Check: if h ≈ nomH? YES→Y-axis(vertical line), else→X-axis(horizontal line)
  * 
- * - TOP/BOTTOM: Mark nomW (WIDTH)  
- *   - Check: if w ≈ nomW? YES→X-axis(horizontal line), NO→Y-axis(vertical line)
+ * - TOP/BOTTOM: Mark WIDTH (nomW) only
+ *   - Check: if w ≈ nomW? YES→X-axis(horizontal line), else→Y-axis(vertical line)
  */
 export function calculateGaddiLineDirection(panel: GaddiPanel): GaddiLineConfig {
-  const { panelType, nomW, nomH, w, h } = panel;
+  const { panelType, nomW, nomH, nomD, w, h } = panel;
   const type = (panelType || '').toUpperCase();
   
   let markDimension: 'width' | 'height';
   let sheetAxis: 'x' | 'y';
   
   if (type.includes('LEFT') || type.includes('RIGHT')) {
-    // ✓ LEFT/RIGHT: Mark HEIGHT (nomH)
+    // ✓ LEFT/RIGHT: Mark HEIGHT (nomH) only
     markDimension = 'height';
-    // Check if nomH appears on X or Y axis on the sheet
-    if (Math.abs(w - nomH) < 0.5) {
-      sheetAxis = 'x'; // nomH on X-axis (width) → HORIZONTAL line
-    } else if (Math.abs(h - nomH) < 0.5) {
+    // For LEFT/RIGHT, height is typically on Y-axis
+    if (Math.abs(h - nomH) < 0.5) {
       sheetAxis = 'y'; // nomH on Y-axis (height) → VERTICAL line
+    } else if (Math.abs(w - nomH) < 0.5) {
+      sheetAxis = 'x'; // nomH on X-axis (rotated) → HORIZONTAL line
     } else {
       sheetAxis = 'y'; // Default to Y
     }
-    console.log(`🔴 ${type}: nomH=${nomH}, w=${w}, h=${h} → axis=${sheetAxis}`);
+    console.log(`🔴 ${type}: nomH=${nomH}, nomD=${nomD}, w=${w}, h=${h} → axis=${sheetAxis}`);
     
   } else if (type.includes('TOP') || type.includes('BOTTOM')) {
-    // ✓ TOP/BOTTOM: Mark WIDTH (nomW)
+    // ✓ TOP/BOTTOM: Mark WIDTH (nomW) only
     markDimension = 'width';
-    // Check if nomW appears on X or Y axis on the sheet
+    // For TOP/BOTTOM, width is typically on X-axis
     if (Math.abs(w - nomW) < 0.5) {
       sheetAxis = 'x'; // nomW on X-axis (width) → HORIZONTAL line
     } else if (Math.abs(h - nomW) < 0.5) {
-      sheetAxis = 'y'; // nomW on Y-axis (height) → VERTICAL line (rotated)
+      sheetAxis = 'y'; // nomW on Y-axis (rotated) → VERTICAL line
     } else {
       sheetAxis = 'x'; // Default to X
     }
