@@ -143,13 +143,31 @@ export function drawGaddiMark(
     // draw dotted line
     doc.line(p0.x, p0.y, p1.x, p1.y);
 
-    // optional: draw label near middle (small)
-    /*
+    // Draw "GADDI" text label along the line
+    // Reset line dash for text (jsPDF can mess up text with dashes active)
+    if ((doc as any).setLineDash) (doc as any).setLineDash([]);
+    
     const midX = (p0.x + p1.x) / 2;
     const midY = (p0.y + p1.y) / 2;
-    doc.setFontSize(8);
-    doc.text(`${markValue}`, midX, midY, { align: "center", baseline: "middle" });
-    */
+    
+    // Determine if line is horizontal or vertical
+    const isHorizontal = Math.abs(p1.x - p0.x) > Math.abs(p1.y - p0.y);
+    
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7);
+    doc.setTextColor(255, 0, 0); // Red color to match line
+    
+    if (isHorizontal) {
+      // Horizontal line: text centered on X-axis, just below the line
+      doc.text("GADDI", midX, midY + 3, { align: "center" });
+    } else {
+      // Vertical line: text rotated 90deg along Y-axis
+      // jsPDF uses angle option directly (no saveGraphicsState needed)
+      doc.text("GADDI", midX + 3, midY, { align: "center", angle: 90 });
+    }
+    
+    // Reset text color
+    doc.setTextColor(0);
   } finally {
     // restore
     if (prevLineWidth != null && (doc as any).setLineWidth) (doc as any).setLineWidth(prevLineWidth);

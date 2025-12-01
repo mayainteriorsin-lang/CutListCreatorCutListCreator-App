@@ -7816,7 +7816,7 @@ export default function Home() {
                                       );
                                     })()}
                                     
-                                    {/* GADDI Dotted Line - Red marking for nomW (TOP/BOTTOM) or nomH (LEFT/RIGHT) */}
+                                    {/* GADDI Dotted Line + Text - Red marking for nomW (TOP/BOTTOM) or nomH (LEFT/RIGHT) */}
                                     {isGaddi && (() => {
                                       const type = panelName.toUpperCase();
                                       const isLeftRight = type.includes('LEFT') || type.includes('RIGHT');
@@ -7831,20 +7831,50 @@ export default function Home() {
                                       const drawHorizontal = dimensionOnXAxis;
                                       
                                       return (
-                                        <div 
-                                          className="absolute"
-                                          style={{ 
-                                            left: '2px',
-                                            top: '2px',
-                                            right: drawHorizontal ? '2px' : 'auto',
-                                            bottom: !drawHorizontal ? '2px' : 'auto',
-                                            width: drawHorizontal ? 'calc(100% - 4px)' : '0px',
-                                            height: !drawHorizontal ? 'calc(100% - 4px)' : '0px',
-                                            borderTop: drawHorizontal ? '2px dotted #FF0000' : 'none',
-                                            borderLeft: !drawHorizontal ? '2px dotted #FF0000' : 'none'
-                                          }}
-                                          title={`GADDI: Mark ${isLeftRight ? 'Height (nomH)' : 'Width (nomW)'}`}
-                                        />
+                                        <>
+                                          {/* Dotted Line */}
+                                          <div 
+                                            className="absolute"
+                                            style={{ 
+                                              left: '2px',
+                                              top: '2px',
+                                              right: drawHorizontal ? '2px' : 'auto',
+                                              bottom: !drawHorizontal ? '2px' : 'auto',
+                                              width: drawHorizontal ? 'calc(100% - 4px)' : '0px',
+                                              height: !drawHorizontal ? 'calc(100% - 4px)' : '0px',
+                                              borderTop: drawHorizontal ? '2px dotted #FF0000' : 'none',
+                                              borderLeft: !drawHorizontal ? '2px dotted #FF0000' : 'none'
+                                            }}
+                                            title={`GADDI: Mark ${isLeftRight ? 'Height (nomH)' : 'Width (nomW)'}`}
+                                          />
+                                          {/* GADDI Text Label - positioned along the dotted line */}
+                                          {drawHorizontal ? (
+                                            // Horizontal line at top: text centered on X-axis, just below the line
+                                            <div
+                                              className="absolute text-[9px] font-bold text-red-600"
+                                              style={{
+                                                left: '50%',
+                                                top: '4px',
+                                                transform: 'translateX(-50%)'
+                                              }}
+                                            >
+                                              GADDI
+                                            </div>
+                                          ) : (
+                                            // Vertical line at left: text rotated 90deg along Y-axis
+                                            <div
+                                              className="absolute text-[9px] font-bold text-red-600"
+                                              style={{
+                                                left: '4px',
+                                                top: '50%',
+                                                transform: 'translateY(-50%) rotate(-90deg)',
+                                                whiteSpace: 'nowrap'
+                                              }}
+                                            >
+                                              GADDI
+                                            </div>
+                                          )}
+                                        </>
                                       );
                                     })()}
                                     
