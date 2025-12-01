@@ -4907,6 +4907,8 @@ export default function Home() {
                                               const hasWoodGrain = woodGrainsPreferences[baseCode] === true;
                                               form.setValue('topPanelGrainDirection', hasWoodGrain);
                                               form.setValue('bottomPanelGrainDirection', hasWoodGrain);
+                                            }
+                                            setCabinetConfigLaminateOpen(false);
                                               form.setValue('leftPanelGrainDirection', hasWoodGrain);
                                               form.setValue('rightPanelGrainDirection', hasWoodGrain);
                                               form.setValue('backPanelGrainDirection', hasWoodGrain);
