@@ -7795,16 +7795,37 @@ export default function Home() {
                                         )}
                                       </>
                                     )}
-                                    {/* Letter Code - ALWAYS visible on all panels - Bold Dark Gray */}
+                                    {/* Letter Code - Smart positioning based on GADDI presence and panel size */}
                                     {(() => {
                                       const sizeKey = `${Math.round(showW)}x${Math.round(showH)}`;
                                       const letterCode = panelSummary[sizeKey]?.letterCode || 'X';
-                                      const fontSize = Math.max(12, Math.min(48, w / 3, h / 2));
+                                      
+                                      // Size-based layout tiers
+                                      const isSmallPanel = w < 60 || h < 60;
+                                      const isMediumPanel = (w >= 60 && w < 100) || (h >= 60 && h < 100);
+                                      
+                                      // Adjust font size based on panel size
+                                      let fontSize;
+                                      if (isSmallPanel) {
+                                        fontSize = Math.max(10, Math.min(20, w / 4, h / 3));
+                                      } else if (isMediumPanel) {
+                                        fontSize = Math.max(12, Math.min(32, w / 3.5, h / 2.5));
+                                      } else {
+                                        fontSize = Math.max(12, Math.min(48, w / 3, h / 2));
+                                      }
+                                      
+                                      // Move to top-right corner when GADDI is present OR panel is small
+                                      const moveToCorner = isGaddi || isSmallPanel;
                                       
                                       return (
                                         <p 
                                           className="absolute font-extrabold"
-                                          style={{
+                                          style={moveToCorner ? {
+                                            right: '4px',
+                                            top: '2px',
+                                            fontSize: `${fontSize}px`,
+                                            color: '#374151'
+                                          } : {
                                             left: '50%',
                                             top: '50%',
                                             transform: 'translate(-50%, -50%)',
@@ -7831,6 +7852,11 @@ export default function Home() {
                                       const dimensionOnXAxis = w >= h;
                                       const drawHorizontal = dimensionOnXAxis;
                                       
+                                      // Size-based text: "G" for small panels, "GADDI" for larger
+                                      const isSmallPanel = w < 60 || h < 60;
+                                      const gaddiText = isSmallPanel ? 'G' : 'GADDI';
+                                      const textSize = isSmallPanel ? 'text-[7px]' : 'text-[8px]';
+                                      
                                       return (
                                         <>
                                           {/* Dotted Line */}
@@ -7848,22 +7874,22 @@ export default function Home() {
                                             }}
                                             title={`GADDI: Mark ${isLeftRight ? 'Height (nomH)' : 'Width (nomW)'}`}
                                           />
-                                          {/* GADDI Text Label - always INSIDE the panel with custom gap from line */}
+                                          {/* GADDI Text Label - smart sizing based on panel size */}
                                           {drawHorizontal ? (
                                             // Horizontal line (X-axis): text on the LEFT, inside panel with 11px gap
                                             <div
-                                              className="absolute text-[8px] font-bold text-black"
+                                              className={`absolute ${textSize} font-bold text-black`}
                                               style={{
                                                 left: '6px',
                                                 top: '13px'
                                               }}
                                             >
-                                              GADDI
+                                              {gaddiText}
                                             </div>
                                           ) : (
                                             // Vertical line (Y-axis): text at BOTTOM, inside panel with 15px gap from line
                                             <div
-                                              className="absolute text-[8px] font-bold text-black"
+                                              className={`absolute ${textSize} font-bold text-black`}
                                               style={{
                                                 left: '17px',
                                                 bottom: '6px',
@@ -7872,7 +7898,7 @@ export default function Home() {
                                                 whiteSpace: 'nowrap'
                                               }}
                                             >
-                                              GADDI
+                                              {gaddiText}
                                             </div>
                                           )}
                                         </>
