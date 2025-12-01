@@ -1861,8 +1861,8 @@ export default function Home() {
       const qtyMatch = cabinet.name.match(/\(Qty: (\d+)\)/);
       const quantity = qtyMatch ? parseInt(qtyMatch[1]) : (cabinet.shutterCount || 1);
       
-      // Get plywood type (default to Apple Ply 16mm BWP if not set)
-      const plywoodType = cabinet.plywoodType || 'Apple Ply 16mm BWP';
+      // ✅ Get plywood type from shutterPlywoodBrand (unified field for Basic mode)
+      const plywoodType = cabinet.shutterPlywoodBrand || 'Apple Ply 16mm BWP';
       
       // ✅ FIX: Compose BOTH front + inner laminate codes for correct consolidation and preview display
       const laminateCode = composeLaminateCode(cabinet.shutterLaminateCode || '', cabinet.shutterInnerLaminateCode || '');
