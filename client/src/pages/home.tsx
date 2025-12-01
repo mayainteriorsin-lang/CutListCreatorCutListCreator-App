@@ -1992,8 +1992,7 @@ export default function Home() {
     
     // Get plywood types (default to Apple Ply 16mm BWP if not set)
     const A = cabinet.A || 'Apple Ply 16mm BWP';
-    // Back panel uses dedicated thinner plywood (default: 6 mm bwp)
-    const backPanelPlywoodBrand = (cabinet as any).backPanelPlywoodBrand || '6 mm bwp';
+    // ✅ Back panel now uses SAME plywood as cabinet (follows ABC rule like all other panels)
     
     // Pre-compose laminate codes for dynamic grain direction checks
     const topLaminateCode = composeLaminateCode(
@@ -2177,7 +2176,7 @@ export default function Home() {
       height: dimensions.back.height,
       laminateCode: backLaminateCode,
       grainDirection: cabinet.backPanelGrainDirection === true,
-      A: backPanelPlywoodBrand,
+      A: A, // ✅ Same plywood as cabinet - follows ABC rule
       nomW: dimensions.back.width,
       nomH: dimensions.back.height
     });
@@ -7405,12 +7404,12 @@ export default function Home() {
               const unplacedByGroup = unplacedManualPanels.reduce((acc, mp) => {
                 const brand = mp.A;
                 const laminateCode = mp.laminateCode || '';
-                const isBackPanel = mp.targetSheet?.isBackPanel || false;
-                const groupKey = `${normalizeForGrouping(brand)}|||${normalizeForGrouping(laminateCode)}|||${isBackPanel}`;
-                if (!acc[groupKey]) acc[groupKey] = { brand, laminateCode, isBackPanel, panels: [] };
+                // ✅ ABC rule: Group by plywood + laminate only (no special back panel separation)
+                const groupKey = `${normalizeForGrouping(brand)}|||${normalizeForGrouping(laminateCode)}`;
+                if (!acc[groupKey]) acc[groupKey] = { brand, laminateCode, panels: [] };
                 acc[groupKey].panels.push(mp);
                 return acc;
-              }, {} as Record<string, { brand: string; laminateCode: string; isBackPanel: boolean; panels: typeof unplacedManualPanels }>);
+              }, {} as Record<string, { brand: string; laminateCode: string; panels: typeof unplacedManualPanels }>);
               
               Object.entries(unplacedByGroup).forEach(([groupKey, group]) => {
                 const manualParts = group.panels.flatMap(mp => 
@@ -7431,10 +7430,10 @@ export default function Home() {
                 const result = optimizeCutlist({ parts: manualParts, sheet: { w: currentSheetWidth, h: currentSheetHeight, kerf: currentKerf }, timeMs: getOptimizationTimeMs(manualParts.length) });
                 const laminateDisplay = getLaminateDisplay(group.laminateCode);
                 
-                const prefix = group.isBackPanel ? 'back' : 'regular';
+                // ✅ ABC rule: All panels follow same grouping (no back panel prefix)
                 if (result?.panels) {
                   result.panels.forEach((sheet: any, sheetIdx: number) => {
-                    sheet._sheetId = `${prefix}-${groupKey}-manual-${sheetIdx}`;
+                    sheet._sheetId = `${groupKey}-manual-${sheetIdx}`;
                     // Restore grain and compute display dims for every placed panel
                     sheet.placed?.forEach((p: any) => { 
                       const found = group.panels.find(gp => String(gp.id) === String(p.id) || String(gp.id) === String(p.origId));
@@ -7448,12 +7447,14 @@ export default function Home() {
                   });
                 }
                 
+                // ✅ ABC rule: isBackPanel determined by panel content, not separate grouping
+                const hasBackPanel = group.panels.some(mp => mp.name.includes('Back Panel'));
                 brandResults.push({ 
                   brand: group.brand, 
                   laminateCode: group.laminateCode, 
                   laminateDisplay,
                   result, 
-                  isBackPanel: group.isBackPanel 
+                  isBackPanel: hasBackPanel 
                 });
               });
             }
