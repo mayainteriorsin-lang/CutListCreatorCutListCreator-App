@@ -56,15 +56,18 @@ export function drawGaddiMark(
   let sx = 0, sy = 0, ex = 0, ey = 0;
 
   if (isTopBottom) {
-    // TOP or BOTTOM: line runs along panel local X axis (left->right) at TOP
-    const yLocal = inset; // Always at TOP
+    // TOP or BOTTOM: line runs along panel local X axis (left->right)
+    // But we want it placed inset from the chosen edge: if type contains TOP -> near top; BOTTOM -> near bottom
+    const nearTop = /TOP/i.test(type);
+    const yLocal = nearTop ? inset : (panel.h - inset);
     // center the marking horizontally inside panel and make it 'length' long
     const startX = (panel.w - length) / 2;
     sx = startX; sy = yLocal;
     ex = startX + length; ey = yLocal;
   } else {
-    // LEFT or RIGHT: line runs along panel local Y axis (top->bottom) at CENTER
-    const xLocal = panel.w / 2; // CENTER horizontally
+    // LEFT or RIGHT: line runs along panel local Y axis (top->bottom)
+    const nearLeft = /LEFT/i.test(type);
+    const xLocal = nearLeft ? inset : (panel.w - inset);
     const startY = (panel.h - length) / 2;
     sx = xLocal; sy = startY;
     ex = xLocal; ey = startY + length;
