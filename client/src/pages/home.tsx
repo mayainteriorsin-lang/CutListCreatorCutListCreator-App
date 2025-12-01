@@ -4847,7 +4847,7 @@ export default function Home() {
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="space-y-2">
-                            <Label>Front Laminate</Label>
+                            <Label>Front Laminate <span className="text-blue-600 font-bold">(M)</span></Label>
                             <Popover open={cabinetConfigLaminateOpen} onOpenChange={setCabinetConfigLaminateOpen}>
                               <PopoverTrigger asChild>
                                 <Button
@@ -4933,7 +4933,7 @@ export default function Home() {
                           </div>
 
                           <div className="space-y-2">
-                            <Label>Inner Laminate</Label>
+                            <Label>Inner Laminate <span className="text-blue-600 font-bold">(M)</span></Label>
                             <Popover open={cabinetConfigInnerLaminateOpen} onOpenChange={setCabinetConfigInnerLaminateOpen}>
                               <PopoverTrigger asChild>
                                 <Button
@@ -5964,7 +5964,7 @@ export default function Home() {
                           
                           <div className="flex gap-4">
                             <div className="space-y-1 flex-1">
-                              <Label className="text-xs text-slate-600">Front Laminate <span className="text-blue-600 font-bold">(M)</span></Label>
+                              <Label className="text-xs text-slate-600">Front Laminate</Label>
                               <Popover open={topLaminateOpen} onOpenChange={setTopLaminateOpen}>
                                   <PopoverTrigger asChild>
                                     <Button
@@ -6026,7 +6026,7 @@ export default function Home() {
                             </div>
                             
                             <div className="space-y-1 flex-1">
-                              <Label className="text-xs text-slate-600">Inner Laminate <span className="text-blue-600 font-bold">(M)</span></Label>
+                              <Label className="text-xs text-slate-600">Inner Laminate</Label>
                               <Popover open={topInnerLaminateOpen} onOpenChange={setTopInnerLaminateOpen}>
                                   <PopoverTrigger asChild>
                                     <Button
