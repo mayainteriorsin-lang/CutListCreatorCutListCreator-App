@@ -1,23 +1,23 @@
 /**
  * GADDI DOTTED LINE SYSTEM
  * 
- * DIMENSION MAPPING (Example: Height=300→nomH, Width=200→nomW, Depth=100→nomD):
- * - TOP/BOTTOM panels → Mark nomW only (200)
- * - LEFT/RIGHT panels → Mark nomH only (300)
+ * MARKING RULE:
+ * - TOP/BOTTOM panels → Mark nomW only
+ * - LEFT/RIGHT panels → Mark nomW and nomH (both values)
  */
 
 export interface GaddiPanel {
   panelType: string;
   gaddi: boolean;
-  nomW: number;  // Width (e.g., 200)
-  nomH: number;  // Height (e.g., 300)
-  w: number;     // Sheet position width
-  h: number;     // Sheet position height
+  nomW: number;
+  nomH: number;
+  w: number;
+  h: number;
 }
 
 export interface GaddiLineConfig {
-  markValue: number;
-  lineDirection: string;
+  markDimension: 'width' | 'height';
+  sheetAxis: 'x' | 'y';
   inset: number;
   dashPattern: number[];
   lineWidth: number;
@@ -29,32 +29,32 @@ export function shouldShowGaddiMarking(panel: GaddiPanel): boolean {
 }
 
 export function calculateGaddiLineDirection(panel: GaddiPanel): GaddiLineConfig {
-  const { panelType, nomW, nomH } = panel;
+  const { panelType, nomW, nomH, w, h } = panel;
   const type = (panelType || '').toUpperCase();
   
-  let markValue: number;
-  let lineDirection: string;
+  let markDimension: 'width' | 'height';
+  let sheetAxis: 'x' | 'y';
   
   if (type.includes('LEFT') || type.includes('RIGHT')) {
-    // LEFT/RIGHT: Mark nomH only (300), line along X-axis
-    markValue = nomH;
-    lineDirection = 'x';
-    console.log(`🔴 ${type}: Mark nomH=${nomH}, X-axis`);
+    // LEFT/RIGHT: Use nomW and nomH
+    markDimension = 'height';
+    sheetAxis = 'y';
+    console.log(`🔴 ${type}: nomW=${nomW}, nomH=${nomH}, w=${w}, h=${h}`);
     
   } else if (type.includes('TOP') || type.includes('BOTTOM')) {
-    // TOP/BOTTOM: Mark nomW only (200), line along Y-axis
-    markValue = nomW;
-    lineDirection = 'y';
-    console.log(`🔵 ${type}: Mark nomW=${nomW}, Y-axis`);
+    // TOP/BOTTOM: Use only nomW
+    markDimension = 'width';
+    sheetAxis = 'x';
+    console.log(`🔵 ${type}: nomW=${nomW}, w=${w}, h=${h}`);
     
   } else {
-    markValue = nomH;
-    lineDirection = 'x';
+    markDimension = 'height';
+    sheetAxis = 'y';
   }
   
   return {
-    markValue,
-    lineDirection,
+    markDimension,
+    sheetAxis,
     inset: 2,
     dashPattern: [2, 2],
     lineWidth: 0.5,
