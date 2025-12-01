@@ -33,6 +33,7 @@ import { prepareStandardParts } from '@/features/standard/dimensional-mapping';
 import { optimizeStandardCutlist } from '@/features/standard/optimizer';
 import { getDisplayDimensions } from '@/features/cutlist/core/efficiency';
 import { optimizeCutlist } from '@/lib/cutlist-optimizer';
+import { calculateGaddiLineDirection, shouldShowGaddiMarking, type GaddiPanel } from '@/features/gaddi';
 
 // Cabinet form memory helpers
 const CABINET_FORM_MEMORY_KEY = 'cabinetFormMemory_v1';
@@ -7691,6 +7692,52 @@ export default function Home() {
                                           {letterCode}
                                         </p>
                                       );
+                                    })()}
+                                    
+                                    {/* GADDI Dotted Line - Clean & Simple */}
+                                    {isGaddi && (() => {
+                                      const gaddiPanel: GaddiPanel = {
+                                        panelType: panelName,
+                                        gaddi: true,
+                                        nomW: panel.nomW ?? panel.w,
+                                        nomH: panel.nomH ?? panel.h,
+                                        w: panel.w,
+                                        h: panel.h
+                                      };
+                                      
+                                      if (!shouldShowGaddiMarking(gaddiPanel)) {
+                                        return null;
+                                      }
+                                      
+                                      const lineConfig = calculateGaddiLineDirection(gaddiPanel);
+                                      
+                                      if (lineConfig.sheetAxis === 'x') {
+                                        return (
+                                          <div 
+                                            className="absolute"
+                                            style={{ 
+                                              left: '2px',
+                                              top: '2px',
+                                              right: '2px',
+                                              height: '0',
+                                              borderTop: '2px dotted #666'
+                                            }}
+                                          />
+                                        );
+                                      } else {
+                                        return (
+                                          <div 
+                                            className="absolute"
+                                            style={{ 
+                                              left: '2px',
+                                              top: '2px',
+                                              bottom: '2px',
+                                              width: '0',
+                                              borderLeft: '2px dotted #666'
+                                            }}
+                                          />
+                                        );
+                                      }
                                     })()}
                                     
                                   </div>

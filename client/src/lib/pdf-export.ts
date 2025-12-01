@@ -1,7 +1,8 @@
 import { jsPDF } from "jspdf";
+import { calculateGaddiLineDirection, shouldShowGaddiMarking, type GaddiPanel } from '@/features/gaddi';
 
 // 🔥 VERSION TRACKING - Update this to force cache refresh
-const PDF_VERSION = "2025-12-01-GADDI-REMOVED";
+const PDF_VERSION = "2025-12-01-GADDI-CLEAN";
 
 /** Safe ASCII text (avoid garbled PDF text) */
 function asciiSafe(str: string | undefined | null): string {
@@ -445,6 +446,47 @@ export function generateCutlistPDF({
         doc.setTextColor(180); // ENHANCED: Lighter gray for better contrast with black text
         doc.text(letterCode, x + w / 2, y + h / 2, { align: 'center', baseline: 'middle' });
         doc.setTextColor(0); // Reset to black
+      }
+      
+      // GADDI Dotted Line - Simple & Clean
+      if ((panel as any).gaddi === true) {
+        const gaddiPanel: GaddiPanel = {
+          panelType: panelName,
+          gaddi: true,
+          nomW,
+          nomH,
+          w: panel.w,
+          h: panel.h
+        };
+        
+        if (shouldShowGaddiMarking(gaddiPanel)) {
+          const lineConfig = calculateGaddiLineDirection(gaddiPanel);
+          
+          doc.setLineWidth(lineConfig.lineWidth);
+          doc.setDrawColor(lineConfig.color);
+          (doc as any).setLineDash(lineConfig.dashPattern);
+          
+          if (lineConfig.sheetAxis === 'x') {
+            // Horizontal dotted line
+            doc.line(
+              x + lineConfig.inset,
+              y + lineConfig.inset,
+              x + w - lineConfig.inset,
+              y + lineConfig.inset
+            );
+          } else {
+            // Vertical dotted line
+            doc.line(
+              x + lineConfig.inset,
+              y + lineConfig.inset,
+              x + lineConfig.inset,
+              y + h - lineConfig.inset
+            );
+          }
+          
+          (doc as any).setLineDash([]);
+          doc.setDrawColor(0);
+        }
       }
       
     });
