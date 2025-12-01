@@ -698,6 +698,48 @@ export default function Home() {
   const A = form.watch('A');
   const shutterInnerLaminateCode = form.watch('shutterInnerLaminateCode');
   
+  // ✅ REAL-TIME MEMORY: Watch all core form fields
+  const formHeight = form.watch('height');
+  const formWidth = form.watch('width');
+  const formDepth = form.watch('depth');
+  const formWidthReduction = form.watch('widthReduction');
+  const formRoomName = form.watch('roomName');
+  
+  // ✅ REAL-TIME SAVE: Save plywood, dimensions, and room name when they change
+  const prevCoreFieldsRef = useRef<{
+    A?: string; height?: number; width?: number; depth?: number; widthReduction?: number; roomName?: string;
+  }>({});
+  
+  useEffect(() => {
+    const aChanged = prevCoreFieldsRef.current.A !== A;
+    const heightChanged = prevCoreFieldsRef.current.height !== formHeight;
+    const widthChanged = prevCoreFieldsRef.current.width !== formWidth;
+    const depthChanged = prevCoreFieldsRef.current.depth !== formDepth;
+    const widthReductionChanged = prevCoreFieldsRef.current.widthReduction !== formWidthReduction;
+    const roomNameChanged = prevCoreFieldsRef.current.roomName !== formRoomName;
+    
+    if (aChanged || heightChanged || widthChanged || depthChanged || widthReductionChanged || roomNameChanged) {
+      // Save to memory immediately when any core field changes
+      saveCabinetFormMemory({
+        A: A || undefined,
+        height: formHeight || undefined,
+        width: formWidth || undefined,
+        depth: formDepth || undefined,
+        widthReduction: formWidthReduction ?? undefined,
+        roomName: formRoomName || undefined,
+      });
+      // Update refs
+      prevCoreFieldsRef.current = {
+        A,
+        height: formHeight,
+        width: formWidth,
+        depth: formDepth,
+        widthReduction: formWidthReduction,
+        roomName: formRoomName,
+      };
+    }
+  }, [A, formHeight, formWidth, formDepth, formWidthReduction, formRoomName]);
+  
   // ✅ AUTO-SYNC: Shutter laminate inherits main/master laminate codes (time-saver)
   useEffect(() => {
     if (masterLaminateCode && !shutterLaminateCode) {
