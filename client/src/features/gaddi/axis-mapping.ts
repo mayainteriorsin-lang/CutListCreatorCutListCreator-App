@@ -2,22 +2,24 @@
  * ═══════════════════════════════════════════════════════════════════════
  * GADDI Axis Mapping Module
  * 
- * MANUFACTURING RULE (Updated Dec 1, 2025 - NO ROTATION):
- * ========================================================
+ * MANUFACTURING RULE (Updated Dec 1, 2025):
+ * =========================================
+ * MARK THE VALUE, NOT THE AXIS
+ * 
  * For TOP/BOTTOM panels:
- *   - GADDI marks the WIDTH dimension on X-axis
- *   - Never rotates (rotate=false always)
+ *   - Mark the WIDTH VALUE (nomW)
+ *   - Dotted line follows WIDTH wherever it appears on sheet
  * 
  * For LEFT/RIGHT panels:
- *   - GADDI marks the HEIGHT dimension on Y-axis
- *   - Never rotates (rotate=false always)
+ *   - Mark the HEIGHT VALUE (nomH)
+ *   - Dotted line follows HEIGHT wherever it appears on sheet
  * 
  * For BACK panels:
- *   - GADDI marks HEIGHT on Y-axis
- *   - Never rotates (rotate=false always)
+ *   - Mark the HEIGHT VALUE (nomH)
+ *   - Dotted line follows HEIGHT wherever it appears on sheet
  * 
- * ✅ SIMPLIFIED: Since all panels have rotate=false, axis mapping is fixed
- *    No need to check for rotation or detect panel orientation changes
+ * ✅ CLEAN & NEAT: Detect which axis each value is on by comparing
+ *    panel placement (w, h) with nominal dimensions (nomW, nomH)
  * 
  * ═══════════════════════════════════════════════════════════════════════
  */
@@ -31,35 +33,35 @@ import type { GaddiPanel, GaddiLineConfig } from './types';
  * @returns Line configuration with direction
  */
 export function calculateGaddiLineDirection(panel: GaddiPanel): GaddiLineConfig {
-  const { panelType } = panel;
+  const { panelType, nomW, nomH, w, h } = panel;
   
   // Normalize panel type to uppercase for consistent comparisons
   const normalizedType = (panelType || '').toUpperCase();
   
-  // ✅ SIMPLIFIED FOR NO-ROTATION LOGIC:
-  // Since rotate=false always, panels never rotate on sheet
-  // Therefore, axes are always fixed regardless of w/h values
+  // ✅ MARK THE VALUE, NOT THE AXIS:
+  // Find which dimension to mark based on panel type
+  // Then find which axis that dimension is on
   
   let markDimension: 'width' | 'height';
   let sheetAxis: 'x' | 'y';
   
   if (normalizedType === 'TOP' || normalizedType === 'BOTTOM') {
-    // TOP/BOTTOM: GADDI marks WIDTH dimension on X-axis
-    // No rotation means WIDTH always stays on X-axis
+    // TOP/BOTTOM: Mark WIDTH VALUE (nomW)
+    // Determine which axis nomW is on in the sheet placement
     markDimension = 'width';
-    sheetAxis = 'x';
+    sheetAxis = Math.abs(w - nomW) < 0.5 ? 'x' : 'y';
     
   } else if (normalizedType === 'LEFT' || normalizedType === 'RIGHT') {
-    // LEFT/RIGHT: GADDI marks HEIGHT dimension on Y-axis
-    // No rotation means HEIGHT always stays on Y-axis
+    // LEFT/RIGHT: Mark HEIGHT VALUE (nomH)
+    // Determine which axis nomH is on in the sheet placement
     markDimension = 'height';
-    sheetAxis = 'y';
+    sheetAxis = Math.abs(h - nomH) < 0.5 ? 'y' : 'x';
     
   } else {
     // Other panel types (BACK, CENTER_POST, SHELF, SHUTTER)
-    // Default to height dimension on Y-axis
+    // Mark HEIGHT VALUE (nomH)
     markDimension = 'height';
-    sheetAxis = 'y';
+    sheetAxis = Math.abs(h - nomH) < 0.5 ? 'y' : 'x';
   }
   
   return {
