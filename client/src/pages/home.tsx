@@ -7716,11 +7716,28 @@ export default function Home() {
                                 // Use panel.name for detection (has actual names like "Cabinet - Shutter 1")
                                 // Fallback to panel.id if name not available
                                 const nameSource = (panel.name || panel.id || '').toUpperCase();
+                                const idSource = (panel.id || '').toUpperCase();
                                 
-                                // First check if panel has shutterLabel from optimizer (most reliable)
-                                // Otherwise extract shutter label from name (e.g., "Shutter 1" from "Cabinet Name - Shutter 1")
-                                const shutterMatch = (panel.name || '').match(/Shutter\s*\d*/i);
-                                const shutterLabel = panel.shutterLabel || (shutterMatch ? shutterMatch[0].toUpperCase() : null);
+                                // Extract shutter label - check multiple sources:
+                                // 1. From optimizer ID format: "SHUTTER_22_9::0" -> extract counter (22) for "SHUTTER 22"
+                                // 2. From panel.shutterLabel if available
+                                // 3. From panel.name (e.g., "Cabinet - Shutter 1")
+                                let shutterLabel: string | null = null;
+                                
+                                // Check if ID starts with SHUTTER_ (from optimizer)
+                                const idShutterMatch = idSource.match(/^SHUTTER_(\d+)_/);
+                                if (idShutterMatch) {
+                                  shutterLabel = `SHUTTER ${idShutterMatch[1]}`;
+                                } else if (panel.shutterLabel) {
+                                  shutterLabel = panel.shutterLabel;
+                                } else {
+                                  const nameShutterMatch = (panel.name || '').match(/Shutter\s*(\d+)/i);
+                                  if (nameShutterMatch) {
+                                    shutterLabel = `SHUTTER ${nameShutterMatch[1]}`;
+                                  } else if (nameSource.includes('SHUTTER')) {
+                                    shutterLabel = 'SHUTTER';
+                                  }
+                                }
                                 
                                 const panelName = nameSource.includes('CENTER POST') ? 'CENTER POST' :
                                                  nameSource.includes('SHELF') ? 'SHELF' :
