@@ -2554,6 +2554,14 @@ export default function Home() {
     markLaminateAsUserSelected('leftPanelInnerLaminateCode');
     markLaminateAsUserSelected('rightPanelInnerLaminateCode');
     markLaminateAsUserSelected('backPanelInnerLaminateCode');
+    
+    // Refresh display fields with form values to show defaults
+    const currentFormValues = form.getValues();
+    setLaminateSelection(currentFormValues.topPanelLaminateCode || 'off white');
+    setBottomLaminateSelection(currentFormValues.bottomPanelLaminateCode || 'off white');
+    setLeftLaminateSelection(currentFormValues.leftPanelLaminateCode || 'off white');
+    setRightLaminateSelection(currentFormValues.rightPanelLaminateCode || 'off white');
+    setBackLaminateSelection(currentFormValues.backPanelLaminateCode || 'off white');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Run only once on mount
 
