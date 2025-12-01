@@ -2520,7 +2520,7 @@ export default function Home() {
     }
   }, [watchedValues.shutters.length]);
 
-  // Mark memory-loaded laminate codes as user-selected on initial mount
+  // Mark memory-loaded and default laminate codes as user-selected on initial mount
   useEffect(() => {
     const memory = loadCabinetFormMemory();
     if (memory.topPanelLaminateCode) {
@@ -2543,6 +2543,17 @@ export default function Home() {
       markLaminateAsUserSelected('backPanelInnerLaminateCode');
       setBackLaminateSelection(memory.backPanelLaminateCode);
     }
+    // Mark default laminate codes as user-selected (off white for all panels)
+    markLaminateAsUserSelected('topPanelLaminateCode');
+    markLaminateAsUserSelected('bottomPanelLaminateCode');
+    markLaminateAsUserSelected('leftPanelLaminateCode');
+    markLaminateAsUserSelected('rightPanelLaminateCode');
+    markLaminateAsUserSelected('backPanelLaminateCode');
+    markLaminateAsUserSelected('topPanelInnerLaminateCode');
+    markLaminateAsUserSelected('bottomPanelInnerLaminateCode');
+    markLaminateAsUserSelected('leftPanelInnerLaminateCode');
+    markLaminateAsUserSelected('rightPanelInnerLaminateCode');
+    markLaminateAsUserSelected('backPanelInnerLaminateCode');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Run only once on mount
 
