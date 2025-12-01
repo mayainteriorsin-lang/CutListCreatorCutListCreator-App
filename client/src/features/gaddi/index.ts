@@ -1,10 +1,21 @@
 /**
- * GADDI Dotted Line System - Simple & Clean
+ * GADDI DOTTED LINE SYSTEM - CLEAR RULES
  * 
- * Rule:
- * - LEFT/RIGHT panels: Mark HEIGHT (nomH) - dotted line follows HEIGHT wherever it is
- * - TOP/BOTTOM panels: Mark WIDTH (nomW) - dotted line follows WIDTH wherever it is
- * - Even if panel rotates on sheet, dotted line always marks the same dimension
+ * PLYWOOD SHEET AXES:
+ * - X-axis = 1210mm (HORIZONTAL) 
+ * - Y-axis = 2420mm (VERTICAL)
+ * 
+ * GADDI MARKING RULES:
+ * 1. LEFT/RIGHT panels → Mark HEIGHT (nomH)
+ *    - If nomH is on X-axis (appears as width) → HORIZONTAL dotted line
+ *    - If nomH is on Y-axis (appears as height) → VERTICAL dotted line
+ * 
+ * 2. TOP/BOTTOM panels → Mark WIDTH (nomW)
+ *    - If nomW is on X-axis (appears as width) → HORIZONTAL dotted line
+ *    - If nomW is on Y-axis (appears as height) → VERTICAL dotted line
+ * 
+ * 3. Even if panels ROTATE on sheet → same marking rule applies
+ *    (dimension to mark never changes, only WHERE it appears changes)
  */
 
 export interface GaddiPanel {
@@ -33,18 +44,14 @@ export function shouldShowGaddiMarking(panel: GaddiPanel): boolean {
 }
 
 /**
- * Calculate which dimension GADDI marks and which axis to draw on
+ * Calculate GADDI dotted line direction
  * 
- * RULES:
- * Sheet: X-axis=1210mm (horizontal), Y-axis=2420mm (vertical)
+ * IMPLEMENTATION OF RULES:
+ * - LEFT/RIGHT: Mark nomH (HEIGHT)
+ *   - Check: if w ≈ nomH? YES→X-axis(horizontal line), NO→Y-axis(vertical line)
  * 
- * - LEFT/RIGHT: Always mark HEIGHT (nomH)
- *   * If nomH ≈ w on sheet → line on X-axis (horizontal)
- *   * If nomH ≈ h on sheet → line on Y-axis (vertical)
- * 
- * - TOP/BOTTOM: Always mark WIDTH (nomW)
- *   * If nomW ≈ w on sheet → line on X-axis (horizontal)
- *   * If nomW ≈ h on sheet → line on Y-axis (vertical)
+ * - TOP/BOTTOM: Mark nomW (WIDTH)  
+ *   - Check: if w ≈ nomW? YES→X-axis(horizontal line), NO→Y-axis(vertical line)
  */
 export function calculateGaddiLineDirection(panel: GaddiPanel): GaddiLineConfig {
   const { panelType, nomW, nomH, w, h } = panel;
@@ -54,27 +61,28 @@ export function calculateGaddiLineDirection(panel: GaddiPanel): GaddiLineConfig 
   let sheetAxis: 'x' | 'y';
   
   if (type.includes('LEFT') || type.includes('RIGHT')) {
-    // LEFT/RIGHT: Always mark HEIGHT (nomH)
+    // ✓ LEFT/RIGHT: Mark HEIGHT (nomH)
     markDimension = 'height';
-    // Find which axis nomH appears on
+    // Check if nomH is on X-axis (w ≈ nomH?) or Y-axis
     if (Math.abs(w - nomH) < 0.5) {
-      sheetAxis = 'x'; // nomH is on X-axis → horizontal line
+      sheetAxis = 'x'; // nomH on X-axis → HORIZONTAL line
     } else {
-      sheetAxis = 'y'; // nomH is on Y-axis → vertical line
+      sheetAxis = 'y'; // nomH on Y-axis → VERTICAL line
     }
+    console.log(`🔴 ${type}: nomH=${nomH}, w=${w}, h=${h} → axis=${sheetAxis}`);
     
   } else if (type.includes('TOP') || type.includes('BOTTOM')) {
-    // TOP/BOTTOM: Always mark WIDTH (nomW)
+    // ✓ TOP/BOTTOM: Mark WIDTH (nomW)
     markDimension = 'width';
-    // Find which axis nomW appears on
+    // Check if nomW is on X-axis (w ≈ nomW?) or Y-axis
     if (Math.abs(w - nomW) < 0.5) {
-      sheetAxis = 'x'; // nomW is on X-axis → horizontal line
+      sheetAxis = 'x'; // nomW on X-axis → HORIZONTAL line
     } else {
-      sheetAxis = 'y'; // nomW is on Y-axis → vertical line
+      sheetAxis = 'y'; // nomW on Y-axis → VERTICAL line
     }
+    console.log(`🔵 ${type}: nomW=${nomW}, w=${w}, h=${h} → axis=${sheetAxis}`);
     
   } else {
-    // Default: mark HEIGHT on Y-axis
     markDimension = 'height';
     sheetAxis = 'y';
   }
@@ -82,9 +90,9 @@ export function calculateGaddiLineDirection(panel: GaddiPanel): GaddiLineConfig 
   return {
     markDimension,
     sheetAxis,
-    inset: 2,              // 2mm from edge
-    dashPattern: [2, 2],   // 2mm dash, 2mm gap
-    lineWidth: 0.5,        // 0.5mm line width
-    color: 100             // Gray
+    inset: 2,
+    dashPattern: [2, 2],
+    lineWidth: 0.5,
+    color: 100
   };
 }
