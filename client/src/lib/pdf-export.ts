@@ -458,9 +458,9 @@ export function generateCutlistPDF({
           nomH,
           {
             inset: 2,
-            lineWidth: 0.5,
+            lineWidth: 1.2,
             dashPattern: [2, 2],
-            color: 100
+            color: [255, 0, 0]
           }
         );
       }
