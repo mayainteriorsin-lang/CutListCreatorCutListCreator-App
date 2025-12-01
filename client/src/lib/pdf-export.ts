@@ -1,8 +1,7 @@
 import { jsPDF } from "jspdf";
-import { calculateGaddiLineDirection, shouldShowGaddiMarking, type GaddiPanel } from '@/features/gaddi';
 
 // 🔥 VERSION TRACKING - Update this to force cache refresh
-const PDF_VERSION = "2025-11-23-GADDI-AXIS-FIX";
+const PDF_VERSION = "2025-12-01-GADDI-REMOVED";
 
 /** Safe ASCII text (avoid garbled PDF text) */
 function asciiSafe(str: string | undefined | null): string {
@@ -448,98 +447,6 @@ export function generateCutlistPDF({
         doc.setTextColor(0); // Reset to black
       }
       
-      // GADDI Label (if enabled) - Very close to dotted line
-      if ((panel as any).gaddi === true && w > 15 && h > 10) {
-        // Calculate label position based on GADDI line direction
-        const tempGaddiPanel: GaddiPanel = {
-          panelType: panelName as any,
-          gaddi: true,
-          nomW: (panel as any).nomW ?? panel.w,
-          nomH: (panel as any).nomH ?? panel.h,
-          w: panel.w,
-          h: panel.h
-        };
-        
-        if (shouldShowGaddiMarking(tempGaddiPanel)) {
-          const lineConfig = calculateGaddiLineDirection(tempGaddiPanel);
-          
-          // Position label along dotted line (avoid overlap with dimensions)
-          let labelX, labelY, rotation;
-          if (lineConfig.sheetAxis === 'x') {
-            // Horizontal line - label at LEFT side (avoid overlap with top-center dimensions)
-            labelX = x + 3;
-            labelY = y + lineConfig.inset; // Match dotted line Y position
-            rotation = 0;
-          } else {
-            // Vertical line - label at CENTER, rotated, at dotted line X position
-            labelX = x + lineConfig.inset; // Match dotted line X position
-            labelY = y + h / 2;
-            rotation = -90;
-          }
-          
-          // Draw GADDI label - Responsive font size based on panel size
-          doc.setFont("helvetica", "bold");
-          // Responsive sizing: scales with panel size, min 7pt, max 12pt
-          const gaddiFontSize = Math.max(7, Math.min(12, w / 15, h / 12));
-          doc.setFontSize(gaddiFontSize);
-          doc.setTextColor(60, 60, 60); // Darker gray for better visibility
-          
-          doc.text("GADDI", labelX, labelY, { 
-            align: lineConfig.sheetAxis === 'x' ? 'left' : 'center', 
-            baseline: 'middle',
-            angle: rotation
-          });
-          
-          // Reset colors
-          doc.setTextColor(0);
-        }
-      }
-      
-      // ═══════════════════════════════════════════════════════════
-      // 🔒 LOCKED CODE - DO NOT MODIFY
-      // GADDI PDF Export Rendering (Fixed: Nov 23, 2025)
-      // 
-      // CRITICAL: Must use panel.nomW/nomH for rotation detection
-      // DO NOT use displayW/displayH (they are swapped for wood grain)
-      // ═══════════════════════════════════════════════════════════
-      // GADDI Dotted Lines - Use original nominal dimensions for correct rotation detection
-      const gaddiPanel: GaddiPanel = {
-        panelType: panelName as any,
-        gaddi: (panel as any).gaddi === true,
-        nomW: (panel as any).nomW ?? panel.w,  // 🔒 CRITICAL: Use nomW from optimizer
-        nomH: (panel as any).nomH ?? panel.h,  // 🔒 CRITICAL: Use nomH from optimizer
-        w: panel.w,
-        h: panel.h
-      };
-      
-      if (shouldShowGaddiMarking(gaddiPanel)) {
-        const lineConfig = calculateGaddiLineDirection(gaddiPanel);
-        
-        doc.setLineWidth(lineConfig.lineWidth);
-        doc.setDrawColor(lineConfig.color);
-        (doc as any).setLineDash(lineConfig.dashPattern);
-        
-        if (lineConfig.sheetAxis === 'x') {
-          // Draw line along X-axis
-          doc.line(
-            x + lineConfig.inset,
-            y + lineConfig.inset,
-            x + w - lineConfig.inset,
-            y + lineConfig.inset
-          );
-        } else {
-          // Draw line along Y-axis
-          doc.line(
-            x + lineConfig.inset,
-            y + lineConfig.inset,
-            x + lineConfig.inset,
-            y + h - lineConfig.inset
-          );
-        }
-        
-        (doc as any).setLineDash([]);
-        doc.setDrawColor(0);
-      }
     });
     
     // Single Grain Direction Indicator - Left Side (outside sheet) - Only for sheets with grain direction
