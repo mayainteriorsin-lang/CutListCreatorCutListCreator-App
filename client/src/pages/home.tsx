@@ -7849,25 +7849,25 @@ export default function Home() {
                                           />
                                           {/* GADDI Text Label - positioned along the dotted line */}
                                           {drawHorizontal ? (
-                                            // Horizontal line at top: text centered on X-axis, right on the line
+                                            // Horizontal line (X-axis): text on the LEFT
                                             <div
                                               className="absolute text-[8px] font-bold text-black"
                                               style={{
-                                                left: '50%',
-                                                top: '0px',
-                                                transform: 'translateX(-50%)'
+                                                left: '4px',
+                                                top: '0px'
                                               }}
                                             >
                                               GADDI
                                             </div>
                                           ) : (
-                                            // Vertical line at left: text rotated 90deg along Y-axis
+                                            // Vertical line (Y-axis): text at BOTTOM, rotated
                                             <div
                                               className="absolute text-[8px] font-bold text-black"
                                               style={{
                                                 left: '0px',
-                                                top: '50%',
-                                                transform: 'translateY(-50%) rotate(-90deg)',
+                                                bottom: '4px',
+                                                transform: 'rotate(-90deg)',
+                                                transformOrigin: 'left bottom',
                                                 whiteSpace: 'nowrap'
                                               }}
                                             >
