@@ -4237,9 +4237,9 @@ export default function Home() {
                       </p>
                     </div>
 
-                    {/* Row 1: Plywood Brand */}
+                    {/* Row 1: Cabinet and Shutter Plywood */}
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium">Plywood Brand</Label>
+                      <Label className="text-sm font-medium">Cabinet and Shutter Plywood</Label>
                       <Select 
                         value={masterPlywoodBrand} 
                         onValueChange={(value) => {
@@ -5445,7 +5445,7 @@ export default function Home() {
                                 className="w-[200px] justify-between text-xs h-7"
                                 data-testid="select-shutter-plywood-brand"
                               >
-                                {watchedValues.A || watchedValues.A || 'Plywood Brand'}
+                                {watchedValues.A || 'Cabinet and Shutter Plywood'}
                                 <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
                               </Button>
                             </PopoverTrigger>
