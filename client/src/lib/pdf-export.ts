@@ -1,5 +1,5 @@
 import { jsPDF } from "jspdf";
-import { calculateGaddiLineDirection, shouldShowGaddiMarking, type GaddiPanel } from '@/features/gaddi';
+import { drawGaddiMark } from '@/features/gaddi';
 
 // 🔥 VERSION TRACKING - Update this to force cache refresh
 const PDF_VERSION = "2025-12-01-GADDI-CLEAN";
@@ -449,44 +449,20 @@ export function generateCutlistPDF({
       }
       
       // GADDI Dotted Line - Mark nomW for TOP/BOTTOM, nomH for LEFT/RIGHT
-      if ((panel as any).gaddi === true) {
-        const gaddiPanel: GaddiPanel = {
-          panelType: panelName,
-          gaddi: true,
+      if ((panel as any).gaddi === true && w > 15 && h > 15) {
+        drawGaddiMark(
+          doc,
+          { x, y, w, h, rotationDegrees: panel.rotate ? 90 : 0 },
+          panelName,
           nomW,
           nomH,
-          w: panel.w,
-          h: panel.h
-        };
-        
-        if (shouldShowGaddiMarking(gaddiPanel)) {
-          const lineConfig = calculateGaddiLineDirection(gaddiPanel);
-          
-          doc.setLineWidth(lineConfig.lineWidth);
-          doc.setDrawColor(lineConfig.color);
-          (doc as any).setLineDash(lineConfig.dashPattern);
-          
-          if (lineConfig.lineDirection === 'x') {
-            // Mark nomW: horizontal dotted line
-            doc.line(
-              x + lineConfig.inset,
-              y + lineConfig.inset,
-              x + w - lineConfig.inset,
-              y + lineConfig.inset
-            );
-          } else {
-            // Mark nomH: vertical dotted line
-            doc.line(
-              x + lineConfig.inset,
-              y + lineConfig.inset,
-              x + lineConfig.inset,
-              y + h - lineConfig.inset
-            );
+          {
+            inset: 2,
+            lineWidth: 0.5,
+            dashPattern: [2, 2],
+            color: 100
           }
-          
-          (doc as any).setLineDash([]);
-          doc.setDrawColor(0);
-        }
+        );
       }
       
     });

@@ -4,7 +4,7 @@
 // - type: string containing "TOP"|"BOTTOM"|"LEFT"|"RIGHT"
 // - nomW, nomH: numbers (units must match panel.w/h units or you must scale)
 // - options: optional { inset: number, lineWidth: number, dashPattern: number[], color: number|[r,g,b] }
-export function drawGaddiMark(
+function drawGaddiMark(
   doc: any,
   panel: { x: number; y: number; w: number; h: number; rotationDegrees?: number },
   type: string,
