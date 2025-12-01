@@ -4891,16 +4891,6 @@ export default function Home() {
                                               markLaminateAsUserSelected('backPanelInnerLaminateCode');
                                             }
                                             
-                                            // Auto-sync laminate code to all shutters
-                                            const currentShutters = watchedValues.shutters || [];
-                                            if (currentShutters.length > 0) {
-                                              const updatedShutters = currentShutters.map(shutter => ({
-                                                ...shutter,
-                                                laminateCode: currentValue
-                                              }));
-                                              form.setValue('shutters', updatedShutters);
-                                            }
-                                            
                                             // ✅ DIRECT LINK: Auto-sync grain direction from database preferences
                                             if (currentValue && currentValue !== 'Manual Type') {
                                               const baseCode = currentValue.split('+')[0].trim();
@@ -4966,16 +4956,6 @@ export default function Home() {
                                             // Auto-sync to Top/Bottom/Left/Right panels (respects panelsLinked toggle)
                                             // These will be marked as user-selected because the origin was user-driven
                                             syncCabinetConfigInnerLaminate(currentValue, true);
-                                            
-                                            // Auto-sync inner laminate code to all shutters
-                                            const currentShutters = watchedValues.shutters || [];
-                                            if (currentShutters.length > 0) {
-                                              const updatedShutters = currentShutters.map(shutter => ({
-                                                ...shutter,
-                                                innerLaminateCode: currentValue
-                                              }));
-                                              form.setValue('shutters', updatedShutters);
-                                            }
                                           
                                           // Fetch and apply inner wood grains preference
                                           if (currentValue && currentValue !== 'Manual Type') {
