@@ -615,8 +615,6 @@ export default function Home() {
       leftPanelInnerLaminateCode: 'off white',
       rightPanelInnerLaminateCode: 'off white',
       backPanelInnerLaminateCode: 'off white',
-      centerPostInnerLaminateCode: memory.centerPostInnerLaminateCode ?? 'off white', // ✅ IMPROVED: Restore from memory
-      shelvesInnerLaminateCode: memory.shelvesInnerLaminateCode ?? 'off white', // ✅ IMPROVED: Restore from memory
       A: storedMemory.A ?? 'Apple Ply 16mm BWP',
       innerLaminateCode: 'off white',
       // Grain direction fields - default to false for new forms
@@ -2640,7 +2638,6 @@ export default function Home() {
       bottomPanelLaminateCode: memory.bottomPanelLaminateCode ?? '',
       leftPanelLaminateCode: memory.leftPanelLaminateCode ?? '',
       rightPanelLaminateCode: memory.rightPanelLaminateCode ?? '',
-      backPanelLaminateCode: memory.backPanelLaminateCode ?? '',
       shutterLaminateCode: memory.shutterLaminateCode ?? '',
       centerPostLaminateCode: memory.centerPostLaminateCode ?? '',
       shelvesLaminateCode: memory.shelvesLaminateCode ?? '',
@@ -2651,7 +2648,6 @@ export default function Home() {
       backPanelInnerLaminateCode: memory.backPanelInnerLaminateCode ?? 'off white',
       innerLaminateCode: 'off white',
       A: memory.A ?? 'Apple Ply 16mm BWP',
-      A: shutterMemoryNew.A ?? (memory.A ?? 'Apple Ply 16mm BWP'), // ✅ Use shutter memory
       // ✅ DIRECT LINK: Initialize grain directions from database preferences, not hardcoded false
       topPanelGrainDirection: hasTopWoodGrain,
       bottomPanelGrainDirection: hasTopWoodGrain,
@@ -2952,7 +2948,6 @@ export default function Home() {
       shutterLaminateCode: shutterMemory?.shutterLaminateCode || '',  // ✅ Keep laminate code
       shutterInnerLaminateCode: shutterMemory?.shutterInnerLaminateCode || '',  // ✅ Keep inner laminate
       A: cabinetMemory.A ?? 'Apple Ply 16mm BWP',
-      A: shutterMemory?.A ?? (cabinetMemory.A ?? 'Apple Ply 16mm BWP'),
       topPanelLaminateCode: cabinetMemory.topPanelLaminateCode ?? '',
       bottomPanelLaminateCode: cabinetMemory.topPanelLaminateCode ?? '',
       leftPanelLaminateCode: cabinetMemory.topPanelLaminateCode ?? '',
@@ -3025,8 +3020,6 @@ export default function Home() {
         shelvesInnerLaminateCode: cabinetMemory.shelvesInnerLaminateCode ?? 'off white',
         innerLaminateCode: 'off white',
         A: cabinetMemory.A ?? 'Apple Ply 16mm BWP',
-        backPanelPlywoodBrand: cabinetMemory.A ?? 'Apple ply 6mm BWP',
-        shutterLaminateCode: cabinetMemory.shutterLaminateCode ?? '',
         shutterInnerLaminateCode: cabinetMemory.shutterInnerLaminateCode ?? '',
         backPanelWidthReduction: 0,
         backPanelHeightReduction: 0,
@@ -8509,7 +8502,6 @@ export default function Home() {
                   depth: 450,
                   widthReduction: 36,
                   A: masterPlywoodBrand || 'Apple Ply 16mm BWP',
-                  backPanelPlywoodBrand: 'Apple ply 6mm BWP',
                   A: masterPlywoodBrand || 'Apple Ply 16mm BWP',
                   bottomPanelLaminateCode: masterLaminateCode || '',
                   leftPanelLaminateCode: masterLaminateCode || '',
