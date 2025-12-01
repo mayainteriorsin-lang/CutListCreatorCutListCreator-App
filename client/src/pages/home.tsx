@@ -49,7 +49,7 @@ interface CabinetFormMemory {
   topPanelLaminateCode?: string;
   backPanelLaminateCode?: string;
   widthReduction?: number;
-  shutterPlywoodBrand?: string;
+  A?: string;
   shutterLaminateCode?: string;
   shutterInnerLaminateCode?: string;
 }
@@ -114,7 +114,7 @@ const saveCabinetFormMemory = (values: CabinetFormMemory) => {
 const SHUTTER_FORM_MEMORY_KEY = 'shutterFormMemory_v1';
 
 interface ShutterFormMemory {
-  shutterPlywoodBrand?: string;
+  A?: string;
   shutterLaminateCode?: string;
   shutterInnerLaminateCode?: string;
 }
@@ -720,7 +720,7 @@ export default function Home() {
         laminateCode: composedCode
       }));
     }
-  }, [colourFrameEnabled, shutterLaminateCode, shutterInnerLaminateCode, shutterPlywoodBrand]);
+  }, [colourFrameEnabled, shutterLaminateCode, shutterInnerLaminateCode, A]);
   
   useEffect(() => {
     // Only save if values actually changed (not just form re-renders)
@@ -730,7 +730,7 @@ export default function Home() {
     if (frontChanged || innerChanged) {
       if (shutterLaminateCode || shutterInnerLaminateCode) {
         saveCabinetFormMemory({
-          shutterPlywoodBrand,
+          A,
           shutterLaminateCode,
           shutterInnerLaminateCode
         });
@@ -741,7 +741,7 @@ export default function Home() {
         };
       }
     }
-  }, [shutterLaminateCode, shutterInnerLaminateCode, shutterPlywoodBrand]);
+  }, [shutterLaminateCode, shutterInnerLaminateCode, A]);
   
   useEffect(() => {
     // Only run if preferences are loaded
@@ -2537,8 +2537,7 @@ export default function Home() {
       height: cabinet.height,
       width: cabinet.width,
       depth: cabinet.depth,
-      plywoodType: cabinet.plywoodType,
-      backPanelPlywoodBrand: cabinet.backPanelPlywoodBrand,
+      A: cabinet.A,
       topPanelLaminateCode: cabinet.topPanelLaminateCode,
       backPanelLaminateCode: cabinet.backPanelLaminateCode,
       widthReduction: cabinet.widthReduction
@@ -2598,7 +2597,7 @@ export default function Home() {
       innerLaminateCode: 'off white',
       plywoodType: memory.plywoodType ?? 'Apple Ply 16mm BWP',
       backPanelPlywoodBrand: memory.backPanelPlywoodBrand ?? 'Apple ply 6mm BWP',
-      shutterPlywoodBrand: shutterMemoryNew.shutterPlywoodBrand ?? (memory.plywoodType ?? 'Apple Ply 16mm BWP'), // ✅ Use shutter memory
+      A: shutterMemoryNew.A ?? (memory.plywoodType ?? 'Apple Ply 16mm BWP'), // ✅ Use shutter memory
       // ✅ DIRECT LINK: Initialize grain directions from database preferences, not hardcoded false
       topPanelGrainDirection: hasTopWoodGrain,
       bottomPanelGrainDirection: hasTopWoodGrain,
@@ -2820,9 +2819,9 @@ export default function Home() {
     setUserSelectedLaminates(updatedTracking);
     
     // Save shutter memory for Quick Shutter mode auto-fill
-    if (mode === 'basic' && (cabinet.shutterPlywoodBrand || cabinet.shutterLaminateCode || cabinet.shutterInnerLaminateCode)) {
+    if (mode === 'basic' && (cabinet.A || cabinet.shutterLaminateCode || cabinet.shutterInnerLaminateCode)) {
       saveShutterFormMemory({
-        shutterPlywoodBrand: cabinet.shutterPlywoodBrand,
+        A: cabinet.A,
         shutterLaminateCode: cabinet.shutterLaminateCode,
         shutterInnerLaminateCode: cabinet.shutterInnerLaminateCode
       });
@@ -2900,7 +2899,7 @@ export default function Home() {
       shutterInnerLaminateCode: shutterMemory?.shutterInnerLaminateCode || '',  // ✅ Keep inner laminate
       plywoodType: cabinetMemory.plywoodType ?? 'Apple Ply 16mm BWP',
       backPanelPlywoodBrand: cabinetMemory.backPanelPlywoodBrand ?? 'Apple ply 6mm BWP',
-      shutterPlywoodBrand: shutterMemory?.shutterPlywoodBrand ?? (cabinetMemory.plywoodType ?? 'Apple Ply 16mm BWP'),
+      A: shutterMemory?.A ?? (cabinetMemory.plywoodType ?? 'Apple Ply 16mm BWP'),
       topPanelLaminateCode: cabinetMemory.topPanelLaminateCode ?? '',
       bottomPanelLaminateCode: cabinetMemory.topPanelLaminateCode ?? '',
       leftPanelLaminateCode: cabinetMemory.topPanelLaminateCode ?? '',
@@ -2970,7 +2969,7 @@ export default function Home() {
         innerLaminateCode: 'off white',
         plywoodType: cabinetMemory.plywoodType ?? 'Apple Ply 16mm BWP',
         backPanelPlywoodBrand: cabinetMemory.backPanelPlywoodBrand ?? 'Apple ply 6mm BWP',
-        shutterPlywoodBrand: cabinetMemory.shutterPlywoodBrand ?? (cabinetMemory.plywoodType ?? 'Apple Ply 16mm BWP'),
+        A: cabinetMemory.A ?? (cabinetMemory.plywoodType ?? 'Apple Ply 16mm BWP'),
         shutterLaminateCode: cabinetMemory.shutterLaminateCode ?? '',
         shutterInnerLaminateCode: cabinetMemory.shutterInnerLaminateCode ?? '',
         backPanelWidthReduction: 0,
@@ -4634,7 +4633,7 @@ export default function Home() {
                                   role="combobox"
                                   className="w-full justify-between text-sm h-10"
                                 >
-                                  {watchedValues.shutterPlywoodBrand || 'Select plywood brand'}
+                                  {watchedValues.A || 'Select plywood brand'}
                                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                 </Button>
                               </PopoverTrigger>
@@ -4653,13 +4652,13 @@ export default function Home() {
                                           key={brand.id}
                                           value={brand.brand}
                                           onSelect={(currentValue) => {
-                                            form.setValue('shutterPlywoodBrand', currentValue);
+                                            form.setValue('A', currentValue);
                                             setShutterPlywoodOpen(false);
                                           }}
                                         >
                                           <Check
                                             className={`mr-2 h-4 w-4 ${
-                                              watchedValues.shutterPlywoodBrand === brand.brand ? 'opacity-100' : 'opacity-0'
+                                              watchedValues.A === brand.brand ? 'opacity-100' : 'opacity-0'
                                             }`}
                                           />
                                           {brand.brand}
@@ -4734,7 +4733,7 @@ export default function Home() {
                                 className="w-full justify-between text-sm h-10"
                                 ref={(el) => registerFieldRef('plywoodBrand', el)}
                               >
-                                {watchedValues.plywoodType || 'Select plywood brand'}
+                                {watchedValues.A || 'Select plywood brand'}
                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                               </Button>
                             </PopoverTrigger>
@@ -4763,7 +4762,7 @@ export default function Home() {
                                       >
                                         <Check
                                           className={`mr-2 h-4 w-4 ${
-                                            watchedValues.plywoodType === brand.brand ? 'opacity-100' : 'opacity-0'
+                                            watchedValues.A === brand.brand ? 'opacity-100' : 'opacity-0'
                                           }`}
                                         />
                                         {brand.brand}
@@ -4968,7 +4967,7 @@ export default function Home() {
                                 data-testid="select-back-panel-plywood-brand"
                                 ref={(el) => registerFieldRef('backPanelPlywood', el)}
                               >
-                                {watchedValues.backPanelPlywoodBrand || 'Select plywood brand'}
+                                {watchedValues.A || 'Select plywood brand'}
                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                               </Button>
                             </PopoverTrigger>
@@ -4994,7 +4993,7 @@ export default function Home() {
                                       >
                                         <Check
                                           className={`mr-2 h-4 w-4 ${
-                                            watchedValues.backPanelPlywoodBrand === brand.brand ? 'opacity-100' : 'opacity-0'
+                                            watchedValues.A === brand.brand ? 'opacity-100' : 'opacity-0'
                                           }`}
                                         />
                                         {brand.brand}
@@ -5461,7 +5460,7 @@ export default function Home() {
                                 className="w-[200px] justify-between text-xs h-7"
                                 data-testid="select-shutter-plywood-brand"
                               >
-                                {watchedValues.shutterPlywoodBrand || watchedValues.plywoodType || 'Plywood Brand'}
+                                {watchedValues.A || watchedValues.A || 'Plywood Brand'}
                                 <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
                               </Button>
                             </PopoverTrigger>
@@ -5480,12 +5479,12 @@ export default function Home() {
                                         key={brand.id}
                                         value={brand.brand}
                                         onSelect={(currentValue) => {
-                                          form.setValue('shutterPlywoodBrand', currentValue);
+                                          form.setValue('A', currentValue);
                                         }}
                                       >
                                         <Check
                                           className={`mr-2 h-4 w-4 ${
-                                            watchedValues.shutterPlywoodBrand === brand.brand ? 'opacity-100' : 'opacity-0'
+                                            watchedValues.A === brand.brand ? 'opacity-100' : 'opacity-0'
                                           }`}
                                         />
                                         {brand.brand}
@@ -6790,7 +6789,7 @@ export default function Home() {
                               setColourFrameEnabled(checked);
                               if (checked) {
                                 const shutterLaminate = form.getValues('shutterInnerLaminateCode') || '';
-                                const shutterPlywood = form.getValues('shutterPlywoodBrand') || 'Apple Ply 16mm BWP';
+                                const shutterPlywood = form.getValues('A') || 'Apple Ply 16mm BWP';
                                 const shutterGrainDirection = Boolean(form.getValues('shutterGrainDirection'));
                                 setColourFrameForm({
                                   height: 2400,
@@ -8443,7 +8442,7 @@ export default function Home() {
                   widthReduction: 36,
                   plywoodType: masterPlywoodBrand || 'Apple Ply 16mm BWP',
                   backPanelPlywoodBrand: 'Apple ply 6mm BWP',
-                  shutterPlywoodBrand: masterPlywoodBrand || 'Apple Ply 16mm BWP',
+                  A: masterPlywoodBrand || 'Apple Ply 16mm BWP',
                   topPanelLaminateCode: masterLaminateCode || '',
                   bottomPanelLaminateCode: masterLaminateCode || '',
                   leftPanelLaminateCode: masterLaminateCode || '',
