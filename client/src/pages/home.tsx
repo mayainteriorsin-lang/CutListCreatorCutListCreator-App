@@ -45,11 +45,25 @@ interface CabinetFormMemory {
   width?: number;
   depth?: number;
   A?: string;
-  topPanelLaminateCode?: string;
-  backPanelLaminateCode?: string;
   widthReduction?: number;
+  // ✅ IMPROVED: Store ALL front laminate codes from all panel types
+  topPanelLaminateCode?: string;
+  bottomPanelLaminateCode?: string;
+  leftPanelLaminateCode?: string;
+  rightPanelLaminateCode?: string;
+  backPanelLaminateCode?: string;
   shutterLaminateCode?: string;
+  centerPostLaminateCode?: string;
+  shelvesLaminateCode?: string;
+  // ✅ IMPROVED: Store ALL inner laminate codes from all panel types
+  topPanelInnerLaminateCode?: string;
+  bottomPanelInnerLaminateCode?: string;
+  leftPanelInnerLaminateCode?: string;
+  rightPanelInnerLaminateCode?: string;
+  backPanelInnerLaminateCode?: string;
   shutterInnerLaminateCode?: string;
+  centerPostInnerLaminateCode?: string;
+  shelvesInnerLaminateCode?: string;
 }
 
 // Load last cabinet form values from localStorage (with SSR safety)
@@ -601,8 +615,8 @@ export default function Home() {
       leftPanelInnerLaminateCode: 'off white',
       rightPanelInnerLaminateCode: 'off white',
       backPanelInnerLaminateCode: 'off white',
-      centerPostInnerLaminateCode: 'off white', // ✅ FIX: Add missing for grain direction lookup
-      shelvesInnerLaminateCode: 'off white', // ✅ FIX: Add missing for grain direction lookup
+      centerPostInnerLaminateCode: memory.centerPostInnerLaminateCode ?? 'off white', // ✅ IMPROVED: Restore from memory
+      shelvesInnerLaminateCode: memory.shelvesInnerLaminateCode ?? 'off white', // ✅ IMPROVED: Restore from memory
       A: storedMemory.A ?? 'Apple Ply 16mm BWP',
       innerLaminateCode: 'off white',
       // Grain direction fields - default to false for new forms
@@ -2551,7 +2565,7 @@ export default function Home() {
     
     updateCabinets((prev: Cabinet[]) => [...prev, cabinetWithGaddi]);
     
-    // Save cabinet values to memory for next time
+    // Save cabinet values to memory for next time - ✅ IMPROVED: Save all laminate codes
     saveCabinetFormMemory({
       roomName: cabinet.roomName,
       customRoomName: cabinet.roomName === 'Manual Type' ? cabinet.roomName : undefined,
@@ -2559,9 +2573,25 @@ export default function Home() {
       width: cabinet.width,
       depth: cabinet.depth,
       A: cabinet.A,
+      widthReduction: cabinet.widthReduction,
+      // ✅ IMPROVED: Store ALL front laminate codes
       topPanelLaminateCode: cabinet.topPanelLaminateCode,
+      bottomPanelLaminateCode: cabinet.bottomPanelLaminateCode,
+      leftPanelLaminateCode: cabinet.leftPanelLaminateCode,
+      rightPanelLaminateCode: cabinet.rightPanelLaminateCode,
       backPanelLaminateCode: cabinet.backPanelLaminateCode,
-      widthReduction: cabinet.widthReduction
+      shutterLaminateCode: cabinet.shutterLaminateCode,
+      centerPostLaminateCode: cabinet.centerPostLaminateCode,
+      shelvesLaminateCode: cabinet.shelvesLaminateCode,
+      // ✅ IMPROVED: Store ALL inner laminate codes
+      topPanelInnerLaminateCode: cabinet.topPanelInnerLaminateCode,
+      bottomPanelInnerLaminateCode: cabinet.bottomPanelInnerLaminateCode,
+      leftPanelInnerLaminateCode: cabinet.leftPanelInnerLaminateCode,
+      rightPanelInnerLaminateCode: cabinet.rightPanelInnerLaminateCode,
+      backPanelInnerLaminateCode: cabinet.backPanelInnerLaminateCode,
+      shutterInnerLaminateCode: cabinet.shutterInnerLaminateCode,
+      centerPostInnerLaminateCode: cabinet.centerPostInnerLaminateCode,
+      shelvesInnerLaminateCode: cabinet.shelvesInnerLaminateCode
     });
     
     // Clear user-laminate tracking for next cabinet
@@ -2605,16 +2635,20 @@ export default function Home() {
       shutterInnerLaminateCode: shutterMemoryNew.shutterInnerLaminateCode ?? '', // ✅ RESTORE from memory
       shutterGaddi: false, // ✅ FIX: Initialize Basic mode fields
       configurationMode: 'advanced', // ✅ FIX: Reset to Advanced mode after adding
+      // ✅ IMPROVED: Restore ALL laminate codes from memory
       topPanelLaminateCode: memory.topPanelLaminateCode ?? '',
-      bottomPanelLaminateCode: memory.topPanelLaminateCode ?? '',
-      leftPanelLaminateCode: memory.topPanelLaminateCode ?? '',
-      rightPanelLaminateCode: memory.topPanelLaminateCode ?? '',
+      bottomPanelLaminateCode: memory.bottomPanelLaminateCode ?? '',
+      leftPanelLaminateCode: memory.leftPanelLaminateCode ?? '',
+      rightPanelLaminateCode: memory.rightPanelLaminateCode ?? '',
       backPanelLaminateCode: memory.backPanelLaminateCode ?? '',
-      topPanelInnerLaminateCode: 'off white',
-      bottomPanelInnerLaminateCode: 'off white',
-      leftPanelInnerLaminateCode: 'off white',
-      rightPanelInnerLaminateCode: 'off white',
-      backPanelInnerLaminateCode: 'off white',
+      shutterLaminateCode: memory.shutterLaminateCode ?? '',
+      centerPostLaminateCode: memory.centerPostLaminateCode ?? '',
+      shelvesLaminateCode: memory.shelvesLaminateCode ?? '',
+      topPanelInnerLaminateCode: memory.topPanelInnerLaminateCode ?? 'off white',
+      bottomPanelInnerLaminateCode: memory.bottomPanelInnerLaminateCode ?? 'off white',
+      leftPanelInnerLaminateCode: memory.leftPanelInnerLaminateCode ?? 'off white',
+      rightPanelInnerLaminateCode: memory.rightPanelInnerLaminateCode ?? 'off white',
+      backPanelInnerLaminateCode: memory.backPanelInnerLaminateCode ?? 'off white',
       innerLaminateCode: 'off white',
       A: memory.A ?? 'Apple Ply 16mm BWP',
       A: shutterMemoryNew.A ?? (memory.A ?? 'Apple Ply 16mm BWP'), // ✅ Use shutter memory
@@ -2973,18 +3007,22 @@ export default function Home() {
           width: config.width,
           shutterCount: config.shutterQuantity
         }),
+        // ✅ IMPROVED: Restore ALL laminate codes from memory for quick cabinets
         topPanelLaminateCode: cabinetMemory.topPanelLaminateCode ?? '',
-        bottomPanelLaminateCode: cabinetMemory.topPanelLaminateCode ?? '',
-        leftPanelLaminateCode: cabinetMemory.topPanelLaminateCode ?? '',
-        rightPanelLaminateCode: cabinetMemory.topPanelLaminateCode ?? '',
+        bottomPanelLaminateCode: cabinetMemory.bottomPanelLaminateCode ?? '',
+        leftPanelLaminateCode: cabinetMemory.leftPanelLaminateCode ?? '',
+        rightPanelLaminateCode: cabinetMemory.rightPanelLaminateCode ?? '',
         backPanelLaminateCode: cabinetMemory.backPanelLaminateCode ?? '',
-        topPanelInnerLaminateCode: 'off white',
-        bottomPanelInnerLaminateCode: 'off white',
-        leftPanelInnerLaminateCode: 'off white',
-        rightPanelInnerLaminateCode: 'off white',
-        backPanelInnerLaminateCode: 'off white',
-        centerPostInnerLaminateCode: 'off white',
-        shelvesInnerLaminateCode: 'off white',
+        shutterLaminateCode: cabinetMemory.shutterLaminateCode ?? '',
+        centerPostLaminateCode: cabinetMemory.centerPostLaminateCode ?? '',
+        shelvesLaminateCode: cabinetMemory.shelvesLaminateCode ?? '',
+        topPanelInnerLaminateCode: cabinetMemory.topPanelInnerLaminateCode ?? 'off white',
+        bottomPanelInnerLaminateCode: cabinetMemory.bottomPanelInnerLaminateCode ?? 'off white',
+        leftPanelInnerLaminateCode: cabinetMemory.leftPanelInnerLaminateCode ?? 'off white',
+        rightPanelInnerLaminateCode: cabinetMemory.rightPanelInnerLaminateCode ?? 'off white',
+        backPanelInnerLaminateCode: cabinetMemory.backPanelInnerLaminateCode ?? 'off white',
+        centerPostInnerLaminateCode: cabinetMemory.centerPostInnerLaminateCode ?? 'off white',
+        shelvesInnerLaminateCode: cabinetMemory.shelvesInnerLaminateCode ?? 'off white',
         innerLaminateCode: 'off white',
         A: cabinetMemory.A ?? 'Apple Ply 16mm BWP',
         backPanelPlywoodBrand: cabinetMemory.A ?? 'Apple ply 6mm BWP',
