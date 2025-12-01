@@ -57,7 +57,7 @@ export function calculateGaddiLineDirection(panel: GaddiPanel): GaddiLineConfig 
     // TOP/BOTTOM: Always mark WIDTH (nomW)
     markDimension = 'width';
     // Detect which axis nomW is on: if w ≈ nomW, it's on X-axis; otherwise Y-axis (rotated)
-    sheetAxis = Math.abs(w - nomW) < 0.5 ? 'y' : 'x';
+    sheetAxis = Math.abs(w - nomW) < 0.5 ? 'x' : 'y';
     
   } else {
     // Default: mark HEIGHT on Y-axis
