@@ -1,21 +1,18 @@
 /**
- * GADDI DOTTED LINE SYSTEM - SIMPLE RULE
+ * GADDI DOTTED LINE SYSTEM
  * 
- * GADDI MARKING:
- * - LEFT/RIGHT panels → ALWAYS mark HEIGHT (nomH)
- * - TOP/BOTTOM panels → ALWAYS mark WIDTH (nomW)
- * 
- * NO axis detection, NO rotation logic - just mark the dimension!
+ * MARKING RULE:
+ * - TOP/BOTTOM panels → Mark nomW only
+ * - LEFT/RIGHT panels → Mark nomW and nomH (both values)
  */
 
 export interface GaddiPanel {
   panelType: string;
   gaddi: boolean;
-  nomW: number;  // Original width
-  nomH: number;  // Original height
-  nomD?: number; // Original depth (for LEFT/RIGHT panels)
-  w: number;     // Sheet placement width
-  h: number;     // Sheet placement height
+  nomW: number;
+  nomH: number;
+  w: number;
+  h: number;
 }
 
 export interface GaddiLineConfig {
@@ -27,40 +24,28 @@ export interface GaddiLineConfig {
   color: number;
 }
 
-/**
- * Should GADDI marking be shown?
- */
 export function shouldShowGaddiMarking(panel: GaddiPanel): boolean {
   return panel.gaddi === true && panel.w > 15 && panel.h > 15;
 }
 
-/**
- * Calculate GADDI dotted line direction
- * 
- * CORRECTED RULE:
- * - LEFT/RIGHT: Mark HEIGHT (nomH) → VERTICAL dotted line (Y-axis)
- * - TOP/BOTTOM: Mark WIDTH (which is nomH, not nomW!) → HORIZONTAL dotted line (X-axis)
- * 
- * Note: nomW = depth for both panel types
- */
 export function calculateGaddiLineDirection(panel: GaddiPanel): GaddiLineConfig {
-  const { panelType, nomH } = panel;
+  const { panelType, nomW, nomH, w, h } = panel;
   const type = (panelType || '').toUpperCase();
   
   let markDimension: 'width' | 'height';
   let sheetAxis: 'x' | 'y';
   
   if (type.includes('LEFT') || type.includes('RIGHT')) {
-    // LEFT/RIGHT: Mark HEIGHT (nomH) → VERTICAL line on Y-axis
+    // LEFT/RIGHT: Use nomW and nomH
     markDimension = 'height';
     sheetAxis = 'y';
-    console.log(`🔴 ${type}: Mark HEIGHT(${nomH}) → VERTICAL`);
+    console.log(`🔴 ${type}: nomW=${nomW}, nomH=${nomH}, w=${w}, h=${h}`);
     
   } else if (type.includes('TOP') || type.includes('BOTTOM')) {
-    // TOP/BOTTOM: Mark WIDTH (nomH, not nomW!) → HORIZONTAL line on X-axis
+    // TOP/BOTTOM: Use only nomW
     markDimension = 'width';
     sheetAxis = 'x';
-    console.log(`🔵 ${type}: Mark WIDTH(${nomH}) → HORIZONTAL`);
+    console.log(`🔵 ${type}: nomW=${nomW}, w=${w}, h=${h}`);
     
   } else {
     markDimension = 'height';
