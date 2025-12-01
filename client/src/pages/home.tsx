@@ -688,29 +688,21 @@ export default function Home() {
     }
   }, [masterLaminateCode, masterInnerLaminateCode, shutterLaminateCode, shutterInnerLaminateCode, form]);
 
-  // ✅ AUTO-SYNC: Center Post and Shelves inherit Inner Laminate code (time-saver)
-  // Logic: Use Inner Laminate for both front and inner sides
-  // - If Inner = "off white" → both sides "off white"
-  // - If Inner = "123sf" → both sides "123sf"
+  // ✅ AUTO-SYNC: Center Post and Shelves inherit cabinet Inner Laminate code only (time-saver)
+  // Logic: Use cabinet Inner Laminate for inner side only, nothing for front side
   useEffect(() => {
-    if (topPanelInnerLaminateCode) {
-      // Sync Center Post
-      if (!form.getValues('centerPostLaminateCode')) {
-        form.setValue('centerPostLaminateCode', topPanelInnerLaminateCode);
-      }
+    if (masterInnerLaminateCode) {
+      // Sync Center Post - inner side only
       if (!form.getValues('centerPostInnerLaminateCode')) {
-        form.setValue('centerPostInnerLaminateCode', topPanelInnerLaminateCode);
+        form.setValue('centerPostInnerLaminateCode', masterInnerLaminateCode);
       }
       
-      // Sync Shelves
-      if (!form.getValues('shelvesLaminateCode')) {
-        form.setValue('shelvesLaminateCode', topPanelInnerLaminateCode);
-      }
+      // Sync Shelves - inner side only
       if (!form.getValues('shelvesInnerLaminateCode')) {
-        form.setValue('shelvesInnerLaminateCode', topPanelInnerLaminateCode);
+        form.setValue('shelvesInnerLaminateCode', masterInnerLaminateCode);
       }
     }
-  }, [topPanelInnerLaminateCode, form]);
+  }, [masterInnerLaminateCode, form]);
   
   // ✅ AUTO-SYNC: Colour Frame inherits Quick Shutter materials for consolidation
   useEffect(() => {
