@@ -1624,11 +1624,12 @@ export default function Home() {
     return false;
   };
 
-  // Calculate panel dimensions - SIMPLE: Use input values directly, NO calculations
+  // Calculate panel dimensions - Apply width reduction to top/bottom panels for optimizer
   const calculatePanelDimensions = (cabinet: Cabinet) => {
+    const calculatedWidth = cabinet.width - (cabinet.widthReduction ?? 36);
     return {
-      top: { width: cabinet.width, height: cabinet.depth, thickness: 18 },
-      bottom: { width: cabinet.width, height: cabinet.depth, thickness: 18 },
+      top: { width: calculatedWidth, height: cabinet.depth, thickness: 18 },
+      bottom: { width: calculatedWidth, height: cabinet.depth, thickness: 18 },
       left: { width: cabinet.depth, height: cabinet.height, thickness: 18 },
       right: { width: cabinet.depth, height: cabinet.height, thickness: 18 },
       back: { width: cabinet.width, height: cabinet.height, thickness: 18 }
