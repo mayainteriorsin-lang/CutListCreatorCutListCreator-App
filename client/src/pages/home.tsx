@@ -2151,7 +2151,6 @@ export default function Home() {
                 type: panelType,
                 markedEdge: `${markedEdge}=${edgeValue}mm`,
                 gaddiLine: lineDirection,
-                rotated: isRotated,
                 nomW,
                 nomH,
                 w: panel.w,
