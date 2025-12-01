@@ -29,11 +29,9 @@ import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
 // ✅ MODULES: Simple panel optimization
-import { calculateGaddiLineDirection, shouldShowGaddiMarking } from '@/features/gaddi';
 import { prepareStandardParts } from '@/features/standard/dimensional-mapping';
 import { optimizeStandardCutlist } from '@/features/standard/optimizer';
 import { getDisplayDimensions } from '@/features/cutlist/core/efficiency';
-import { validateGaddiRule } from '@/features/gaddi';
 import { optimizeCutlist } from '@/lib/cutlist-optimizer';
 
 // Cabinet form memory helpers
