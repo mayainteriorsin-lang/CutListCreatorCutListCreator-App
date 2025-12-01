@@ -693,6 +693,7 @@ export default function Home() {
   const rightPanelLaminateCode = form.watch('rightPanelLaminateCode');
   const rightPanelInnerLaminateCode = form.watch('rightPanelInnerLaminateCode');
   const backPanelLaminateCode = form.watch('backPanelLaminateCode');
+  const backPanelInnerLaminateCode = form.watch('backPanelInnerLaminateCode');
   const shutterLaminateCode = form.watch('shutterLaminateCode');
   const A = form.watch('A');
   const shutterInnerLaminateCode = form.watch('shutterInnerLaminateCode');
@@ -771,6 +772,58 @@ export default function Home() {
       }
     }
   }, [shutterLaminateCode, shutterInnerLaminateCode, A]);
+  
+  // ✅ REAL-TIME SAVE: Save all individual panel laminate codes to memory when they change
+  const prevPanelLaminatesRef = useRef<{
+    top?: string; bottom?: string; left?: string; right?: string; back?: string;
+    topInner?: string; bottomInner?: string; leftInner?: string; rightInner?: string; backInner?: string;
+  }>({});
+  
+  useEffect(() => {
+    const topChanged = prevPanelLaminatesRef.current.top !== topPanelLaminateCode;
+    const bottomChanged = prevPanelLaminatesRef.current.bottom !== bottomPanelLaminateCode;
+    const leftChanged = prevPanelLaminatesRef.current.left !== leftPanelLaminateCode;
+    const rightChanged = prevPanelLaminatesRef.current.right !== rightPanelLaminateCode;
+    const backChanged = prevPanelLaminatesRef.current.back !== backPanelLaminateCode;
+    const topInnerChanged = prevPanelLaminatesRef.current.topInner !== topPanelInnerLaminateCode;
+    const bottomInnerChanged = prevPanelLaminatesRef.current.bottomInner !== bottomPanelInnerLaminateCode;
+    const leftInnerChanged = prevPanelLaminatesRef.current.leftInner !== leftPanelInnerLaminateCode;
+    const rightInnerChanged = prevPanelLaminatesRef.current.rightInner !== rightPanelInnerLaminateCode;
+    const backInnerChanged = prevPanelLaminatesRef.current.backInner !== backPanelInnerLaminateCode;
+    
+    if (topChanged || bottomChanged || leftChanged || rightChanged || backChanged ||
+        topInnerChanged || bottomInnerChanged || leftInnerChanged || rightInnerChanged || backInnerChanged) {
+      // Save to memory immediately when any laminate field changes
+      saveCabinetFormMemory({
+        topPanelLaminateCode: topPanelLaminateCode || undefined,
+        bottomPanelLaminateCode: bottomPanelLaminateCode || undefined,
+        leftPanelLaminateCode: leftPanelLaminateCode || undefined,
+        rightPanelLaminateCode: rightPanelLaminateCode || undefined,
+        backPanelLaminateCode: backPanelLaminateCode || undefined,
+        topPanelInnerLaminateCode: topPanelInnerLaminateCode || undefined,
+        bottomPanelInnerLaminateCode: bottomPanelInnerLaminateCode || undefined,
+        leftPanelInnerLaminateCode: leftPanelInnerLaminateCode || undefined,
+        rightPanelInnerLaminateCode: rightPanelInnerLaminateCode || undefined,
+        backPanelInnerLaminateCode: backPanelInnerLaminateCode || undefined,
+      });
+      // Update refs
+      prevPanelLaminatesRef.current = {
+        top: topPanelLaminateCode,
+        bottom: bottomPanelLaminateCode,
+        left: leftPanelLaminateCode,
+        right: rightPanelLaminateCode,
+        back: backPanelLaminateCode,
+        topInner: topPanelInnerLaminateCode,
+        bottomInner: bottomPanelInnerLaminateCode,
+        leftInner: leftPanelInnerLaminateCode,
+        rightInner: rightPanelInnerLaminateCode,
+        backInner: backPanelInnerLaminateCode,
+      };
+    }
+  }, [
+    topPanelLaminateCode, bottomPanelLaminateCode, leftPanelLaminateCode, rightPanelLaminateCode, backPanelLaminateCode,
+    topPanelInnerLaminateCode, bottomPanelInnerLaminateCode, leftPanelInnerLaminateCode, rightPanelInnerLaminateCode, backPanelInnerLaminateCode
+  ]);
   
   useEffect(() => {
     // Only run if preferences are loaded
