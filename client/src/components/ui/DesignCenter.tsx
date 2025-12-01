@@ -67,6 +67,8 @@ export default function DesignCenter() {
   const [clipboard, setClipboard] = useState<Shape[] | null>(null);
   const [showAllDimensions, setShowAllDimensions] = useState(true);
   const [dimensionStart, setDimensionStart] = useState<{ x: number; y: number } | null>(null);
+  const [widthValue, setWidthValue] = useState(200);
+  const [widthReduction, setWidthReduction] = useState(36);
   
   const SNAP = (v: number) => Math.round(v / gridSize) * gridSize;
   const getAngle = (x1: number, y1: number, x2: number, y2: number) => Math.round(Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI) % 360;
@@ -811,6 +813,11 @@ export default function DesignCenter() {
       <div style={{ flex: 1, position: "relative", padding: 0, display: "flex", flexDirection: "column", background: "#fff", overflow: "hidden" }}>
         {/* top status bar */}
         <div style={{ height: 32, padding: "4px 12px", background: "#f8f8f8", borderBottom: "1px solid #d0d0d0", display: "flex", gap: 10, alignItems: "center", fontSize: 10, color: "#555", flexWrap: "wrap" }}>
+          <span style={{ display: "flex", gap: 2, alignItems: "center" }}>
+            Width: <input type="number" min="1" value={widthValue} onChange={(e) => setWidthValue(Math.max(1, parseInt(e.target.value) || widthValue))} style={{ width: 32, padding: "2px 4px", border: "1px solid #ccc", borderRadius: 2, fontSize: 10, fontFamily: "monospace" }} />
+            − <input type="number" min="0" value={widthReduction} onChange={(e) => setWidthReduction(Math.max(0, parseInt(e.target.value) || widthReduction))} style={{ width: 32, padding: "2px 4px", border: "1px solid #ccc", borderRadius: 2, fontSize: 10, fontFamily: "monospace" }} />
+            = <span style={{ fontWeight: "bold", color: "#333" }}>{widthValue - widthReduction}</span> mm
+          </span>
           <span style={{ display: "flex", gap: 2, alignItems: "center" }}>
             Grid: <input type="number" min="5" max="50" value={gridSize} onChange={(e) => setGridSize(Math.max(5, parseInt(e.target.value) || gridSize))} style={{ width: 24, padding: "2px 2px", border: "1px solid #ccc", borderRadius: 2, fontSize: 10, fontFamily: "monospace" }} />
             mm
