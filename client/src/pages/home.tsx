@@ -950,28 +950,23 @@ export default function Home() {
   // Convert database response to simple string array for compatibility
   const globalPlywoodBrandMemory = plywoodBrandMemoryData.map(item => item.brand);
 
-  // State for laminate section (Top Panel)
-  const [laminateSelection, setLaminateSelection] = useState('off white');
+  // State for custom laminate inputs (display/typing only, not for form data)
   const [topCustomLaminateInput, setTopCustomLaminateInput] = useState('');
   const [saveStatus, setSaveStatus] = useState<'typing' | 'saved' | 'ready' | ''>('');
 
   // State for laminate section (Bottom Panel)
-  const [bottomLaminateSelection, setBottomLaminateSelection] = useState('off white');
   const [bottomCustomLaminateInput, setBottomCustomLaminateInput] = useState('');
   const [bottomSaveStatus, setBottomSaveStatus] = useState<'typing' | 'saved' | 'ready' | ''>('');
 
   // State for laminate section (Left Panel)
-  const [leftLaminateSelection, setLeftLaminateSelection] = useState('off white');
   const [leftCustomLaminateInput, setLeftCustomLaminateInput] = useState('');
   const [leftSaveStatus, setLeftSaveStatus] = useState<'typing' | 'saved' | 'ready' | ''>('');
 
   // State for laminate section (Right Panel)
-  const [rightLaminateSelection, setRightLaminateSelection] = useState('off white');
   const [rightCustomLaminateInput, setRightCustomLaminateInput] = useState('');
   const [rightSaveStatus, setRightSaveStatus] = useState<'typing' | 'saved' | 'ready' | ''>('');
 
   // State for laminate section (Back Panel)
-  const [backLaminateSelection, setBackLaminateSelection] = useState('off white');
   const [backCustomLaminateInput, setBackCustomLaminateInput] = useState('');
   const [backSaveStatus, setBackSaveStatus] = useState<'typing' | 'saved' | 'ready' | ''>('');
 
@@ -2555,13 +2550,7 @@ export default function Home() {
     markLaminateAsUserSelected('rightPanelInnerLaminateCode');
     markLaminateAsUserSelected('backPanelInnerLaminateCode');
     
-    // Refresh display fields with form values to show defaults
-    const currentFormValues = form.getValues();
-    setLaminateSelection(currentFormValues.topPanelLaminateCode || 'off white');
-    setBottomLaminateSelection(currentFormValues.bottomPanelLaminateCode || 'off white');
-    setLeftLaminateSelection(currentFormValues.leftPanelLaminateCode || 'off white');
-    setRightLaminateSelection(currentFormValues.rightPanelLaminateCode || 'off white');
-    setBackLaminateSelection(currentFormValues.backPanelLaminateCode || 'off white');
+    // No longer need to refresh display states - using form values directly now
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Run only once on mount
 
@@ -2664,11 +2653,11 @@ export default function Home() {
       shutterGaddi: false, // ✅ FIX: Initialize Basic mode fields
       configurationMode: 'advanced', // ✅ FIX: Reset to Advanced mode after adding
       // ✅ IMPROVED: Restore ALL laminate codes from memory
-      topPanelLaminateCode: memory.topPanelLaminateCode ?? '',
-      bottomPanelLaminateCode: memory.bottomPanelLaminateCode ?? '',
-      leftPanelLaminateCode: memory.leftPanelLaminateCode ?? '',
-      rightPanelLaminateCode: memory.rightPanelLaminateCode ?? '',
-      backPanelLaminateCode: memory.backPanelLaminateCode ?? '',
+      topPanelLaminateCode: memory.topPanelLaminateCode ?? 'off white',
+      bottomPanelLaminateCode: memory.bottomPanelLaminateCode ?? 'off white',
+      leftPanelLaminateCode: memory.leftPanelLaminateCode ?? 'off white',
+      rightPanelLaminateCode: memory.rightPanelLaminateCode ?? 'off white',
+      backPanelLaminateCode: memory.backPanelLaminateCode ?? 'off white',
       topPanelInnerLaminateCode: memory.topPanelInnerLaminateCode ?? 'off white',
       bottomPanelInnerLaminateCode: memory.bottomPanelInnerLaminateCode ?? 'off white',
       leftPanelInnerLaminateCode: memory.leftPanelInnerLaminateCode ?? 'off white',
