@@ -29,23 +29,23 @@ export function shouldShowGaddiMarking(panel: GaddiPanel): boolean {
 }
 
 export function calculateGaddiLineDirection(panel: GaddiPanel): GaddiLineConfig {
-  const { panelType, nomW, nomH, w, h } = panel;
+  const { panelType, nomW, nomH } = panel;
   const type = (panelType || '').toUpperCase();
   
   let markDimension: 'width' | 'height';
   let sheetAxis: 'x' | 'y';
   
   if (type.includes('LEFT') || type.includes('RIGHT')) {
-    // LEFT/RIGHT: Use nomW and nomH
+    // LEFT/RIGHT: Use nomH values only
     markDimension = 'height';
     sheetAxis = 'y';
-    console.log(`🔴 ${type}: nomW=${nomW}, nomH=${nomH}, w=${w}, h=${h}`);
+    console.log(`🔴 ${type}: nomH=${nomH}`);
     
   } else if (type.includes('TOP') || type.includes('BOTTOM')) {
-    // TOP/BOTTOM: Use only nomW
+    // TOP/BOTTOM: Use nomW values only
     markDimension = 'width';
     sheetAxis = 'x';
-    console.log(`🔵 ${type}: nomW=${nomW}, w=${w}, h=${h}`);
+    console.log(`🔵 ${type}: nomW=${nomW}`);
     
   } else {
     markDimension = 'height';
