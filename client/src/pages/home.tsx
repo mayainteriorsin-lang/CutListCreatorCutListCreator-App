@@ -223,6 +223,20 @@ function calculateEfficiency(sheets: Array<any>, parts: Array<any>): number {
   return totalSheetArea > 0 ? (totalPartsArea / totalSheetArea) * 100 : 0;
 }
 
+/**
+ * Calculate dynamic optimization time based on panel count
+ * Fewer panels = faster optimization, more panels = more thorough optimization
+ * @param panelCount - Number of panels to optimize
+ * @returns Optimization time in milliseconds
+ */
+function getOptimizationTimeMs(panelCount: number): number {
+  if (panelCount <= 5) return 200;      // 1-5 panels: very fast
+  if (panelCount <= 15) return 400;     // 6-15 panels: fast
+  if (panelCount <= 30) return 600;     // 16-30 panels: medium
+  if (panelCount <= 50) return 1000;    // 31-50 panels: thorough
+  return 1500;                           // 50+ panels: very thorough
+}
+
 // Pixel-perfect PDF export - one sheet per PDF page (no slicing needed)
 // Captures summary page first, then each cutting sheet individually using html2canvas + jsPDF
 async function exportPreviewToPdf(options: {
@@ -2155,7 +2169,7 @@ export default function Home() {
       }));
       
       const combinedParts = [...existingPanels, ...manualParts];
-      const combinedResult = optimizeCutlist({ parts: combinedParts, sheet: { w: currentSheetWidth, h: currentSheetHeight, kerf: currentKerf }, timeMs: 500 });
+      const combinedResult = optimizeCutlist({ parts: combinedParts, sheet: { w: currentSheetWidth, h: currentSheetHeight, kerf: currentKerf }, timeMs: getOptimizationTimeMs(combinedParts.length) });
       
       if (combinedResult?.panels && combinedResult.panels.length === 1) {
         combinedResult.panels[0]._sheetId = targetSheetId;
@@ -7309,7 +7323,7 @@ export default function Home() {
                   }))
                 );
                 
-                const result = optimizeCutlist({ parts: manualParts, sheet: { w: currentSheetWidth, h: currentSheetHeight, kerf: currentKerf }, timeMs: 500 });
+                const result = optimizeCutlist({ parts: manualParts, sheet: { w: currentSheetWidth, h: currentSheetHeight, kerf: currentKerf }, timeMs: getOptimizationTimeMs(manualParts.length) });
                 const laminateDisplay = getLaminateDisplay(group.laminateCode);
                 
                 const prefix = group.isBackPanel ? 'back' : 'regular';
@@ -7389,7 +7403,7 @@ export default function Home() {
                   ...colourFrameParts
                 ];
                 
-                const mergedResult = optimizeCutlist({ parts: allParts, sheet: { w: currentSheetWidth, h: currentSheetHeight, kerf: currentKerf }, timeMs: 500 });
+                const mergedResult = optimizeCutlist({ parts: allParts, sheet: { w: currentSheetWidth, h: currentSheetHeight, kerf: currentKerf }, timeMs: getOptimizationTimeMs(allParts.length) });
                 
                 if (mergedResult?.panels) {
                   mergedResult.panels.forEach((sheet: any, sheetIdx: number) => {
@@ -7415,7 +7429,7 @@ export default function Home() {
               } else {
                 // Create new entry if no match
                 console.log('✅ Colour Frame created NEW sheet (no matching plywood/laminate)');
-                const colourFrameResult = optimizeCutlist({ parts: colourFrameParts, sheet: { w: currentSheetWidth, h: currentSheetHeight, kerf: currentKerf }, timeMs: 500 });
+                const colourFrameResult = optimizeCutlist({ parts: colourFrameParts, sheet: { w: currentSheetWidth, h: currentSheetHeight, kerf: currentKerf }, timeMs: getOptimizationTimeMs(colourFrameParts.length) });
                 const colourFrameLaminateDisplay = getLaminateDisplay(colourFrameForm.laminateCode);
                 
                 if (colourFrameResult?.panels) {
