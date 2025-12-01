@@ -6159,10 +6159,10 @@ export default function Home() {
                                   <Button
                                     variant="outline"
                                     role="combobox"
-                                    className={`w-full justify-between text-xs sm:text-sm h-10 sm:h-9 ${watchedValues.rightPanelGrainDirection && (rightLaminateSelection || '').toLowerCase().includes('wood') ? 'text-red-600 font-semibold' : ''}`}
+                                    className={`w-full justify-between text-xs sm:text-sm h-10 sm:h-9 ${watchedValues.rightPanelGrainDirection && (form.watch('rightPanelLaminateCode') || '').toLowerCase().includes('wood') ? 'text-red-600 font-semibold' : ''}`}
                                     ref={(el) => registerFieldRef('rightPanelLaminateCode', el)}
                                   >
-                                    {rightLaminateSelection || 'Select front laminate'}
+                                    {form.watch('rightPanelLaminateCode') || 'Select front laminate'}
                                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                   </Button>
                                 </PopoverTrigger>
@@ -6181,7 +6181,6 @@ export default function Home() {
                                             key={code}
                                             value={code}
                                             onSelect={async (currentValue) => {
-                                              setRightLaminateSelection(currentValue);
                                               updateLaminateWithTracking('rightPanelLaminateCode', currentValue, 'user');
                                               // Auto-mark paired Inner Laminate as user-selected
                                               markLaminateAsUserSelected('rightPanelInnerLaminateCode');
@@ -6201,7 +6200,7 @@ export default function Home() {
                                           >
                                             <Check
                                               className={`mr-2 h-4 w-4 ${
-                                                rightLaminateSelection === code ? 'opacity-100' : 'opacity-0'
+                                                form.watch('rightPanelLaminateCode') === code ? 'opacity-100' : 'opacity-0'
                                               }`}
                                             />
                                             {code}
@@ -6303,10 +6302,10 @@ export default function Home() {
                                 <Button
                                   variant="outline"
                                   role="combobox"
-                                  className={`w-full justify-between text-xs sm:text-sm h-10 sm:h-9 ${watchedValues.backPanelGrainDirection && (backLaminateSelection || '').toLowerCase().includes('wood') ? 'text-red-600 font-semibold' : ''}`}
+                                  className={`w-full justify-between text-xs sm:text-sm h-10 sm:h-9 ${watchedValues.backPanelGrainDirection && (form.watch('backPanelLaminateCode') || '').toLowerCase().includes('wood') ? 'text-red-600 font-semibold' : ''}`}
                                   ref={(el) => registerFieldRef('backPanelLaminateCode', el)}
                                 >
-                                  {backLaminateSelection || 'Select front laminate'}
+                                  {form.watch('backPanelLaminateCode') || 'Select front laminate'}
                                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                 </Button>
                               </PopoverTrigger>
@@ -6325,7 +6324,6 @@ export default function Home() {
                                           key={code}
                                           value={code}
                                           onSelect={async (currentValue) => {
-                                            setBackLaminateSelection(currentValue);
                                             updateLaminateWithTracking('backPanelLaminateCode', currentValue, 'user');
                                             // Auto-mark paired Inner Laminate as user-selected
                                             markLaminateAsUserSelected('backPanelInnerLaminateCode');
@@ -6342,7 +6340,7 @@ export default function Home() {
                                         >
                                           <Check
                                             className={`mr-2 h-4 w-4 ${
-                                              backLaminateSelection === code ? 'opacity-100' : 'opacity-0'
+                                              form.watch('backPanelLaminateCode') === code ? 'opacity-100' : 'opacity-0'
                                             }`}
                                           />
                                           {code}
