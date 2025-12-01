@@ -7694,20 +7694,31 @@ export default function Home() {
                                       );
                                     })()}
                                     
-                                    {/* GADDI Dotted Line Indicator - Shows in preview only */}
-                                    {isGaddi && (
-                                      <div 
-                                        className="absolute opacity-50"
-                                        style={{ 
-                                          left: '2px',
-                                          top: '2px',
-                                          right: '2px',
-                                          bottom: '2px',
-                                          border: '1px dotted #999'
-                                        }}
-                                        title="GADDI marking enabled"
-                                      />
-                                    )}
+                                    {/* GADDI Dotted Line - Red marking for nomW (TOP/BOTTOM) or nomH (LEFT/RIGHT) */}
+                                    {isGaddi && (() => {
+                                      const type = panelName.toUpperCase();
+                                      const isLeftRight = type.includes('LEFT') || type.includes('RIGHT');
+                                      const isTopBottom = type.includes('TOP') || type.includes('BOTTOM');
+                                      
+                                      if (!isLeftRight && !isTopBottom) return null;
+                                      
+                                      return (
+                                        <div 
+                                          className="absolute"
+                                          style={{ 
+                                            left: isTopBottom ? '2px' : '2px',
+                                            top: isTopBottom ? '2px' : '2px',
+                                            right: isTopBottom ? '2px' : 'auto',
+                                            bottom: isTopBottom ? 'auto' : '2px',
+                                            width: isLeftRight ? '0px' : 'calc(100% - 4px)',
+                                            height: isTopBottom ? '0px' : 'calc(100% - 4px)',
+                                            borderTop: isTopBottom ? '2px dotted #FF0000' : 'none',
+                                            borderLeft: isLeftRight ? '2px dotted #FF0000' : 'none'
+                                          }}
+                                          title={`GADDI: Mark ${isLeftRight ? 'Height (nomH)' : 'Width (nomW)'}`}
+                                        />
+                                      );
+                                    })()}
                                     
                                   </div>
                                 );
