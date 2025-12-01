@@ -130,6 +130,11 @@ export const cabinetSchema = z.object({
   // Replaces: plywoodType, backPanelPlywoodBrand, shutterPlywoodBrand
   A: z.string().optional(),
   
+  // ✅ UNIFIED LAMINATE CODE FIELD (Secret code name: B)
+  // Backend consolidation field for laminate codes (front + inner composite)
+  // Keeps individual panel fields on frontend for UI, but uses B for storage
+  B: z.string().optional(),
+  
   // Shutter laminate code for Quick Shutter
   shutterLaminateCode: z.string().optional(),
   
@@ -266,3 +271,26 @@ export interface CuttingListSummary {
   totalArea: number;
   totalPanels: number;
 }
+
+// ✅ LAMINATE CODE HELPERS - Map frontend field names to backend 'B' field
+export const laminateFieldMap = {
+  top: 'topPanelLaminateCode',
+  bottom: 'bottomPanelLaminateCode',
+  left: 'leftPanelLaminateCode',
+  right: 'rightPanelLaminateCode',
+  back: 'backPanelLaminateCode',
+  shutter: 'shutterLaminateCode',
+  centerPost: 'centerPostLaminateCode',
+  shelves: 'shelvesLaminateCode',
+} as const;
+
+export const laminateInnerFieldMap = {
+  top: 'topPanelInnerLaminateCode',
+  bottom: 'bottomPanelInnerLaminateCode',
+  left: 'leftPanelInnerLaminateCode',
+  right: 'rightPanelInnerLaminateCode',
+  back: 'backPanelInnerLaminateCode',
+  shutter: 'shutterInnerLaminateCode',
+  centerPost: 'centerPostInnerLaminateCode',
+  shelves: 'shelvesInnerLaminateCode',
+} as const;
