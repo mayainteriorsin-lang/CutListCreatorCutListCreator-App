@@ -2786,6 +2786,18 @@ export default function Home() {
     const mode = cabinetConfigMode;
     cabinet = { ...cabinet, configurationMode: mode };
     
+    // ✅ APPLY DEFAULTS: Ensure all laminate codes have values before validation
+    if (!cabinet.topPanelLaminateCode?.trim()) cabinet.topPanelLaminateCode = 'off white';
+    if (!cabinet.bottomPanelLaminateCode?.trim()) cabinet.bottomPanelLaminateCode = 'off white';
+    if (!cabinet.leftPanelLaminateCode?.trim()) cabinet.leftPanelLaminateCode = 'off white';
+    if (!cabinet.rightPanelLaminateCode?.trim()) cabinet.rightPanelLaminateCode = 'off white';
+    if (!cabinet.backPanelLaminateCode?.trim()) cabinet.backPanelLaminateCode = 'off white';
+    if (!cabinet.topPanelInnerLaminateCode?.trim()) cabinet.topPanelInnerLaminateCode = 'off white';
+    if (!cabinet.bottomPanelInnerLaminateCode?.trim()) cabinet.bottomPanelInnerLaminateCode = 'off white';
+    if (!cabinet.leftPanelInnerLaminateCode?.trim()) cabinet.leftPanelInnerLaminateCode = 'off white';
+    if (!cabinet.rightPanelInnerLaminateCode?.trim()) cabinet.rightPanelInnerLaminateCode = 'off white';
+    if (!cabinet.backPanelInnerLaminateCode?.trim()) cabinet.backPanelInnerLaminateCode = 'off white';
+    
     // ✅ AUTO-MARK LAMINATE FIELDS: Build updated tracking set BEFORE validation
     // This prevents false warnings for auto-populated fields from Master Settings
     const updatedTracking = new Set(userSelectedLaminates);
