@@ -2102,15 +2102,32 @@ export default function Home() {
       return laminateCode;
     };
     
-    // Group panels using 3-way matching
+    // ✅ Sheet Consolidation: A + B + C matching (plywood + front laminate + inner laminate)
+    // Group panels using 3-way matching: All must match for same sheet
     const panelsByBrand = allPanels.reduce((acc, panel) => {
       const isBackPanel = panel.name.includes('- Back Panel');
+      // A field: Plywood brand
       const brand = isBackPanel 
         ? (panel.A || panel.A || 'Apple ply 6mm BWP')
         : (panel.A || 'Apple Ply 16mm BWP');
+      
       const laminateCode = panel.laminateCode || '';
-      const fullLaminateCode = laminateCode.trim();
-      const groupKey = `${normalizeForGrouping(brand)}|||${normalizeForGrouping(fullLaminateCode)}`;
+      
+      // Extract B (front) and C (inner) from composed laminateCode
+      // Format: "456SF Terra Wood + off white" → B="456SF Terra Wood", C="off white"
+      let frontLaminate = '';
+      let innerLaminate = '';
+      
+      if (laminateCode.includes(' + ')) {
+        [frontLaminate, innerLaminate] = laminateCode.split(' + ').map(s => s.trim());
+      } else {
+        frontLaminate = laminateCode.trim();
+        innerLaminate = 'off white'; // default
+      }
+      
+      // ✅ CRITICAL: Group key must match A + B + C
+      // If any of these differ, panels go on separate sheets
+      const groupKey = `${normalizeForGrouping(brand)}|||${normalizeForGrouping(frontLaminate)}|||${normalizeForGrouping(innerLaminate)}`;
       if (!acc[groupKey]) acc[groupKey] = { brand, laminateCode, panels: [] };
       acc[groupKey].panels.push(panel);
       return acc;
@@ -2272,23 +2289,31 @@ export default function Home() {
 
     const allPanels = cabinets.flatMap(generatePanels);
 
-    // Group panels based on 3-way matching:
-    // ALL panels must match: Plywood Brand + Front Laminate + Inner Laminate
+    // ✅ Sheet Consolidation: A + B + C matching (plywood + front laminate + inner laminate)
+    // Group panels based on 3-way matching: ALL must match - Plywood Brand + Front Laminate + Inner Laminate
     const panelsByBrand = allPanels.reduce((acc, panel) => {
       const isBackPanel = panel.name.includes('- Back Panel');
-      // For back panels: use backPanelPlywoodBrand, fall back to A, then default
+      // A field: Plywood brand
       const brand = isBackPanel 
         ? (panel.A || panel.A || 'Apple ply 6mm BWP')
         : (panel.A || 'Apple Ply 16mm BWP');
       const laminateCode = panel.laminateCode || '';
       
-      // Use FULL laminate code (includes both front + inner laminate)
-      // e.g., "456SF Terra Wood + off white"
-      const fullLaminateCode = laminateCode.trim();
+      // Extract B (front) and C (inner) from composed laminateCode
+      // Format: "456SF Terra Wood + off white" → B="456SF Terra Wood", C="off white"
+      let frontLaminate = '';
+      let innerLaminate = '';
       
-      // Create grouping key: Plywood Brand + Full Laminate Code (front + inner)
-      // This ensures panels only group when all 3 materials match
-      const groupKey = `${normalizeForGrouping(brand)}|||${normalizeForGrouping(fullLaminateCode)}`;
+      if (laminateCode.includes(' + ')) {
+        [frontLaminate, innerLaminate] = laminateCode.split(' + ').map(s => s.trim());
+      } else {
+        frontLaminate = laminateCode.trim();
+        innerLaminate = 'off white'; // default
+      }
+      
+      // ✅ CRITICAL: Group key uses A + B + C
+      // Panels only consolidate to same sheet when ALL three match exactly
+      const groupKey = `${normalizeForGrouping(brand)}|||${normalizeForGrouping(frontLaminate)}|||${normalizeForGrouping(innerLaminate)}`;
       
       if (!acc[groupKey]) acc[groupKey] = { brand, laminateCode, panels: [] };
       acc[groupKey].panels.push(panel);
@@ -3650,18 +3675,30 @@ export default function Home() {
 
       // Generate PDF
       const allPanels = cabinets.flatMap(generatePanels);
+      // ✅ Sheet Consolidation: A + B + C matching for PDF export
       const panelsByBrand = allPanels.reduce((acc, panel) => {
         const isBackPanel = panel.name.includes('- Back Panel');
+        // A field: Plywood brand
         const brand = isBackPanel 
           ? (panel.A || panel.A || 'Apple ply 6mm BWP')
           : (panel.A || 'Apple Ply 16mm BWP');
         const laminateCode = panel.laminateCode || '';
         
-        // Use FULL laminate code (includes both front + inner laminate)
-        // 3-way matching: Plywood + Front Laminate + Inner Laminate
-        const fullLaminateCode = laminateCode.trim();
+        // Extract B (front) and C (inner) from composed laminateCode
+        // Format: "456SF Terra Wood + off white" → B="456SF Terra Wood", C="off white"
+        let frontLaminate = '';
+        let innerLaminate = '';
         
-        const groupKey = `${normalizeForGrouping(brand)}|||${normalizeForGrouping(fullLaminateCode)}`;
+        if (laminateCode.includes(' + ')) {
+          [frontLaminate, innerLaminate] = laminateCode.split(' + ').map(s => s.trim());
+        } else {
+          frontLaminate = laminateCode.trim();
+          innerLaminate = 'off white'; // default
+        }
+        
+        // ✅ CRITICAL: Group key uses A + B + C
+        // Panels only consolidate to same sheet when ALL three match exactly
+        const groupKey = `${normalizeForGrouping(brand)}|||${normalizeForGrouping(frontLaminate)}|||${normalizeForGrouping(innerLaminate)}`;
         
         if (!acc[groupKey]) {
           acc[groupKey] = { 
