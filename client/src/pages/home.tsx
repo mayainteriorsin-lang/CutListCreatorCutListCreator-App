@@ -687,6 +687,30 @@ export default function Home() {
       form.setValue('shutterInnerLaminateCode', topPanelInnerLaminateCode);
     }
   }, [topPanelLaminateCode, topPanelInnerLaminateCode, shutterLaminateCode, shutterInnerLaminateCode, form]);
+
+  // ✅ AUTO-SYNC: Center Post and Shelves inherit Inner Laminate code (time-saver)
+  // Logic: Use Inner Laminate for both front and inner sides
+  // - If Inner = "off white" → both sides "off white"
+  // - If Inner = "123sf" → both sides "123sf"
+  useEffect(() => {
+    if (topPanelInnerLaminateCode) {
+      // Sync Center Post
+      if (!form.getValues('centerPostLaminateCode')) {
+        form.setValue('centerPostLaminateCode', topPanelInnerLaminateCode);
+      }
+      if (!form.getValues('centerPostInnerLaminateCode')) {
+        form.setValue('centerPostInnerLaminateCode', topPanelInnerLaminateCode);
+      }
+      
+      // Sync Shelves
+      if (!form.getValues('shelvesLaminateCode')) {
+        form.setValue('shelvesLaminateCode', topPanelInnerLaminateCode);
+      }
+      if (!form.getValues('shelvesInnerLaminateCode')) {
+        form.setValue('shelvesInnerLaminateCode', topPanelInnerLaminateCode);
+      }
+    }
+  }, [topPanelInnerLaminateCode, form]);
   
   // ✅ AUTO-SYNC: Colour Frame inherits Quick Shutter materials for consolidation
   useEffect(() => {
