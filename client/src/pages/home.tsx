@@ -2124,24 +2124,26 @@ export default function Home() {
               
               const nomW = panel.nomW ?? panel.w;
               const nomH = panel.nomH ?? panel.h;
-              const isRotated = Math.abs(panel.w - nomH) < 0.5 && Math.abs(panel.h - nomW) < 0.5;
               
               let markedEdge: string;
               let edgeValue: number;
               let lineDirection: string;
               
               if (panelType === 'TOP' || panelType === 'BOTTOM') {
+                // Mark WIDTH VALUE (nomW) - follows WIDTH wherever it is on sheet
                 markedEdge = 'WIDTH';
                 edgeValue = nomW;
-                lineDirection = 'marks WIDTH dimension ← ALWAYS';
+                lineDirection = 'marks WIDTH value';
               } else if (panelType === 'LEFT' || panelType === 'RIGHT') {
+                // Mark HEIGHT VALUE (nomH) - follows HEIGHT wherever it is on sheet
                 markedEdge = 'HEIGHT';
                 edgeValue = nomH;
-                lineDirection = 'marks HEIGHT dimension ← ALWAYS';
+                lineDirection = 'marks HEIGHT value';
               } else {
-                markedEdge = 'N/A';
-                edgeValue = 0;
-                lineDirection = 'marks HEIGHT dimension';
+                // Other types mark HEIGHT VALUE
+                markedEdge = 'HEIGHT';
+                edgeValue = nomH;
+                lineDirection = 'marks HEIGHT value';
               }
               
               gaddiPanels.push({

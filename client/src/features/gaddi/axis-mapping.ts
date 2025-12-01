@@ -93,10 +93,11 @@ export function shouldShowGaddiMarking(
 /**
  * Validate GADDI rule compliance for a panel
  * 
- * Checks if GADDI marking follows the final manufacturing rule:
- * - TOP/BOTTOM panels: GADDI marks WIDTH dimension - ALWAYS
- * - LEFT/RIGHT panels: GADDI marks HEIGHT dimension - ALWAYS
- * - Panel rotation on sheet does NOT change GADDI line direction
+ * New manufacturing rule (Dec 1, 2025):
+ * - MARK THE VALUE, NOT THE AXIS
+ * - TOP/BOTTOM panels: Mark WIDTH VALUE (nomW)
+ * - LEFT/RIGHT panels: Mark HEIGHT VALUE (nomH)
+ * - BACK panels: Mark HEIGHT VALUE (nomH)
  * 
  * @param panel - Panel to validate
  * @returns Validation result with status and message
@@ -110,9 +111,6 @@ export function validateGaddiRule(panel: GaddiPanel): {
     panelType: string;
     nomW: number;
     nomH: number;
-    w: number;
-    h: number;
-    isRotated: boolean;
   };
 } {
   if (!panel.gaddi) {
@@ -124,17 +122,11 @@ export function validateGaddiRule(panel: GaddiPanel): {
       details: {
         panelType: panel.panelType,
         nomW: panel.nomW,
-        nomH: panel.nomH,
-        w: panel.w,
-        h: panel.h,
-        isRotated: false
+        nomH: panel.nomH
       }
     };
   }
-
-  const isRotated = Math.abs(panel.w - panel.nomH) < 0.5 && Math.abs(panel.h - panel.nomW) < 0.5;
   
-  // Normalize panel type to uppercase for consistent comparisons
   const normalizedType = (panel.panelType || '').toUpperCase();
   
   let expectedDirection: 'width' | 'height';
@@ -142,33 +134,22 @@ export function validateGaddiRule(panel: GaddiPanel): {
   let edgeValue: number;
   
   if (normalizedType === 'TOP' || normalizedType === 'BOTTOM') {
-    // TOP/BOTTOM: marks WIDTH dimension - ALWAYS
+    // TOP/BOTTOM: Mark WIDTH VALUE
     markedEdge = 'WIDTH';
     edgeValue = panel.nomW;
     expectedDirection = 'width';
     
   } else if (normalizedType === 'LEFT' || normalizedType === 'RIGHT') {
-    // LEFT/RIGHT: marks HEIGHT dimension - ALWAYS
+    // LEFT/RIGHT: Mark HEIGHT VALUE
     markedEdge = 'HEIGHT';
     edgeValue = panel.nomH;
     expectedDirection = 'height';
     
   } else {
-    // Other types - default to HEIGHT dimension
-    return {
-      isValid: true,
-      expectedDirection: 'height',
-      markedEdge: 'N/A',
-      message: `${panel.panelType} panel - no strict GADDI rule`,
-      details: {
-        panelType: panel.panelType,
-        nomW: panel.nomW,
-        nomH: panel.nomH,
-        w: panel.w,
-        h: panel.h,
-        isRotated
-      }
-    };
+    // Other types: Mark HEIGHT VALUE
+    markedEdge = 'HEIGHT';
+    edgeValue = panel.nomH;
+    expectedDirection = 'height';
   }
   
   // Get the actual direction that will be rendered
@@ -176,22 +157,17 @@ export function validateGaddiRule(panel: GaddiPanel): {
   const actualDirection = lineConfig.markDimension;
   const isValid = actualDirection === expectedDirection;
   
-  const rotationNote = isRotated ? ' (panel rotated on sheet)' : '';
-  
   return {
     isValid,
     expectedDirection,
     markedEdge,
     message: isValid
-      ? `✓ GADDI marks ${markedEdge}=${edgeValue}mm${rotationNote}`
+      ? `✓ GADDI marks ${markedEdge}=${edgeValue}mm`
       : `✗ GADDI ERROR: Should mark ${markedEdge} edge`,
     details: {
       panelType: panel.panelType,
       nomW: panel.nomW,
-      nomH: panel.nomH,
-      w: panel.w,
-      h: panel.h,
-      isRotated
+      nomH: panel.nomH
     }
   };
 }
