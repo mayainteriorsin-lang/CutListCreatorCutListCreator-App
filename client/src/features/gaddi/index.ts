@@ -158,13 +158,13 @@ export function drawGaddiMark(
     doc.setTextColor(0, 0, 0); // Black color
     
     if (isHorizontal) {
-      // Horizontal line (X-axis): text on the LEFT
+      // Horizontal line (X-axis): text on the LEFT, INSIDE panel
       const leftX = Math.min(p0.x, p1.x) + 2;
-      doc.text("GADDI", leftX, midY + 1.5, { align: "left" });
+      doc.text("GADDI", leftX, midY + 3, { align: "left" });
     } else {
-      // Vertical line (Y-axis): text at BOTTOM, rotated
-      const bottomY = Math.max(p0.y, p1.y) - 2;
-      doc.text("GADDI", midX + 1.5, bottomY, { align: "left", angle: 90 });
+      // Vertical line (Y-axis): text at BOTTOM, INSIDE panel, rotated
+      const bottomY = Math.max(p0.y, p1.y) - 3;
+      doc.text("GADDI", midX + 3, bottomY, { align: "left", angle: 90 });
     }
     
     // Reset text color

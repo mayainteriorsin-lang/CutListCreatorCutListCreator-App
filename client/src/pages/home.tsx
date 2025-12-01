@@ -7847,25 +7847,25 @@ export default function Home() {
                                             }}
                                             title={`GADDI: Mark ${isLeftRight ? 'Height (nomH)' : 'Width (nomW)'}`}
                                           />
-                                          {/* GADDI Text Label - positioned along the dotted line */}
+                                          {/* GADDI Text Label - always INSIDE the panel */}
                                           {drawHorizontal ? (
-                                            // Horizontal line (X-axis): text on the LEFT
+                                            // Horizontal line (X-axis): text on the LEFT, inside panel
                                             <div
                                               className="absolute text-[8px] font-bold text-black"
                                               style={{
-                                                left: '4px',
-                                                top: '0px'
+                                                left: '6px',
+                                                top: '4px'
                                               }}
                                             >
                                               GADDI
                                             </div>
                                           ) : (
-                                            // Vertical line (Y-axis): text at BOTTOM, rotated
+                                            // Vertical line (Y-axis): text at BOTTOM, inside panel, rotated
                                             <div
                                               className="absolute text-[8px] font-bold text-black"
                                               style={{
-                                                left: '0px',
-                                                bottom: '4px',
+                                                left: '6px',
+                                                bottom: '6px',
                                                 transform: 'rotate(-90deg)',
                                                 transformOrigin: 'left bottom',
                                                 whiteSpace: 'nowrap'
