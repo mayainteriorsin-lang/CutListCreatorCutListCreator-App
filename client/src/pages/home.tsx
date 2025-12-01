@@ -7852,10 +7852,10 @@ export default function Home() {
                                       const dimensionOnXAxis = w >= h;
                                       const drawHorizontal = dimensionOnXAxis;
                                       
-                                      // Size-based text: "G" for small panels, "GADDI" for larger
+                                      // Always show full "GADDI" text, adjust size based on panel
                                       const isSmallPanel = w < 60 || h < 60;
-                                      const gaddiText = isSmallPanel ? 'G' : 'GADDI';
-                                      const textSize = isSmallPanel ? 'text-[7px]' : 'text-[8px]';
+                                      const gaddiText = 'GADDI';
+                                      const textSize = isSmallPanel ? 'text-[6px]' : 'text-[8px]';
                                       
                                       return (
                                         <>
