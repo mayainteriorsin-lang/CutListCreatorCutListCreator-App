@@ -1112,8 +1112,8 @@ export default function Home() {
 
   // ✅ REMOVED: syncLaminateType function - no longer needed without laminate types
 
-  // Centralized sync helper for laminate code (B field) - syncs to ALL panels including Back
-  const syncLaminateCode = async (newValue: string, source: 'top' | 'bottom' | 'left' | 'right' | 'back') => {
+  // Centralized sync helper for laminate code (excludes back panel)
+  const syncLaminateCode = async (newValue: string, source: 'top' | 'bottom' | 'left' | 'right') => {
     if (currentSyncOrigin.current === 'laminate-code-sync') return;
     currentSyncOrigin.current = 'laminate-code-sync';
     
@@ -1121,7 +1121,7 @@ export default function Home() {
     const baseCode = newValue.split('+')[0].trim();
     const woodGrainsEnabled = woodGrainsPreferences[baseCode] === true;
     
-    // Sync to ALL panels (Top/Bottom/Left/Right/Back)
+    // Sync to Top/Bottom/Left/Right panels only (back panel is independent)
     // Mark synced panels as user-selected since the origin was a user action
     // Also auto-mark paired Inner Laminates as user-selected
     if (source !== 'top') {
@@ -1143,39 +1143,6 @@ export default function Home() {
       updateLaminateWithTracking('rightPanelLaminateCode', newValue, 'user');
       markLaminateAsUserSelected('rightPanelInnerLaminateCode');
       form.setValue('rightPanelGrainDirection', woodGrainsEnabled);
-    }
-    // ✅ ADDED: Also sync to Back panel
-    if (source !== 'back') {
-      updateLaminateWithTracking('backPanelLaminateCode', newValue, 'user');
-      markLaminateAsUserSelected('backPanelInnerLaminateCode');
-      form.setValue('backPanelGrainDirection', woodGrainsEnabled);
-    }
-    
-    setTimeout(() => {
-      currentSyncOrigin.current = null;
-    }, 100);
-  };
-  
-  // Centralized sync helper for inner laminate code (C field) - syncs to ALL panels
-  const syncInnerLaminateCode = async (newValue: string, source: 'top' | 'bottom' | 'left' | 'right' | 'back') => {
-    if (currentSyncOrigin.current === 'inner-laminate-sync') return;
-    currentSyncOrigin.current = 'inner-laminate-sync';
-    
-    // Sync inner laminate (C) to ALL panels
-    if (source !== 'top') {
-      updateLaminateWithTracking('topPanelInnerLaminateCode', newValue, 'user');
-    }
-    if (source !== 'bottom') {
-      updateLaminateWithTracking('bottomPanelInnerLaminateCode', newValue, 'user');
-    }
-    if (source !== 'left') {
-      updateLaminateWithTracking('leftPanelInnerLaminateCode', newValue, 'user');
-    }
-    if (source !== 'right') {
-      updateLaminateWithTracking('rightPanelInnerLaminateCode', newValue, 'user');
-    }
-    if (source !== 'back') {
-      updateLaminateWithTracking('backPanelInnerLaminateCode', newValue, 'user');
     }
     
     setTimeout(() => {
