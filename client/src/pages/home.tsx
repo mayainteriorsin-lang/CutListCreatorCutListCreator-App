@@ -1887,7 +1887,7 @@ export default function Home() {
     
     // Get plywood types (default to Apple Ply 16mm BWP if not set)
     const A = cabinet.A || 'Apple Ply 16mm BWP';
-    const backPanelPlywoodBrand = cabinet.A || plywoodType;
+    const backPanelPlywoodBrand = cabinet.A || A;
     
     // Pre-compose laminate codes for dynamic grain direction checks
     const topLaminateCode = composeLaminateCode(
@@ -2592,7 +2592,6 @@ export default function Home() {
       backPanelInnerLaminateCode: 'off white',
       innerLaminateCode: 'off white',
       A: memory.A ?? 'Apple Ply 16mm BWP',
-      backPanelPlywoodBrand: memory.A ?? 'Apple ply 6mm BWP',
       A: shutterMemoryNew.A ?? (memory.A ?? 'Apple Ply 16mm BWP'), // ✅ Use shutter memory
       // ✅ DIRECT LINK: Initialize grain directions from database preferences, not hardcoded false
       topPanelGrainDirection: hasTopWoodGrain,
@@ -2894,7 +2893,6 @@ export default function Home() {
       shutterLaminateCode: shutterMemory?.shutterLaminateCode || '',  // ✅ Keep laminate code
       shutterInnerLaminateCode: shutterMemory?.shutterInnerLaminateCode || '',  // ✅ Keep inner laminate
       A: cabinetMemory.A ?? 'Apple Ply 16mm BWP',
-      backPanelPlywoodBrand: cabinetMemory.A ?? 'Apple ply 6mm BWP',
       A: shutterMemory?.A ?? (cabinetMemory.A ?? 'Apple Ply 16mm BWP'),
       topPanelLaminateCode: cabinetMemory.topPanelLaminateCode ?? '',
       bottomPanelLaminateCode: cabinetMemory.topPanelLaminateCode ?? '',
@@ -2965,7 +2963,6 @@ export default function Home() {
         innerLaminateCode: 'off white',
         A: cabinetMemory.A ?? 'Apple Ply 16mm BWP',
         backPanelPlywoodBrand: cabinetMemory.A ?? 'Apple ply 6mm BWP',
-        A: cabinetMemory.A ?? (cabinetMemory.A ?? 'Apple Ply 16mm BWP'),
         shutterLaminateCode: cabinetMemory.shutterLaminateCode ?? '',
         shutterInnerLaminateCode: cabinetMemory.shutterInnerLaminateCode ?? '',
         backPanelWidthReduction: 0,
@@ -8439,7 +8436,6 @@ export default function Home() {
                   A: masterPlywoodBrand || 'Apple Ply 16mm BWP',
                   backPanelPlywoodBrand: 'Apple ply 6mm BWP',
                   A: masterPlywoodBrand || 'Apple Ply 16mm BWP',
-                  topPanelLaminateCode: masterLaminateCode || '',
                   bottomPanelLaminateCode: masterLaminateCode || '',
                   leftPanelLaminateCode: masterLaminateCode || '',
                   rightPanelLaminateCode: masterLaminateCode || '',
