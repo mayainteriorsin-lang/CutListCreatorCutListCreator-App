@@ -1,21 +1,11 @@
 /**
- * GADDI DOTTED LINE SYSTEM - CLEAR RULES
+ * GADDI DOTTED LINE SYSTEM - SIMPLE RULE
  * 
- * PLYWOOD SHEET AXES:
- * - X-axis = 1210mm (HORIZONTAL) 
- * - Y-axis = 2420mm (VERTICAL)
+ * GADDI MARKING:
+ * - LEFT/RIGHT panels → ALWAYS mark HEIGHT (nomH)
+ * - TOP/BOTTOM panels → ALWAYS mark WIDTH (nomW)
  * 
- * GADDI MARKING RULES:
- * 1. LEFT/RIGHT panels → Mark HEIGHT (nomH)
- *    - If nomH is on X-axis (appears as width) → HORIZONTAL dotted line
- *    - If nomH is on Y-axis (appears as height) → VERTICAL dotted line
- * 
- * 2. TOP/BOTTOM panels → Mark WIDTH (nomW)
- *    - If nomW is on X-axis (appears as width) → HORIZONTAL dotted line
- *    - If nomW is on Y-axis (appears as height) → VERTICAL dotted line
- * 
- * 3. Even if panels ROTATE on sheet → same marking rule applies
- *    (dimension to mark never changes, only WHERE it appears changes)
+ * NO axis detection, NO rotation logic - just mark the dimension!
  */
 
 export interface GaddiPanel {
@@ -47,45 +37,28 @@ export function shouldShowGaddiMarking(panel: GaddiPanel): boolean {
 /**
  * Calculate GADDI dotted line direction
  * 
- * RULES WITH DEPTH:
- * - LEFT/RIGHT: Mark HEIGHT (nomH) only
- *   - Check: if h ≈ nomH? YES→Y-axis(vertical line), else→X-axis(horizontal line)
- * 
- * - TOP/BOTTOM: Mark WIDTH (nomW) only
- *   - Check: if w ≈ nomW? YES→X-axis(horizontal line), else→Y-axis(vertical line)
+ * SIMPLE RULE - NO AXIS DETECTION:
+ * - LEFT/RIGHT: ALWAYS mark HEIGHT (nomH) → VERTICAL dotted line (Y-axis)
+ * - TOP/BOTTOM: ALWAYS mark WIDTH (nomW) → HORIZONTAL dotted line (X-axis)
  */
 export function calculateGaddiLineDirection(panel: GaddiPanel): GaddiLineConfig {
-  const { panelType, nomW, nomH, nomD, w, h } = panel;
+  const { panelType, nomW, nomH } = panel;
   const type = (panelType || '').toUpperCase();
   
   let markDimension: 'width' | 'height';
   let sheetAxis: 'x' | 'y';
   
   if (type.includes('LEFT') || type.includes('RIGHT')) {
-    // ✓ LEFT/RIGHT: Mark HEIGHT (nomH) only
+    // LEFT/RIGHT: ALWAYS mark HEIGHT (nomH) on Y-axis (VERTICAL line)
     markDimension = 'height';
-    // For LEFT/RIGHT, height is typically on Y-axis
-    if (Math.abs(h - nomH) < 0.5) {
-      sheetAxis = 'y'; // nomH on Y-axis (height) → VERTICAL line
-    } else if (Math.abs(w - nomH) < 0.5) {
-      sheetAxis = 'x'; // nomH on X-axis (rotated) → HORIZONTAL line
-    } else {
-      sheetAxis = 'y'; // Default to Y
-    }
-    console.log(`🔴 ${type}: nomH=${nomH}, nomD=${nomD}, w=${w}, h=${h} → axis=${sheetAxis}`);
+    sheetAxis = 'y';
+    console.log(`🔴 ${type}: Mark HEIGHT(${nomH}) → VERTICAL`);
     
   } else if (type.includes('TOP') || type.includes('BOTTOM')) {
-    // ✓ TOP/BOTTOM: Mark WIDTH (nomW) only
+    // TOP/BOTTOM: ALWAYS mark WIDTH (nomW) on X-axis (HORIZONTAL line)
     markDimension = 'width';
-    // For TOP/BOTTOM, width is typically on X-axis
-    if (Math.abs(w - nomW) < 0.5) {
-      sheetAxis = 'x'; // nomW on X-axis (width) → HORIZONTAL line
-    } else if (Math.abs(h - nomW) < 0.5) {
-      sheetAxis = 'y'; // nomW on Y-axis (rotated) → VERTICAL line
-    } else {
-      sheetAxis = 'x'; // Default to X
-    }
-    console.log(`🔵 ${type}: nomW=${nomW}, w=${w}, h=${h} → axis=${sheetAxis}`);
+    sheetAxis = 'x';
+    console.log(`🔵 ${type}: Mark WIDTH(${nomW}) → HORIZONTAL`);
     
   } else {
     markDimension = 'height';
