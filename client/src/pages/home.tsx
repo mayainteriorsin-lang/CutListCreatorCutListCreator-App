@@ -5540,9 +5540,64 @@ export default function Home() {
                         {watchedValues.shuttersEnabled && (
                           <div className="overflow-hidden">
                             {/* Shutter Controls */}
-                          <div className="space-y-3">
+                          <div className="space-y-2">
                             
-                            {/* Front and Inner Laminate - Outside individual shutter cards */}
+                            {/* Shutter Plywood Brand - Full width */}
+                            <div>
+                              <Label className="text-xs text-slate-600 font-medium">Shutter Plywood</Label>
+                              <Popover open={shutterPlywoodOpen} onOpenChange={(open) => {
+                                if (open) {
+                                  setShutterPlywoodOpen(true);
+                                } else {
+                                  setTimeout(() => setShutterPlywoodOpen(false), 100);
+                                }
+                              }}>
+                                <PopoverTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    role="combobox"
+                                    className="w-full justify-between text-sm h-9"
+                                    data-testid="select-shutter-plywood-brand"
+                                  >
+                                    {watchedValues.A || 'Select plywood brand'}
+                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[300px] p-0">
+                                  <Command>
+                                    <CommandInput placeholder="Type to filter brands..." className="text-xs" />
+                                    <CommandList>
+                                      <CommandEmpty>
+                                        {plywoodBrandMemoryData.length === 0 
+                                          ? 'No saved brands. Add brands in Master Settings.'
+                                          : 'No matching brands found.'}
+                                      </CommandEmpty>
+                                      <CommandGroup>
+                                        {plywoodBrandMemoryData.map((brand: PlywoodBrandMemory) => (
+                                          <CommandItem
+                                            key={brand.id}
+                                            value={brand.brand}
+                                            onSelect={(currentValue) => {
+                                              form.setValue('A', currentValue);
+                                              setShutterPlywoodOpen(false);
+                                            }}
+                                          >
+                                            <Check
+                                              className={`mr-2 h-4 w-4 ${
+                                                watchedValues.A === brand.brand ? 'opacity-100' : 'opacity-0'
+                                              }`}
+                                            />
+                                            {brand.brand}
+                                          </CommandItem>
+                                        ))}
+                                      </CommandGroup>
+                                    </CommandList>
+                                  </Command>
+                                </PopoverContent>
+                              </Popover>
+                            </div>
+                            
+                            {/* Front and Inner Laminate */}
                             <div className="grid grid-cols-2 gap-2">
                               {/* Front Laminate */}
                               <div className="space-y-1">
