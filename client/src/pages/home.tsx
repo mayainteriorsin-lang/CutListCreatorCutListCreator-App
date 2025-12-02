@@ -7727,14 +7727,14 @@ export default function Home() {
                                 const idSource = (panel.id || '').toUpperCase();
                                 
                                 // ✅ FIXED: Determine panel type FIRST before checking for shutter label
-                                // This prevents "Shutter #1 - Top" from showing as "SHUTTER" instead of "TOP"
+                                // Panel names can be: "Shutter #1 - Top" OR "Shutter #1-TOP-grain-false"
+                                // Check for both formats: " - TYPE" and "-TYPE-" patterns
                                 
-                                // First check for specific panel types in the name (after the " - " separator)
-                                const isTopPanel = nameSource.includes(' - TOP') || nameSource.endsWith('-TOP');
-                                const isBottomPanel = nameSource.includes(' - BOTTOM') || nameSource.endsWith('-BOTTOM');
-                                const isLeftPanel = nameSource.includes(' - LEFT') || nameSource.endsWith('-LEFT');
-                                const isRightPanel = nameSource.includes(' - RIGHT') || nameSource.endsWith('-RIGHT');
-                                const isBackPanel = nameSource.includes(' - BACK') || nameSource.includes('BACK PANEL');
+                                const isTopPanel = nameSource.includes(' - TOP') || nameSource.includes('-TOP-') || nameSource.includes('-TOP::');
+                                const isBottomPanel = nameSource.includes(' - BOTTOM') || nameSource.includes('-BOTTOM-') || nameSource.includes('-BOTTOM::');
+                                const isLeftPanel = nameSource.includes(' - LEFT') || nameSource.includes('-LEFT-') || nameSource.includes('-LEFT::');
+                                const isRightPanel = nameSource.includes(' - RIGHT') || nameSource.includes('-RIGHT-') || nameSource.includes('-RIGHT::');
+                                const isBackPanel = nameSource.includes(' - BACK') || nameSource.includes('-BACK-') || nameSource.includes('-BACK::') || nameSource.includes('BACK PANEL');
                                 const isCenterPost = nameSource.includes('CENTER POST');
                                 const isShelf = nameSource.includes('SHELF');
                                 
