@@ -5542,59 +5542,92 @@ export default function Home() {
                             {/* Shutter Controls */}
                           <div className="space-y-2">
                             
-                            {/* Shutter Plywood Brand - Full width */}
-                            <div>
-                              <Label className="text-xs text-slate-600 font-medium">Shutter Plywood</Label>
-                              <Popover open={shutterPlywoodOpen} onOpenChange={(open) => {
-                                if (open) {
-                                  setShutterPlywoodOpen(true);
-                                } else {
-                                  setTimeout(() => setShutterPlywoodOpen(false), 100);
-                                }
-                              }}>
-                                <PopoverTrigger asChild>
-                                  <Button
-                                    variant="outline"
-                                    role="combobox"
-                                    className="w-full justify-between text-sm h-9"
-                                    data-testid="select-shutter-plywood-brand"
-                                  >
-                                    {watchedValues.A || 'Select plywood brand'}
-                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                  </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-[300px] p-0">
-                                  <Command>
-                                    <CommandInput placeholder="Type to filter brands..." className="text-xs" />
-                                    <CommandList>
-                                      <CommandEmpty>
-                                        {plywoodBrandMemoryData.length === 0 
-                                          ? 'No saved brands. Add brands in Master Settings.'
-                                          : 'No matching brands found.'}
-                                      </CommandEmpty>
-                                      <CommandGroup>
-                                        {plywoodBrandMemoryData.map((brand: PlywoodBrandMemory) => (
-                                          <CommandItem
-                                            key={brand.id}
-                                            value={brand.brand}
-                                            onSelect={(currentValue) => {
-                                              form.setValue('A', currentValue);
-                                              setShutterPlywoodOpen(false);
-                                            }}
-                                          >
-                                            <Check
-                                              className={`mr-2 h-4 w-4 ${
-                                                watchedValues.A === brand.brand ? 'opacity-100' : 'opacity-0'
-                                              }`}
-                                            />
-                                            {brand.brand}
-                                          </CommandItem>
-                                        ))}
-                                      </CommandGroup>
-                                    </CommandList>
-                                  </Command>
-                                </PopoverContent>
-                              </Popover>
+                            {/* Shutter Plywood and Qty in one row */}
+                            <div className="grid grid-cols-3 gap-2">
+                              <div className="col-span-2">
+                                <Label className="text-xs text-slate-600 font-medium">Shutter Plywood</Label>
+                                <Popover open={shutterPlywoodOpen} onOpenChange={(open) => {
+                                  if (open) {
+                                    setShutterPlywoodOpen(true);
+                                  } else {
+                                    setTimeout(() => setShutterPlywoodOpen(false), 100);
+                                  }
+                                }}>
+                                  <PopoverTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      role="combobox"
+                                      className="w-full justify-between text-sm h-9"
+                                      data-testid="select-shutter-plywood-brand"
+                                    >
+                                      {watchedValues.A || 'Select plywood'}
+                                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-[300px] p-0">
+                                    <Command>
+                                      <CommandInput placeholder="Type to filter brands..." className="text-xs" />
+                                      <CommandList>
+                                        <CommandEmpty>
+                                          {plywoodBrandMemoryData.length === 0 
+                                            ? 'No saved brands. Add brands in Master Settings.'
+                                            : 'No matching brands found.'}
+                                        </CommandEmpty>
+                                        <CommandGroup>
+                                          {plywoodBrandMemoryData.map((brand: PlywoodBrandMemory) => (
+                                            <CommandItem
+                                              key={brand.id}
+                                              value={brand.brand}
+                                              onSelect={(currentValue) => {
+                                                form.setValue('A', currentValue);
+                                                setShutterPlywoodOpen(false);
+                                              }}
+                                            >
+                                              <Check
+                                                className={`mr-2 h-4 w-4 ${
+                                                  watchedValues.A === brand.brand ? 'opacity-100' : 'opacity-0'
+                                                }`}
+                                              />
+                                              {brand.brand}
+                                            </CommandItem>
+                                          ))}
+                                        </CommandGroup>
+                                      </CommandList>
+                                    </Command>
+                                  </PopoverContent>
+                                </Popover>
+                              </div>
+                              <div>
+                                <Label className="text-xs text-slate-600 font-medium">Qty</Label>
+                                <Select 
+                                  value={watchedValues.type} 
+                                  onValueChange={(value) => {
+                                    const cabinetType = value as CabinetType;
+                                    form.setValue('type', cabinetType);
+                                    const config = cabinetConfigs[cabinetType];
+                                    if (config) {
+                                      form.setValue('shutterCount', config.shutterQuantity);
+                                      if (watchedValues.shuttersEnabled) {
+                                        const newShutters = calculateShutterDimensions({
+                                          ...watchedValues,
+                                          type: cabinetType,
+                                          shutterCount: config.shutterQuantity
+                                        });
+                                        form.setValue('shutters', newShutters);
+                                      }
+                                    }
+                                  }}
+                                >
+                                  <SelectTrigger className="text-sm h-9">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {cabinetTypes.map(type => (
+                                      <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
                             </div>
                             
                             {/* Front and Inner Laminate */}
