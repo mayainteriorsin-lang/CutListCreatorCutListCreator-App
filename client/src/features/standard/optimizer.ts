@@ -10,15 +10,10 @@ import type { OptimizerPart, Sheet, StrategyResult } from '../cutlist/core/types
 
 /**
  * Standard Multi-Pass Optimization
- * Tries 5 different strategies optimized for standard (non-wood grain) materials
- * TARGET: 99% material utilization for non-wood grain laminates
+ * Tries 5 different strategies for materials
+ * Respects incoming rotate flag (wood grain panels locked, non-wood grain can rotate)
  * 
- * STANDARD RULES:
- * - All materials can rotate freely
- * - No dimensional mappings applied
- * - Focus on maximum sheet utilization
- * 
- * @param parts - Parts with standard dimensional mapping
+ * @param parts - Parts with rotate flag set by prepareStandardParts
  * @param sheetWidth - Sheet width (default 1210mm)
  * @param sheetHeight - Sheet height (default 2420mm)
  * @returns Best optimization result
@@ -28,14 +23,14 @@ export function optimizeStandardCutlist(
   sheetWidth: number = 1210,
   sheetHeight: number = 2420
 ): Sheet[] {
-  console.group('📦 STANDARD MULTI-PASS OPTIMIZATION - 5 strategies (TARGET: 99%)');
+  console.group('📦 MULTI-PASS OPTIMIZATION - 5 strategies');
+  console.log('🔄 Rotation flags:', parts.slice(0, 3).map(p => ({ id: p.id?.slice(0, 20), rotate: p.rotate })));
   
   const strategies: StrategyResult[] = [];
   
   // STRATEGY 1: Best Area Fit (BAF) - Long Time
   console.log('📋 Pass 1: Best Area Fit (1000ms)');
-  const partsBAF = parts.map(p => ({ ...p, rotate: true }));
-  const result1 = runOptimizer(partsBAF, sheetWidth, sheetHeight, 1000, 'BAF');
+  const result1 = runOptimizer(parts, sheetWidth, sheetHeight, 1000, 'BAF');
   const efficiency1 = calculateEfficiency(result1.panels, parts);
   strategies.push({
     name: 'BAF-1000ms',
@@ -47,8 +42,7 @@ export function optimizeStandardCutlist(
   
   // STRATEGY 2: Best Short Side Fit (BSSF) - Optimizes for similar widths
   console.log('📋 Pass 2: Best Short Side Fit (1000ms)');
-  const partsBSSF = parts.map(p => ({ ...p, rotate: true }));
-  const result2 = runOptimizer(partsBSSF, sheetWidth, sheetHeight, 1000, 'BSSF');
+  const result2 = runOptimizer(parts, sheetWidth, sheetHeight, 1000, 'BSSF');
   const efficiency2 = calculateEfficiency(result2.panels, parts);
   strategies.push({
     name: 'BSSF-1000ms',
@@ -60,8 +54,7 @@ export function optimizeStandardCutlist(
   
   // STRATEGY 3: Best Long Side Fit (BLSF) - Optimizes for similar heights
   console.log('📋 Pass 3: Best Long Side Fit (1000ms)');
-  const partsBLSF = parts.map(p => ({ ...p, rotate: true }));
-  const result3 = runOptimizer(partsBLSF, sheetWidth, sheetHeight, 1000, 'BLSF');
+  const result3 = runOptimizer(parts, sheetWidth, sheetHeight, 1000, 'BLSF');
   const efficiency3 = calculateEfficiency(result3.panels, parts);
   strategies.push({
     name: 'BLSF-1000ms',
@@ -73,8 +66,7 @@ export function optimizeStandardCutlist(
   
   // STRATEGY 4: Bottom Left (BL) - Simple but effective for regular shapes
   console.log('📋 Pass 4: Bottom Left (1000ms)');
-  const partsBL = parts.map(p => ({ ...p, rotate: true }));
-  const result4 = runOptimizer(partsBL, sheetWidth, sheetHeight, 1000, 'BL');
+  const result4 = runOptimizer(parts, sheetWidth, sheetHeight, 1000, 'BL');
   const efficiency4 = calculateEfficiency(result4.panels, parts);
   strategies.push({
     name: 'BL-1000ms',
@@ -86,8 +78,7 @@ export function optimizeStandardCutlist(
   
   // STRATEGY 5: Best Area Fit (BAF) - Extended Time for Final Optimization
   console.log('📋 Pass 5: Best Area Fit Extended (2000ms) 🔥');
-  const partsBAFExtended = parts.map(p => ({ ...p, rotate: true }));
-  const result5 = runOptimizer(partsBAFExtended, sheetWidth, sheetHeight, 2000, 'BAF');
+  const result5 = runOptimizer(parts, sheetWidth, sheetHeight, 2000, 'BAF');
   const efficiency5 = calculateEfficiency(result5.panels, parts);
   strategies.push({
     name: 'BAF-2000ms',

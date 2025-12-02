@@ -2259,12 +2259,12 @@ export default function Home() {
       }
       console.groupEnd();
       
-      const rawParts = preparePartsForOptimizer(group.panels);
+      const rawParts = preparePartsForOptimizer(group.panels, woodGrainsPreferences);
       const parts = rawParts
         .filter((p: any) => Boolean(p))
         .map((p: any, i: number) => ({ ...p, id: String(p.id ?? p.name ?? `part-${i}`) }));
       
-      console.log('🌾 Optimizer received parts (first 10):', parts.slice(0, 10));
+      console.log('🌾 Optimizer received parts with rotation:', parts.slice(0, 3).map(p => ({ id: p.id, rotate: p.rotate })));
       
       // Use multi-pass optimization for maximum efficiency
       const optimizedPanels = multiPassOptimize(parts, currentSheetWidth, currentSheetHeight);
