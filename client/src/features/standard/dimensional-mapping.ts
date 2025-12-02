@@ -30,29 +30,36 @@ const panelCounters: Record<string, number> = {
 
 /**
  * Detect panel type from name
- * Also extracts shutter number if present (e.g., "Shutter 1" -> "SHUTTER_1")
+ * Also extracts shutter number if present (e.g., "Cabinet - Shutter 1" -> "SHUTTER_1")
+ * 
+ * IMPORTANT: Check specific panel types FIRST (top, bottom, left, right, back, center post, shelf)
+ * BEFORE checking for shutter, because cabinet names like "Shutter #1" would otherwise
+ * cause all panels to be detected as shutters.
  */
 function getPanelType(name: string): { type: string; shutterLabel?: string } {
   const lower = name.toLowerCase();
   
-  // Check for shutter with number (e.g., "Cabinet - Shutter 1")
-  const shutterMatch = name.match(/shutter\s*(\d+)/i);
+  // ✅ CHECK SPECIFIC PANEL TYPES FIRST (before shutter check)
+  // This prevents "Shutter #1 - Top" from being detected as SHUTTER
+  if (lower.includes('center post')) return { type: 'CENTER_POST' };
+  if (lower.includes('shelf')) return { type: 'SHELF' };
+  if (lower.includes(' - top') || lower.endsWith('-top')) return { type: 'TOP' };
+  if (lower.includes(' - bottom') || lower.endsWith('-bottom')) return { type: 'BOTTOM' };
+  if (lower.includes(' - left') || lower.endsWith('-left')) return { type: 'LEFT' };
+  if (lower.includes(' - right') || lower.endsWith('-right')) return { type: 'RIGHT' };
+  if (lower.includes(' - back') || lower.endsWith('-back') || lower.includes('back panel')) return { type: 'BACK' };
+  
+  // ✅ NOW check for shutter panels (e.g., "Cabinet - Shutter 1")
+  const shutterMatch = name.match(/- shutter\s*(\d+)/i);
   if (shutterMatch) {
     return { type: 'SHUTTER', shutterLabel: `SHUTTER ${shutterMatch[1]}` };
   }
   
-  // Check for shutter without number
-  if (lower.includes('shutter')) {
+  // Check for standalone shutter without number
+  if (lower.includes(' - shutter') || lower.endsWith('-shutter')) {
     return { type: 'SHUTTER', shutterLabel: 'SHUTTER' };
   }
   
-  if (lower.includes('center post')) return { type: 'CENTER_POST' };
-  if (lower.includes('shelf')) return { type: 'SHELF' };
-  if (lower.includes('top')) return { type: 'TOP' };
-  if (lower.includes('bottom')) return { type: 'BOTTOM' };
-  if (lower.includes('left')) return { type: 'LEFT' };
-  if (lower.includes('right')) return { type: 'RIGHT' };
-  if (lower.includes('back')) return { type: 'BACK' };
   return { type: 'PANEL' };
 }
 
