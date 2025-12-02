@@ -495,6 +495,8 @@ export default function Home() {
   const [masterCustomLaminateInput, setMasterCustomLaminateInput] = useState('');
   const [masterCustomInnerLaminateInput, setMasterCustomInnerLaminateInput] = useState('');
   const [masterCustomPlywoodInput, setMasterCustomPlywoodInput] = useState('');
+  const masterPlywoodInputRef = useRef<HTMLInputElement>(null);
+  const masterPlywoodDropdownRef = useRef<HTMLDetailsElement>(null);
   const masterLaminateInputRef = useRef<HTMLInputElement>(null);
   const masterInnerLaminateInputRef = useRef<HTMLInputElement>(null);
   const masterLaminateDropdownRef = useRef<HTMLDetailsElement>(null); // ✅ Ref to control dropdown
@@ -4244,57 +4246,160 @@ export default function Home() {
                       </p>
                     </div>
 
-                    {/* Row 1: Cabinet and Shutter Plywood */}
+                    {/* Row 1: Cabinet and Shutter Plywood - Unified field like Laminate */}
                     <div className="space-y-2">
                       <Label className="text-sm font-medium">Cabinet and Shutter Plywood</Label>
-                      <Select 
-                        value={masterPlywoodBrand} 
-                        onValueChange={(value) => {
-                          setMasterPlywoodBrand(value);
-                          updateAllCabinetsPlywood(value);
-                        }}
-                        data-testid="select-master-plywood"
-                      >
-                        <SelectTrigger className="text-sm">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {plywoodBrandMemoryData.map((brand: PlywoodBrandMemory) => (
-                            <SelectItem key={brand.id} value={brand.brand}>
-                              {brand.brand}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Input
-                        type="text"
-                        value={masterCustomPlywoodInput}
-                        onChange={(e) => setMasterCustomPlywoodInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && masterCustomPlywoodInput.trim()) {
-                            e.preventDefault();
-                            const newBrand = masterCustomPlywoodInput.trim();
+                      <div className="relative">
+                        <Input
+                          ref={masterPlywoodInputRef}
+                          type="text"
+                          value={masterPlywoodBrand || masterCustomPlywoodInput}
+                          onChange={(e) => {
+                            const inputValue = e.target.value;
+                            const inputElement = masterPlywoodInputRef.current;
                             
-                            // Check if brand already exists
-                            const exists = plywoodBrandMemoryData.some(
-                              (b: PlywoodBrandMemory) => b.brand.toLowerCase() === newBrand.toLowerCase()
-                            );
+                            setMasterCustomPlywoodInput(inputValue);
                             
-                            if (!exists) {
-                              // Save new brand to memory
-                              savePlywoodBrandMutation.mutate(newBrand);
+                            if (!inputElement || !inputValue.trim()) {
+                              return;
                             }
                             
-                            // Update master setting and all cabinets
-                            setMasterPlywoodBrand(newBrand);
-                            updateAllCabinetsPlywood(newBrand);
-                            setMasterCustomPlywoodInput('');
-                          }
-                        }}
-                        placeholder="Type custom plywood brand"
-                        className="text-xs"
-                        data-testid="input-master-custom-plywood"
-                      />
+                            // Find first matching brand
+                            const matchingBrand = globalPlywoodBrandMemory.find(brand => 
+                              brand.toLowerCase().startsWith(inputValue.trim().toLowerCase())
+                            );
+                            
+                            if (matchingBrand) {
+                              // Set full suggestion
+                              setMasterCustomPlywoodInput(matchingBrand);
+                              // Highlight the auto-filled portion
+                              setTimeout(() => {
+                                inputElement.setSelectionRange(inputValue.length, matchingBrand.length);
+                              }, 0);
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Tab' && masterCustomPlywoodInput.trim()) {
+                              // Accept the autofill suggestion
+                              e.preventDefault();
+                              const inputElement = masterPlywoodInputRef.current;
+                              if (inputElement) {
+                                inputElement.setSelectionRange(
+                                  masterCustomPlywoodInput.length,
+                                  masterCustomPlywoodInput.length
+                                );
+                              }
+                            } else if (e.key === 'Enter' && masterCustomPlywoodInput.trim()) {
+                              e.preventDefault();
+                              const brandToSave = masterCustomPlywoodInput.trim();
+                              
+                              // Save to database if new
+                              const exists = plywoodBrandMemoryData.some(
+                                (b: PlywoodBrandMemory) => b.brand.toLowerCase() === brandToSave.toLowerCase()
+                              );
+                              
+                              if (!exists) {
+                                savePlywoodBrandMutation.mutate(brandToSave);
+                              }
+                              
+                              // Update all cabinets
+                              updateAllCabinetsPlywood(brandToSave);
+                              
+                              // Clear field after Enter - ready for next use
+                              setMasterCustomPlywoodInput('');
+                              setMasterPlywoodBrand('');
+                              
+                              // Close dropdown
+                              if (masterPlywoodDropdownRef.current) {
+                                masterPlywoodDropdownRef.current.open = false;
+                              }
+                              
+                              // Keep focus for next entry
+                              masterPlywoodInputRef.current?.focus();
+                            } else if (e.key === 'Escape') {
+                              // Clear field
+                              setMasterCustomPlywoodInput('');
+                              setMasterPlywoodBrand('');
+                              
+                              if (masterPlywoodDropdownRef.current) {
+                                masterPlywoodDropdownRef.current.open = false;
+                              }
+                            }
+                          }}
+                          onFocus={() => {
+                            // Clear brand when focusing to type new one
+                            if (masterPlywoodBrand && !masterCustomPlywoodInput) {
+                              setMasterPlywoodBrand('');
+                            }
+                          }}
+                          placeholder="Type plywood brand"
+                          className="text-sm"
+                          data-testid="input-master-plywood"
+                        />
+                        {masterPlywoodBrand && !masterCustomPlywoodInput && (
+                          <button
+                            onClick={() => {
+                              setMasterPlywoodBrand('');
+                              masterPlywoodInputRef.current?.focus();
+                            }}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                            title="Clear selection"
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
+                      
+                      {/* Hint for adding new brands */}
+                      {masterCustomPlywoodInput && masterCustomPlywoodInput.length >= 3 && !globalPlywoodBrandMemory.includes(masterCustomPlywoodInput) && (
+                        <div className="text-xs text-green-600 mt-1 font-medium">
+                          ↵ Press Enter to save "{masterCustomPlywoodInput}"
+                        </div>
+                      )}
+                      
+                      {/* Saved Brands with Select and Delete */}
+                      {globalPlywoodBrandMemory.length > 0 && (
+                        <details className="mt-2" ref={masterPlywoodDropdownRef}>
+                          <summary className="text-xs text-gray-600 cursor-pointer hover:text-gray-800 font-semibold">
+                            ▼ Manage Saved Brands ({globalPlywoodBrandMemory.length})
+                          </summary>
+                          <div className="mt-2 max-h-40 overflow-y-auto border border-gray-200 rounded-md bg-white">
+                            {globalPlywoodBrandMemory.map((brand, index) => (
+                              <div 
+                                key={index}
+                                className={`flex items-center justify-between px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0 ${
+                                  masterPlywoodBrand === brand 
+                                    ? 'bg-blue-50 text-blue-700' 
+                                    : ''
+                                }`}
+                                onClick={() => {
+                                  setMasterPlywoodBrand(brand);
+                                  setMasterCustomPlywoodInput('');
+                                  updateAllCabinetsPlywood(brand);
+                                  
+                                  if (masterPlywoodDropdownRef.current) {
+                                    masterPlywoodDropdownRef.current.open = false;
+                                  }
+                                }}
+                              >
+                                <span className="text-sm">
+                                  {masterPlywoodBrand === brand && '✓ '}{brand}
+                                </span>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    deletePlywoodBrandMutation.mutate(brand);
+                                  }}
+                                  className="text-red-500 hover:text-red-700 ml-2 text-xs"
+                                  title="Delete brand"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </details>
+                      )}
                     </div>
 
                     {/* Row 2: Laminate with Wood Grains button */}
