@@ -7726,35 +7726,48 @@ export default function Home() {
                                 const nameSource = (panel.name || panel.id || '').toUpperCase();
                                 const idSource = (panel.id || '').toUpperCase();
                                 
-                                // Extract shutter label - check multiple sources:
-                                // 1. From optimizer ID format: "SHUTTER_22_9::0" -> extract counter (22) for "SHUTTER 22"
-                                // 2. From panel.shutterLabel if available
-                                // 3. From panel.name (e.g., "Cabinet - Shutter 1")
-                                let shutterLabel: string | null = null;
+                                // ✅ FIXED: Determine panel type FIRST before checking for shutter label
+                                // This prevents "Shutter #1 - Top" from showing as "SHUTTER" instead of "TOP"
                                 
-                                // Check if ID starts with SHUTTER_ (from optimizer)
-                                const idShutterMatch = idSource.match(/^SHUTTER_(\d+)_/);
-                                if (idShutterMatch) {
-                                  shutterLabel = `SHUTTER ${idShutterMatch[1]}`;
-                                } else if (panel.shutterLabel) {
-                                  shutterLabel = panel.shutterLabel;
-                                } else {
-                                  const nameShutterMatch = (panel.name || '').match(/Shutter\s*(\d+)/i);
-                                  if (nameShutterMatch) {
-                                    shutterLabel = `SHUTTER ${nameShutterMatch[1]}`;
-                                  } else if (nameSource.includes('SHUTTER')) {
-                                    shutterLabel = 'SHUTTER';
+                                // First check for specific panel types in the name (after the " - " separator)
+                                const isTopPanel = nameSource.includes(' - TOP') || nameSource.endsWith('-TOP');
+                                const isBottomPanel = nameSource.includes(' - BOTTOM') || nameSource.endsWith('-BOTTOM');
+                                const isLeftPanel = nameSource.includes(' - LEFT') || nameSource.endsWith('-LEFT');
+                                const isRightPanel = nameSource.includes(' - RIGHT') || nameSource.endsWith('-RIGHT');
+                                const isBackPanel = nameSource.includes(' - BACK') || nameSource.includes('BACK PANEL');
+                                const isCenterPost = nameSource.includes('CENTER POST');
+                                const isShelf = nameSource.includes('SHELF');
+                                
+                                // Only check for shutter label if it's actually a shutter panel (contains " - SHUTTER")
+                                let shutterLabel: string | null = null;
+                                const isActualShutterPanel = nameSource.includes(' - SHUTTER') || idSource.match(/^SHUTTER_\d+_/);
+                                
+                                if (isActualShutterPanel) {
+                                  // Check if ID starts with SHUTTER_ (from optimizer)
+                                  const idShutterMatch = idSource.match(/^SHUTTER_(\d+)_/);
+                                  if (idShutterMatch) {
+                                    shutterLabel = `SHUTTER ${idShutterMatch[1]}`;
+                                  } else if (panel.shutterLabel) {
+                                    shutterLabel = panel.shutterLabel;
+                                  } else {
+                                    const nameShutterMatch = (panel.name || '').match(/- Shutter\s*(\d+)/i);
+                                    if (nameShutterMatch) {
+                                      shutterLabel = `SHUTTER ${nameShutterMatch[1]}`;
+                                    } else {
+                                      shutterLabel = 'SHUTTER';
+                                    }
                                   }
                                 }
                                 
-                                const panelName = nameSource.includes('CENTER POST') ? 'CENTER POST' :
-                                                 nameSource.includes('SHELF') ? 'SHELF' :
+                                // ✅ Panel name: Check specific types FIRST, then shutter
+                                const panelName = isCenterPost ? 'CENTER POST' :
+                                                 isShelf ? 'SHELF' :
+                                                 isTopPanel ? 'TOP' :
+                                                 isBottomPanel ? 'BOTTOM' :
+                                                 isLeftPanel ? 'LEFT' :
+                                                 isRightPanel ? 'RIGHT' :
+                                                 isBackPanel ? 'BACK' :
                                                  shutterLabel ? shutterLabel :
-                                                 nameSource.includes('LEFT') ? 'LEFT' :
-                                                 nameSource.includes('RIGHT') ? 'RIGHT' :
-                                                 nameSource.includes('TOP') ? 'TOP' :
-                                                 nameSource.includes('BOTTOM') ? 'BOTTOM' :
-                                                 nameSource.includes('BACK') ? 'BACK' :
                                                  panel.id;
                                 
                                 // Check if this is a shutter panel for intelligent positioning
