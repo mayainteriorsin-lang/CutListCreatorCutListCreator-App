@@ -78,6 +78,7 @@ class MaxRectsBin {
   tryPlace(piece: any, strategy: string) {
     let bestScore = { a: Infinity, s1: Infinity, s2: Infinity }, best: any = null, idxBest = -1;
     const canRotate = piece.rotate === true;
+    console.log(`🔧 tryPlace: ${piece.id?.slice(0,25)} w=${piece.w} h=${piece.h} rotate=${piece.rotate} canRotate=${canRotate}`);
 
     for (let i = 0; i < this.free.length; i++) {
       const fr = this.free[i];

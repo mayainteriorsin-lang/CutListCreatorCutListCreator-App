@@ -141,12 +141,18 @@ export function prepareStandardParts(panels: Panel[], woodGrainsPreferences: Rec
       y = nomH;  // height to Y
     }
     
-    // Extract laminate code
+    // Extract laminate code - normalize for lookup
     const laminateCode = String(panel.laminateCode ?? '').trim();
-    const frontCode = laminateCode.split('+')[0].trim();
+    const frontCode = laminateCode.split('+')[0].trim().toLowerCase();
     
-    // Check if wood grains enabled
-    const woodGrainsEnabled = woodGrainsPreferences[frontCode] === true;
+    // Check wood grains - normalize keys for case-insensitive lookup
+    const normalizedPrefs: Record<string, boolean> = {};
+    Object.entries(woodGrainsPreferences).forEach(([k, v]) => {
+      normalizedPrefs[k.toLowerCase().trim()] = v;
+    });
+    const woodGrainsEnabled = normalizedPrefs[frontCode] === true;
+    
+    console.log(`🔄 Panel "${name}" frontCode="${frontCode}" woodGrain=${woodGrainsEnabled} → rotate=${!woodGrainsEnabled}`);
     
     // Create part for optimizer
     const part: OptimizerPart = {
