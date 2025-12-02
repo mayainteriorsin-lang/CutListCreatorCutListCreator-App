@@ -5926,7 +5926,9 @@ export default function Home() {
                                                 const topHasWoodGrain = woodGrainsPreferences[topBaseCode] === true;
                                                 form.setValue('topPanelGrainDirection', topHasWoodGrain);
                                                 
-                                                // No sync to other panels - just set top panel value
+                                                if (panelsLinked) {
+                                                  syncLaminateCode(currentValue, 'top');
+                                                }
                                                 setTopLaminateOpen(false);
                                                 focusNextField('topPanelLaminateCode');
                                               }}
