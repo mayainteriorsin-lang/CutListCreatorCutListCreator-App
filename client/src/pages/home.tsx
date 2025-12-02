@@ -2215,14 +2215,11 @@ export default function Home() {
   // Memoize preview calculations to prevent running on every keystroke
   // Only recalculate when cabinets, materials, or preview settings change
   const previewBrandResults = useMemo(() => {
-    console.log('🔄 previewBrandResults recalculating: cabinets=', cabinets.length);
-    
     // ✅ OPTIMIZATION: Don't block on wood grains loading - show preview immediately
     // Preferences will update cutting list in background as they load
     
-    // Only calculate if there are cabinets
-    if (cabinets.length === 0) {
-      console.log('❌ previewBrandResults early return: no cabinets');
+    // Only calculate if preview dialog is open
+    if (!showPreviewDialog || cabinets.length === 0) {
       return [];
     }
 
@@ -2262,12 +2259,12 @@ export default function Home() {
       }
       console.groupEnd();
       
-      const rawParts = preparePartsForOptimizer(group.panels, woodGrainsPreferences);
+      const rawParts = preparePartsForOptimizer(group.panels);
       const parts = rawParts
         .filter((p: any) => Boolean(p))
         .map((p: any, i: number) => ({ ...p, id: String(p.id ?? p.name ?? `part-${i}`) }));
       
-      console.log('🌾 Optimizer received parts with rotation:', parts.slice(0, 3).map(p => ({ id: p.id, rotate: p.rotate })));
+      console.log('🌾 Optimizer received parts (first 10):', parts.slice(0, 10));
       
       // Use multi-pass optimization for maximum efficiency
       const optimizedPanels = multiPassOptimize(parts, currentSheetWidth, currentSheetHeight);
@@ -2360,7 +2357,7 @@ export default function Home() {
     });
     
     return brandResults;
-  }, [cabinets, woodGrainsPreferences, sheetWidth, sheetHeight, kerf, manualPanels, deletedPreviewSheets]);
+  }, [showPreviewDialog, cabinets, woodGrainsPreferences, sheetWidth, sheetHeight, kerf, manualPanels, deletedPreviewSheets]);
 
   // Calculate cutting list summary with memoization
   const cuttingListSummary = useMemo((): CuttingListSummary => {
@@ -7362,10 +7359,9 @@ export default function Home() {
           <DialogHeader>
             <DialogTitle>Cutting Layout Preview</DialogTitle>
           </DialogHeader>
-          {showPreviewDialog && cabinets.length > 0 && (() => {
+          {cabinets.length > 0 && (() => {
             // Use memoized brandResults to prevent recalculation on every keystroke
             const brandResults = previewBrandResults;
-            console.log('📊 Dialog render: brandResults.length=', brandResults.length, 'showPreviewDialog=', showPreviewDialog);
             
             // Sheet dimensions
             const currentSheetWidth = sheetWidth;

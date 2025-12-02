@@ -11,7 +11,7 @@
  *   - Depth (450mm) → X-axis (horizontal)
  *   - Height (800mm) → Y-axis (vertical)
  * 
- * Wood grain panels: rotate = false (locked), Non-wood grain: rotate = true (can rotate)
+ * All panels: rotate = false (no rotation)
  */
 
 import type { Panel, OptimizerPart } from '../cutlist/core/types';
@@ -93,8 +93,8 @@ function mapAxes(panelType: string, width: number, depth: number, height: number
  * Rules:
  * - Each panel gets unique ID: PANELTYPE_counter_originalId
  * - Dimensions mapped to X/Y axes per panel type
- * - Non-wood-grain panels: rotate=true (optimizer tries both orientations)
- * - Wood-grain panels: rotate=false (locked orientation)
+ * - Rotation ALWAYS false
+ * - No grain logic - just straight axis mapping
  */
 export function prepareStandardParts(panels: Panel[], woodGrainsPreferences: Record<string, boolean> = {}): OptimizerPart[] {
   const parts: OptimizerPart[] = [];
@@ -141,18 +141,12 @@ export function prepareStandardParts(panels: Panel[], woodGrainsPreferences: Rec
       y = nomH;  // height to Y
     }
     
-    // Extract laminate code - normalize for lookup
+    // Extract laminate code
     const laminateCode = String(panel.laminateCode ?? '').trim();
-    const frontCode = laminateCode.split('+')[0].trim().toLowerCase();
+    const frontCode = laminateCode.split('+')[0].trim();
     
-    // Check wood grains - normalize keys for case-insensitive lookup
-    const normalizedPrefs: Record<string, boolean> = {};
-    Object.entries(woodGrainsPreferences).forEach(([k, v]) => {
-      normalizedPrefs[k.toLowerCase().trim()] = v;
-    });
-    const woodGrainsEnabled = normalizedPrefs[frontCode] === true;
-    
-    console.log(`🔄 Panel "${name}" frontCode="${frontCode}" woodGrain=${woodGrainsEnabled} → rotate=${!woodGrainsEnabled}`);
+    // Check if wood grains enabled (for reference, but doesn't affect rotation now)
+    const woodGrainsEnabled = woodGrainsPreferences[frontCode] === true;
     
     // Create part for optimizer
     const part: OptimizerPart = {
@@ -163,7 +157,7 @@ export function prepareStandardParts(panels: Panel[], woodGrainsPreferences: Rec
       nomW: x,
       nomH: y,
       qty: 1,
-      rotate: !woodGrainsEnabled,  // Allow rotation for non-wood-grain panels only
+      rotate: false,  // NO ROTATION - ALWAYS FALSE
       gaddi: panel.gaddi === true,
       laminateCode,
       panelType,
@@ -176,7 +170,7 @@ export function prepareStandardParts(panels: Panel[], woodGrainsPreferences: Rec
   });
   
   // Log what we prepared
-  console.group('📦 PANEL AXIS MAPPING');
+  console.group('📦 PANEL AXIS MAPPING - SIMPLE');
   console.log(`Sheet: X=1210mm (horizontal), Y=2420mm (vertical)`);
   console.log(`Total panels: ${parts.length}`);
   console.table(
@@ -185,7 +179,7 @@ export function prepareStandardParts(panels: Panel[], woodGrainsPreferences: Rec
       type: p.panelType,
       'X-axis': `${p.w}mm`,
       'Y-axis': `${p.h}mm`,
-      rotate: p.rotate ? '✅ CAN ROTATE' : '🔒 LOCKED'
+      rotate: '🔒 FALSE'
     }))
   );
   console.groupEnd();
