@@ -5109,13 +5109,13 @@ export default function Home() {
                   </Collapsible>
 
                   <Form {...form}>
-                    <form onSubmit={form.handleSubmit(addCabinet)} className="space-y-6">
+                    <form onSubmit={form.handleSubmit(addCabinet)} className="space-y-3">
                     
                     {/* Advanced Mode - Full Cabinet Configuration */}
                     {cabinetConfigMode === 'advanced' && (
                     <>
                     {/* Front and Inner Laminate - Above Dimensions */}
-                    <div className="grid grid-cols-2 gap-4 mb-6">
+                    <div className="grid grid-cols-2 gap-2 mb-3">
                       {/* Front Laminate */}
                       <div className="space-y-2">
                         <Label className="text-xs text-slate-600 font-medium">Front Laminate</Label>
@@ -5197,7 +5197,7 @@ export default function Home() {
                     </div>
 
                     {/* Dimensions Row - Responsive Grid Layout */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mb-2">
                       {/* Height */}
                       <div className="space-y-1">
                         <Label className="text-sm">Height</Label>
