@@ -2215,11 +2215,14 @@ export default function Home() {
   // Memoize preview calculations to prevent running on every keystroke
   // Only recalculate when cabinets, materials, or preview settings change
   const previewBrandResults = useMemo(() => {
+    console.log('🔄 previewBrandResults recalculating: showPreviewDialog=', showPreviewDialog, 'cabinets=', cabinets.length);
+    
     // ✅ OPTIMIZATION: Don't block on wood grains loading - show preview immediately
     // Preferences will update cutting list in background as they load
     
     // Only calculate if preview dialog is open
     if (!showPreviewDialog || cabinets.length === 0) {
+      console.log('❌ previewBrandResults early return: dialog=', showPreviewDialog, 'cabinets=', cabinets.length);
       return [];
     }
 
@@ -7362,6 +7365,7 @@ export default function Home() {
           {cabinets.length > 0 && (() => {
             // Use memoized brandResults to prevent recalculation on every keystroke
             const brandResults = previewBrandResults;
+            console.log('📊 Dialog render: brandResults.length=', brandResults.length, 'showPreviewDialog=', showPreviewDialog);
             
             // Sheet dimensions
             const currentSheetWidth = sheetWidth;
