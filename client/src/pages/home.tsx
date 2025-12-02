@@ -627,7 +627,7 @@ export default function Home() {
       rightPanelInnerLaminateCode: storedMemory.rightPanelInnerLaminateCode ?? 'off white',
       backPanelInnerLaminateCode: storedMemory.backPanelInnerLaminateCode ?? 'off white',
       A: storedMemory.A ?? 'Apple Ply 16mm BWP',
-      backPanelPlywoodBrand: storedMemory.backPanelPlywoodBrand ?? storedMemory.A ?? 'Apple Ply 16mm BWP',
+      backPanelPlywoodBrand: storedMemory.backPanelPlywoodBrand ?? 'Apple ply 6mm BWP',
       innerLaminateCode: storedMemory.topPanelInnerLaminateCode ?? 'off white',
       // Grain direction fields - default to false for new forms
       topPanelGrainDirection: false,
@@ -1153,8 +1153,10 @@ export default function Home() {
   const [customShutterCustomLaminateInput, setCustomShutterCustomLaminateInput] = useState('');
   const [customShutterSaveStatus, setCustomShutterSaveStatus] = useState<'typing' | 'saved' | 'ready' | ''>('');
 
-  // State for Back Panel Plywood Brand selection
-  const [backPanelPlywoodSelection, setBackPanelPlywoodSelection] = useState('6 mm bwp');
+  // State for Back Panel Plywood Brand selection - use memory with 6mm BWP default
+  const [backPanelPlywoodSelection, setBackPanelPlywoodSelection] = useState(() => {
+    return storedMemory.backPanelPlywoodBrand || 'Apple ply 6mm BWP';
+  });
   const [backPanelPlywoodInput, setBackPanelPlywoodInput] = useState('');
   const [backPanelPlywoodSaveStatus, setBackPanelPlywoodSaveStatus] = useState<'typing' | 'saved' | 'ready' | ''>('');
 
