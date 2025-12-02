@@ -5196,76 +5196,72 @@ export default function Home() {
                       </div>
                     </div>
 
-                    {/* Dimensions Row - Responsive Grid Layout */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mb-2">
+                    {/* Dimensions Row - Compact Single Row Layout */}
+                    <div className="flex items-end gap-2 mb-1">
                       {/* Height */}
-                      <div className="space-y-1">
-                        <Label className="text-sm">Height</Label>
-                        <div className="relative">
-                          <Input
-                            type="number"
-                            {...form.register('height', { valueAsNumber: true })}
-                            className="text-sm w-full"
-                            data-testid="input-cabinet-height"
-                          />
-                          <span className="absolute right-2 top-2 text-xs text-slate-500">{units}</span>
-                        </div>
+                      <div className="flex-1 min-w-0">
+                        <Label className="text-xs text-slate-600">H</Label>
+                        <Input
+                          type="number"
+                          {...form.register('height', { valueAsNumber: true })}
+                          className="text-sm h-8 px-2"
+                          data-testid="input-cabinet-height"
+                        />
                       </div>
                       
-                      {/* Width with Reduction */}
-                      <div className="space-y-1">
-                        <Label className="text-sm">Width</Label>
-                        <div className="flex items-center gap-2">
-                          <div className="relative flex-1">
-                            <Input
-                              type="number"
-                              {...form.register('width', { valueAsNumber: true })}
-                              className="text-sm"
-                            />
-                            <span className="absolute right-2 top-2 text-xs text-slate-500">{units}</span>
-                          </div>
-                          <span className="text-xs text-slate-600 whitespace-nowrap">-</span>
-                          <Input
-                            type="number"
-                            {...form.register('widthReduction', { valueAsNumber: true })}
-                            className="w-16 h-9 text-xs text-center"
-                            min="0"
-                            placeholder="36"
-                          />
-                        </div>
+                      {/* Width */}
+                      <div className="flex-1 min-w-0">
+                        <Label className="text-xs text-slate-600">W</Label>
+                        <Input
+                          type="number"
+                          {...form.register('width', { valueAsNumber: true })}
+                          className="text-sm h-8 px-2"
+                        />
+                      </div>
+                      
+                      {/* Reduction */}
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-slate-500">-</span>
+                        <Input
+                          type="number"
+                          {...form.register('widthReduction', { valueAsNumber: true })}
+                          className="w-10 h-8 text-xs text-center px-1"
+                          min="0"
+                          placeholder="36"
+                        />
                       </div>
                       
                       {/* Depth */}
-                      <div className="space-y-1">
-                        <Label className="text-sm">Depth</Label>
-                        <div className="relative">
-                          <Input
-                            type="number"
-                            {...form.register('depth', { valueAsNumber: true })}
-                            className="text-sm w-full"
-                          />
-                          <span className="absolute right-2 top-2 text-xs text-slate-500">{units}</span>
-                        </div>
+                      <div className="flex-1 min-w-0">
+                        <Label className="text-xs text-slate-600">D</Label>
+                        <Input
+                          type="number"
+                          {...form.register('depth', { valueAsNumber: true })}
+                          className="text-sm h-8 px-2"
+                        />
                       </div>
+                      
+                      {/* Unit indicator */}
+                      <span className="text-xs text-slate-400 pb-2">{units}</span>
                     </div>
                     
-                    {/* Panel Width Info - DISPLAY: width - reduction */}
-                    <div className="text-xs text-slate-500 mb-4">
-                      Panel width: {((watchedValues.width ?? 0) - (watchedValues.widthReduction ?? 36))}mm
+                    {/* Panel Width Info - Compact */}
+                    <div className="text-xs text-slate-500 mb-2">
+                      Panel W: {((watchedValues.width ?? 0) - (watchedValues.widthReduction ?? 36))}{units}
                     </div>
 
-                    <div className="space-y-6 mt-[50px]">
+                    <div className="space-y-3 mt-3">
                       {/* Center Post and Shelves */}
-                    <div ref={centerPostSectionRef} className="space-y-2 mt-[50px]">
+                    <div ref={centerPostSectionRef} className="space-y-2">
                       <Label className="text-sm font-medium text-slate-700 flex items-center">
                         <i className="fas fa-columns mr-2 text-blue-600"></i>
                         Center Post and Shelves
                       </Label>
                       
                       {/* Toggle Row */}
-                      <div className="flex gap-4 items-stretch">
+                      <div className="flex gap-2 items-stretch">
                       {/* Center Post Toggle */}
-                      <div className="flex-1 p-3 border border-blue-400/30 rounded-lg bg-blue-50/50">
+                      <div className="flex-1 p-2 border border-blue-400/30 rounded-lg bg-blue-50/50">
                         <div className="flex items-center justify-between">
                           <h4 className="text-sm font-medium text-slate-700">Center Post</h4>
                           <Switch
@@ -5287,7 +5283,7 @@ export default function Home() {
                           />
                         </div>
                         {watchedValues.centerPostEnabled && (
-                          <div className="space-y-4 mt-4">
+                          <div className="space-y-2 mt-2">
                             <div className="space-y-2">
                               <Label className="text-xs text-slate-600">Center Post Qty</Label>
                               <Select
@@ -5387,7 +5383,7 @@ export default function Home() {
                       </div>
                       
                       {/* Shelves Toggle */}
-                      <div className="flex-1 p-3 border border-blue-400/30 rounded-lg bg-blue-50/50">
+                      <div className="flex-1 p-2 border border-blue-400/30 rounded-lg bg-blue-50/50">
                         <div className="flex items-center justify-between">
                           <h4 className="text-sm font-medium text-slate-700">Shelves</h4>
                           <Switch
@@ -5409,7 +5405,7 @@ export default function Home() {
                           />
                         </div>
                         {watchedValues.shelvesEnabled && (
-                          <div className="space-y-4 mt-4">
+                          <div className="space-y-2 mt-2">
                             <div className="space-y-2">
                               <Label className="text-xs text-slate-600">Shelves Qty</Label>
                               <Select
@@ -5503,7 +5499,7 @@ export default function Home() {
                     </div>
 
                     {/* Shutter Configuration - Highlighted section with border and shadow */}
-                      <div ref={shutterConfigSectionRef} className="space-y-4 border-2 border-orange-200 rounded-lg p-4 shadow-md bg-orange-50/30">
+                      <div ref={shutterConfigSectionRef} className="space-y-2 border-2 border-orange-200 rounded-lg p-3 shadow-md bg-orange-50/30">
                         {/* Heading with Include Shutters toggle on right */}
                         <div className="flex items-center justify-between">
                           <Label className="text-base font-semibold text-slate-800 flex items-center">
