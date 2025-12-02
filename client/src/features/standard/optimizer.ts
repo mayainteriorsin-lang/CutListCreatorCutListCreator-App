@@ -10,83 +10,65 @@ import type { OptimizerPart, Sheet, StrategyResult } from '../cutlist/core/types
 
 /**
  * Standard Multi-Pass Optimization
- * Tries 5 different strategies for materials
- * Respects incoming rotate flag (wood grain panels locked, non-wood grain can rotate)
- * 
- * @param parts - Parts with rotate flag set by prepareStandardParts
- * @param sheetWidth - Sheet width (default 1210mm)
- * @param sheetHeight - Sheet height (default 2420mm)
- * @returns Best optimization result
+ * When wood grain = FALSE → rotate = TRUE → MAXIMUM optimization
+ * When wood grain = TRUE → rotate = FALSE → Standard optimization
  */
 export function optimizeStandardCutlist(
   parts: OptimizerPart[],
   sheetWidth: number = 1210,
   sheetHeight: number = 2420
 ): Sheet[] {
-  console.group('📦 MULTI-PASS OPTIMIZATION - 5 strategies');
-  console.log('🔄 Rotation flags:', parts.slice(0, 3).map(p => ({ id: p.id?.slice(0, 20), rotate: p.rotate })));
+  const rotatableCount = parts.filter(p => p.rotate === true).length;
+  const allCanRotate = rotatableCount === parts.length;
+  
+  console.group(`📦 OPTIMIZATION - ${allCanRotate ? '🚀 MAXIMUM (all rotate)' : '🔒 STANDARD (some locked)'}`);
+  console.log(`Panels: ${parts.length} total, ${rotatableCount} can rotate`);
   
   const strategies: StrategyResult[] = [];
   
-  // STRATEGY 1: Best Area Fit (BAF) - Long Time
-  console.log('📋 Pass 1: Best Area Fit (1000ms)');
-  const result1 = runOptimizer(parts, sheetWidth, sheetHeight, 1000, 'BAF');
-  const efficiency1 = calculateEfficiency(result1.panels, parts);
-  strategies.push({
-    name: 'BAF-1000ms',
-    result: result1.panels,
-    efficiency: efficiency1,
-    sheetsUsed: result1.panels.length
-  });
-  console.log(`✅ Pass 1 Complete: ${result1.panels.length} sheets, ${efficiency1.toFixed(2)}% efficiency`);
+  if (allCanRotate) {
+    // MAXIMUM OPTIMIZATION - All panels can rotate (wood grain = false)
+    console.log('🚀 MAXIMUM MODE: Extended time + all strategies');
+    
+    const result1 = runOptimizer(parts, sheetWidth, sheetHeight, 1500, 'BAF');
+    strategies.push({ name: 'BAF', result: result1.panels, efficiency: calculateEfficiency(result1.panels, parts), sheetsUsed: result1.panels.length });
+    
+    const result2 = runOptimizer(parts, sheetWidth, sheetHeight, 1500, 'BSSF');
+    strategies.push({ name: 'BSSF', result: result2.panels, efficiency: calculateEfficiency(result2.panels, parts), sheetsUsed: result2.panels.length });
+    
+    const result3 = runOptimizer(parts, sheetWidth, sheetHeight, 1500, 'BLSF');
+    strategies.push({ name: 'BLSF', result: result3.panels, efficiency: calculateEfficiency(result3.panels, parts), sheetsUsed: result3.panels.length });
+    
+    const result4 = runOptimizer(parts, sheetWidth, sheetHeight, 1500, 'BL');
+    strategies.push({ name: 'BL', result: result4.panels, efficiency: calculateEfficiency(result4.panels, parts), sheetsUsed: result4.panels.length });
+    
+    // Extra pass with maximum time
+    const result5 = runOptimizer(parts, sheetWidth, sheetHeight, 3000, 'BAF');
+    strategies.push({ name: 'BAF-MAX', result: result5.panels, efficiency: calculateEfficiency(result5.panels, parts), sheetsUsed: result5.panels.length });
+    
+    const result6 = runOptimizer(parts, sheetWidth, sheetHeight, 3000, 'BSSF');
+    strategies.push({ name: 'BSSF-MAX', result: result6.panels, efficiency: calculateEfficiency(result6.panels, parts), sheetsUsed: result6.panels.length });
+  } else {
+    // STANDARD OPTIMIZATION - Some panels locked
+    console.log('🔒 STANDARD MODE: Mixed rotation');
+    
+    const result1 = runOptimizer(parts, sheetWidth, sheetHeight, 1000, 'BAF');
+    strategies.push({ name: 'BAF', result: result1.panels, efficiency: calculateEfficiency(result1.panels, parts), sheetsUsed: result1.panels.length });
+    
+    const result2 = runOptimizer(parts, sheetWidth, sheetHeight, 1000, 'BSSF');
+    strategies.push({ name: 'BSSF', result: result2.panels, efficiency: calculateEfficiency(result2.panels, parts), sheetsUsed: result2.panels.length });
+    
+    const result3 = runOptimizer(parts, sheetWidth, sheetHeight, 1000, 'BLSF');
+    strategies.push({ name: 'BLSF', result: result3.panels, efficiency: calculateEfficiency(result3.panels, parts), sheetsUsed: result3.panels.length });
+    
+    const result4 = runOptimizer(parts, sheetWidth, sheetHeight, 1000, 'BL');
+    strategies.push({ name: 'BL', result: result4.panels, efficiency: calculateEfficiency(result4.panels, parts), sheetsUsed: result4.panels.length });
+    
+    const result5 = runOptimizer(parts, sheetWidth, sheetHeight, 2000, 'BAF');
+    strategies.push({ name: 'BAF-EXT', result: result5.panels, efficiency: calculateEfficiency(result5.panels, parts), sheetsUsed: result5.panels.length });
+  }
   
-  // STRATEGY 2: Best Short Side Fit (BSSF) - Optimizes for similar widths
-  console.log('📋 Pass 2: Best Short Side Fit (1000ms)');
-  const result2 = runOptimizer(parts, sheetWidth, sheetHeight, 1000, 'BSSF');
-  const efficiency2 = calculateEfficiency(result2.panels, parts);
-  strategies.push({
-    name: 'BSSF-1000ms',
-    result: result2.panels,
-    efficiency: efficiency2,
-    sheetsUsed: result2.panels.length
-  });
-  console.log(`✅ Pass 2 Complete: ${result2.panels.length} sheets, ${efficiency2.toFixed(2)}% efficiency`);
-  
-  // STRATEGY 3: Best Long Side Fit (BLSF) - Optimizes for similar heights
-  console.log('📋 Pass 3: Best Long Side Fit (1000ms)');
-  const result3 = runOptimizer(parts, sheetWidth, sheetHeight, 1000, 'BLSF');
-  const efficiency3 = calculateEfficiency(result3.panels, parts);
-  strategies.push({
-    name: 'BLSF-1000ms',
-    result: result3.panels,
-    efficiency: efficiency3,
-    sheetsUsed: result3.panels.length
-  });
-  console.log(`✅ Pass 3 Complete: ${result3.panels.length} sheets, ${efficiency3.toFixed(2)}% efficiency`);
-  
-  // STRATEGY 4: Bottom Left (BL) - Simple but effective for regular shapes
-  console.log('📋 Pass 4: Bottom Left (1000ms)');
-  const result4 = runOptimizer(parts, sheetWidth, sheetHeight, 1000, 'BL');
-  const efficiency4 = calculateEfficiency(result4.panels, parts);
-  strategies.push({
-    name: 'BL-1000ms',
-    result: result4.panels,
-    efficiency: efficiency4,
-    sheetsUsed: result4.panels.length
-  });
-  console.log(`✅ Pass 4 Complete: ${result4.panels.length} sheets, ${efficiency4.toFixed(2)}% efficiency`);
-  
-  // STRATEGY 5: Best Area Fit (BAF) - Extended Time for Final Optimization
-  console.log('📋 Pass 5: Best Area Fit Extended (2000ms) 🔥');
-  const result5 = runOptimizer(parts, sheetWidth, sheetHeight, 2000, 'BAF');
-  const efficiency5 = calculateEfficiency(result5.panels, parts);
-  strategies.push({
-    name: 'BAF-2000ms',
-    result: result5.panels,
-    efficiency: efficiency5,
-    sheetsUsed: result5.panels.length
-  });
-  console.log(`✅ Pass 5 Complete: ${result5.panels.length} sheets, ${efficiency5.toFixed(2)}% efficiency`);
+  strategies.forEach(s => console.log(`  ${s.name}: ${s.sheetsUsed} sheets, ${s.efficiency.toFixed(1)}%`));
   
   // Pick the best strategy (highest efficiency, or fewest sheets if tie)
   strategies.sort((a, b) => {
