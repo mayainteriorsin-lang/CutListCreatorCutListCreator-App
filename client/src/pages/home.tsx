@@ -4076,20 +4076,6 @@ export default function Home() {
       {/* Fixed Bottom Toolbar */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50 px-2 py-2">
         <div className="flex items-center gap-2 justify-center overflow-x-auto max-w-7xl mx-auto">
-          {/* Calculation Logic Lock */}
-          <div className="flex items-center space-x-1 px-2 py-1 bg-gray-50 border border-gray-200 rounded-lg">
-            <Label htmlFor="calc-lock" className="text-xs text-gray-700">
-              Logic
-            </Label>
-            <Switch
-              id="calc-lock"
-              checked={calculationLogicLocked}
-              onCheckedChange={setCalculationLogicLocked}
-              className="scale-75"
-            />
-            <i className={`fas ${calculationLogicLocked ? 'fa-lock' : 'fa-unlock'} text-blue-400 text-xs`}></i>
-          </div>
-          
           <Button
             onClick={exportToExcel}
             size="sm"
