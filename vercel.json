@@ -1,0 +1,27 @@
+{
+    "version": 2,
+    "buildCommand": "npm run build",
+    "devCommand": "npm run dev",
+    "installCommand": "npm install",
+    "framework": null,
+    "outputDirectory": "dist/client",
+    "rewrites": [
+        {
+            "source": "/api/(.*)",
+            "destination": "/api"
+        },
+        {
+            "source": "/(.*)",
+            "destination": "/index.html"
+        }
+    ],
+    "functions": {
+        "api/index.js": {
+            "runtime": "nodejs20.x",
+            "maxDuration": 30
+        }
+    },
+    "env": {
+        "NODE_ENV": "production"
+    }
+}
