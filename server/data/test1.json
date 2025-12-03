@@ -1,0 +1,11 @@
+{
+  "name": "test1",
+  "pieces": [
+    {
+      "id": "p1",
+      "width": 300,
+      "height": 200,
+      "qty": 1
+    }
+  ]
+}
