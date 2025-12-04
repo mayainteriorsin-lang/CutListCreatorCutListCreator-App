@@ -1199,6 +1199,34 @@ export default function Home() {
     setBackLaminateSelection(newCode);
   };
 
+  // Handle export from DesignCenter
+  const handleDesignCenterExport = (data: { width: number; height: number; depth: number; name: string }) => {
+    // Update Cabinet Form values
+    form.setValue('width', data.width);
+    form.setValue('height', data.height);
+    form.setValue('depth', data.depth);
+    form.setValue('name', data.name);
+
+    // Save to cabinet form memory
+    saveCabinetFormMemory({
+      width: data.width,
+      height: data.height,
+      depth: data.depth
+    });
+
+    // Scroll to Cabinet Form section
+    if (cabinetSectionRef.current) {
+      cabinetSectionRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // Show toast notification
+    toast({
+      title: "Design Exported",
+      description: `Updated Cabinet Form: ${data.width}×${data.height}×${data.depth}mm (${data.name})`,
+      duration: 3000
+    });
+  };
+
   // Master Settings: Update ALL cabinets when master inner laminate code changes
   const updateAllCabinetsInnerLaminateCode = (newCode: string) => {
     updateCabinets((prevCabinets: Cabinet[]) =>
@@ -8557,6 +8585,15 @@ export default function Home() {
         </CardContent>
       </Card>
 
-    </div>
-  );
-}
+      {/* Design Center Section */}
+      <Card className="bg-white border-gray-200 shadow-md mt-8" data-design-center-section>
+        <CardHeader>
+          <CardTitle className="text-gray-900">
+            <i className="fas fa-pencil-ruler mr-2 text-teal-500"></i>
+            Design Center (Smart Export)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0" style={{ minHeight: '600px' }}>
+          <DesignCenter onExportToCutlist={handleDesignCenterExport} />
+        </CardContent>
+      </Card>

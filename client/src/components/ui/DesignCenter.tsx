@@ -51,7 +51,11 @@ const uid = (prefix = "") => `${prefix}${Math.random().toString(36).slice(2, 9)}
 
 type HistoryEntry = { shapes: Shape[]; description: string };
 
-export default function DesignCenter() {
+export interface DesignCenterProps {
+  onExportToCutlist?: (data: { width: number; height: number; depth: number; name: string }) => void;
+}
+
+export default function DesignCenter({ onExportToCutlist }: DesignCenterProps = {}) {
   const [gridSize, setGridSize] = useState(10);
   const [lineThickness, setLineThickness] = useState(18);
   const [lineColor, setLineColor] = useState("#000000");
@@ -70,6 +74,11 @@ export default function DesignCenter() {
   const [widthValue, setWidthValue] = useState(200);
   const [widthReduction, setWidthReduction] = useState(36);
   const calculatedWidth = widthValue - widthReduction;
+  
+  // Smart Toolbar state
+  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
+  const [customDepth, setCustomDepth] = useState(560);
+  const [depthModified, setDepthModified] = useState(false);
   
   const SNAP = (v: number) => Math.round(v / gridSize) * gridSize;
   const getAngle = (x1: number, y1: number, x2: number, y2: number) => Math.round(Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI) % 360;
@@ -546,6 +555,77 @@ export default function DesignCenter() {
     img.src = url;
   }
 
+  // Smart Export Logic
+  function handleExport() {
+    // Find selected rectangle or largest rectangle
+    let targetRect: RectShape | null = null;
+    
+    if (selectedId) {
+      const selected = shapes.find(s => s.id === selectedId);
+      if (selected && selected.type === "rect") {
+        targetRect = selected as RectShape;
+      }
+    }
+    
+    // If no selected rect, find largest
+    if (!targetRect) {
+      let maxArea = 0;
+      for (const shape of shapes) {
+        if (shape.type === "rect") {
+          const rect = shape as RectShape;
+          const area = rect.w * rect.h;
+          if (area > maxArea) {
+            maxArea = area;
+            targetRect = rect;
+          }
+        }
+      }
+    }
+    
+    if (!targetRect) {
+      alert("Please draw and select a rectangle to export");
+      return;
+    }
+
+    const width = Math.round(targetRect.w);
+    const height = Math.round(targetRect.h);
+    
+    // Smart Naming logic
+    let smartName = "Cabinet";
+    if (height > 1800) {
+      smartName = "Wardrobe (from Design)";
+    } else if (height < 900) {
+      smartName = "Base Unit (from Design)";
+    } else {
+      smartName = "Cabinet (from Design)";
+    }
+    
+    // Smart Depth suggestion
+    let suggestedDepth = customDepth;
+    if (!depthModified) {
+      if (height > 1800) {
+        suggestedDepth = 560;
+      } else if (height < 900) {
+        suggestedDepth = 560;
+      } else if (height < 1000 && width < 1000) {
+        suggestedDepth = 300;
+      } else {
+        suggestedDepth = 560;
+      }
+      setCustomDepth(suggestedDepth);
+    }
+    
+    // Call callback
+    if (onExportToCutlist) {
+      onExportToCutlist({
+        width,
+        height,
+        depth: customDepth,
+        name: smartName
+      });
+    }
+  }
+
   // Initialize history
   useEffect(() => {
     if (history.length === 0 && shapes.length > 0) {
@@ -861,6 +941,49 @@ export default function DesignCenter() {
             </span>
             🔍 Zoom: {(zoom * 100).toFixed(0)}% | {mode === "line" && angleSnap && "⚡ Angle snap ON"}
           </span>
+        </div>
+
+        {/* Smart Toolbar for Export */}
+        <div style={{ height: 40, padding: "6px 12px", background: "#f0f7ff", borderBottom: "1px solid #b3d9ff", display: "flex", gap: 12, alignItems: "center", fontSize: 11 }}>
+          <select value={selectedTemplate || ""} onChange={(e) => setSelectedTemplate(e.target.value || null)} style={{ padding: "4px 8px", border: "1px solid #4da6ff", borderRadius: 3, fontSize: 11, cursor: "pointer" }}>
+            <option value="">📋 Templates</option>
+            <option value="wardrobe">Wardrobe (900×2100)</option>
+            <option value="base">Base Unit (600×870)</option>
+            <option value="wall">Wall Unit (600×720)</option>
+          </select>
+          
+          <span style={{ display: "flex", gap: 4, alignItems: "center", fontSize: 11 }}>
+            Depth (mm):
+            <input 
+              type="number" 
+              min="100" 
+              max="1000"
+              value={customDepth}
+              onChange={(e) => {
+                setCustomDepth(Math.max(100, parseInt(e.target.value) || customDepth));
+                setDepthModified(true);
+              }}
+              style={{ width: 50, padding: "4px 6px", border: "1px solid #4da6ff", borderRadius: 3, fontSize: 11 }}
+            />
+          </span>
+          
+          <button
+            onClick={handleExport}
+            style={{
+              marginLeft: "auto",
+              padding: "6px 14px",
+              background: "linear-gradient(135deg, #0b7a6b, #0d9488)",
+              color: "#fff",
+              border: "none",
+              borderRadius: 4,
+              fontSize: 11,
+              fontWeight: 600,
+              cursor: "pointer",
+              boxShadow: "0 2px 6px rgba(0,0,0,0.1)"
+            }}
+          >
+            📤 Export to Cutlist
+          </button>
         </div>
 
         {/* canvas - fills all available space with zoom */}
