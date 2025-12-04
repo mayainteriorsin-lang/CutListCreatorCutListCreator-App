@@ -1030,6 +1030,7 @@ export default function Home() {
   // Basic mode (Quick Shutter) popovers - separate from Advanced mode to avoid interference
   const [basicShutterLaminateOpen, setBasicShutterLaminateOpen] = useState(false);
   const [basicShutterInnerLaminateOpen, setBasicShutterInnerLaminateOpen] = useState(false);
+  const [shutterLaminateOpen, setShutterLaminateOpen] = useState(false);
 
   // Origin tracking to prevent infinite loops during sync
   const currentSyncOrigin = useRef<string | null>(null);

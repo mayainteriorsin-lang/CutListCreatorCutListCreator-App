@@ -60,7 +60,7 @@ export function drawGaddiMark(
     // If panel.w > panel.h: width is on X-axis → horizontal line
     // If panel.h > panel.w: width is on Y-axis → vertical line
     const widthOnXAxis = panel.w >= panel.h;
-    
+
     if (widthOnXAxis) {
       // Width on X-axis: draw horizontal line at top/bottom
       const nearTop = /TOP/i.test(type);
@@ -81,7 +81,7 @@ export function drawGaddiMark(
     // If panel.w >= panel.h: height is on X-axis → horizontal line
     // If panel.h > panel.w: height is on Y-axis → vertical line
     const heightOnXAxis = panel.w >= panel.h;
-    
+
     if (heightOnXAxis) {
       // Height on X-axis: draw horizontal line at left/right
       const nearLeft = /LEFT/i.test(type);
@@ -146,17 +146,17 @@ export function drawGaddiMark(
     // Draw "GADDI" text label along the line
     // Reset line dash for text (jsPDF can mess up text with dashes active)
     if ((doc as any).setLineDash) (doc as any).setLineDash([]);
-    
+
     const midX = (p0.x + p1.x) / 2;
     const midY = (p0.y + p1.y) / 2;
-    
+
     // Determine if line is horizontal or vertical
     const isHorizontal = Math.abs(p1.x - p0.x) > Math.abs(p1.y - p0.y);
-    
+
     doc.setFont("helvetica", "bold");
     doc.setFontSize(6);
     doc.setTextColor(0, 0, 0); // Black color
-    
+
     if (isHorizontal) {
       // Horizontal line (X-axis): text on the LEFT, INSIDE panel with 11px gap (scaled to ~7pt)
       const leftX = Math.min(p0.x, p1.x) + 2;
@@ -166,7 +166,7 @@ export function drawGaddiMark(
       const bottomY = Math.max(p0.y, p1.y) - 3;
       doc.text("GADDI", midX + 9, bottomY, { align: "left", angle: 90 });
     }
-    
+
     // Reset text color
     doc.setTextColor(0);
   } finally {
@@ -181,3 +181,53 @@ export function drawGaddiMark(
     }
   }
 }
+
+/**
+ * Calculate gaddi line direction based on grain direction
+ * @param gaddiEnabled - Whether gaddi is enabled for this panel
+ * @param grainDirection - Whether wood grain direction is enabled
+ * @returns Direction of gaddi line or null if disabled
+ */
+export function calculateGaddiLineDirection(
+  gaddiEnabled: boolean,
+  grainDirection: boolean
+): 'horizontal' | 'vertical' | null {
+  if (!gaddiEnabled) return null;
+  // If grain direction is enabled, gaddi line follows the grain (vertical)
+  // Otherwise, gaddi line is horizontal
+  return grainDirection ? 'vertical' : 'horizontal';
+}
+
+/**
+ * Determine if gaddi marking should be shown for a panel
+ * @param panel - Panel object with gaddi property
+ * @returns True if gaddi marking should be displayed
+ */
+export function shouldShowGaddiMarking(panel: any): boolean {
+  return Boolean(panel?.gaddi);
+}
+
+/**
+ * Validate gaddi rule constraints for a panel
+ * @param panel - Panel object to validate
+ * @returns True if panel passes gaddi validation rules
+ */
+export function validateGaddiRule(panel: any): boolean {
+  // If gaddi is not enabled, no validation needed
+  if (!panel?.gaddi) return true;
+
+  // Validate panel has required dimensions
+  if (!panel.width || !panel.height || panel.width <= 0 || panel.height <= 0) {
+    return false;
+  }
+
+  // Gaddi panels should have minimum dimensions
+  const minDimension = 100; // 100mm minimum
+  if (panel.width < minDimension || panel.height < minDimension) {
+    return false;
+  }
+
+  // All validations passed
+  return true;
+}
+

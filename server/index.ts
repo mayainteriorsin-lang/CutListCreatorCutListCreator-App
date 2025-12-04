@@ -85,4 +85,7 @@ app.get('/test', (req, res) => {
   }, () => {
     log(`serving on port ${port}`);
   });
-})();
+})().catch(err => {
+  console.error("FATAL SERVER STARTUP ERROR:", err);
+  process.exit(1);
+});
