@@ -4373,165 +4373,166 @@ export default function Home() {
                           />
                         </div>
                       </div>
+                    </div>
 
-                      {/* Optimize Plywood Usage Section */}
-                      <div className="mt-6 pt-4 border-t border-gray-200">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1">
-                            <Label className="text-sm font-medium text-gray-700 mb-1 block">
-                              Optimize Plywood Usage
-                            </Label>
-                            <p className="text-xs text-gray-500 leading-relaxed">
-                              Panels are grouped only when ALL materials match: Plywood Brand + Front Laminate + Inner Laminate.
-                              This ensures consistent material quality on each sheet.
-                            </p>
-                          </div>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setOptimizePlywoodUsage(!optimizePlywoodUsage)}
-                            className={`h-9 px-4 text-sm whitespace-nowrap ${optimizePlywoodUsage ? 'bg-green-100 border-green-400 text-green-700' : ''}`}
-                            data-testid="button-optimize-plywood"
-                          >
-                            {optimizePlywoodUsage ? 'ON' : 'OFF'}
-                          </Button>
+                    {/* Optimize Plywood Usage Section */}
+                    <div className="mt-6 pt-4 border-t border-gray-200">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <Label className="text-sm font-medium text-gray-700 mb-1 block">
+                            Optimize Plywood Usage
+                          </Label>
+                          <p className="text-xs text-gray-500 leading-relaxed">
+                            Panels are grouped only when ALL materials match: Plywood Brand + Front Laminate + Inner Laminate.
+                            This ensures consistent material quality on each sheet.
+                          </p>
                         </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setOptimizePlywoodUsage(!optimizePlywoodUsage)}
+                          className={`h-9 px-4 text-sm whitespace-nowrap ${optimizePlywoodUsage ? 'bg-green-100 border-green-400 text-green-700' : ''}`}
+                          data-testid="button-optimize-plywood"
+                        >
+                          {optimizePlywoodUsage ? 'ON' : 'OFF'}
+                        </Button>
                       </div>
+                    </div>
 
-                      {/* Sheet Size Section */}
-                      <div className="mt-6 pt-4 border-t border-gray-200">
-                        <Label className="text-sm font-medium text-gray-700 mb-3 block">
-                          <i className="fas fa-ruler-combined mr-2 text-blue-500"></i>
-                          Sheet Size Settings
-                        </Label>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          {/* Sheet Width */}
-                          <div className="space-y-2">
-                            <Label className="text-xs text-slate-600">Sheet Width (mm)</Label>
-                            <Input
-                              type="number"
-                              value={sheetWidth}
-                              onChange={(e) => setSheetWidth(parseInt(e.target.value) || 1210)}
-                              placeholder="Width"
-                              className="text-sm"
-                              min="500"
-                              max="5000"
-                              data-testid="input-sheet-width"
-                            />
-                          </div>
-
-                          {/* Sheet Height */}
-                          <div className="space-y-2">
-                            <Label className="text-xs text-slate-600">Sheet Height (mm)</Label>
-                            <Input
-                              type="number"
-                              value={sheetHeight}
-                              onChange={(e) => setSheetHeight(parseInt(e.target.value) || 2420)}
-                              placeholder="Height"
-                              className="text-sm"
-                              min="500"
-                              max="5000"
-                              data-testid="input-sheet-height"
-                            />
-                          </div>
-
-                          {/* Kerf */}
-                          <div className="space-y-2">
-                            <Label className="text-xs text-slate-600">Kerf (mm)</Label>
-                            <Input
-                              type="number"
-                              value={kerf}
-                              onChange={(e) => {
-                                const value = parseInt(e.target.value);
-                                if (value >= 0 && value <= 10) {
-                                  setKerf(value);
-                                }
-                              }}
-                              placeholder="Kerf"
-                              className="text-sm"
-                              min="0"
-                              max="10"
-                              data-testid="input-kerf"
-                            />
-                          </div>
+                    {/* Sheet Size Section */}
+                    <div className="mt-6 pt-4 border-t border-gray-200">
+                      <Label className="text-sm font-medium text-gray-700 mb-3 block">
+                        <i className="fas fa-ruler-combined mr-2 text-blue-500"></i>
+                        Sheet Size Settings
+                      </Label>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {/* Sheet Width */}
+                        <div className="space-y-2">
+                          <Label className="text-xs text-slate-600">Sheet Width (mm)</Label>
+                          <Input
+                            type="number"
+                            value={sheetWidth}
+                            onChange={(e) => setSheetWidth(parseInt(e.target.value) || 1210)}
+                            placeholder="Width"
+                            className="text-sm"
+                            min="500"
+                            max="5000"
+                            data-testid="input-sheet-width"
+                          />
                         </div>
-                      </div>
 
-                      {/* Wood Grain Settings Section */}
-                      <div className="mt-6 pt-4 border-t border-gray-200">
-                        <Label className="text-sm font-medium text-gray-700 mb-3 block">
-                          <i className="fas fa-seedling mr-2 text-green-500"></i>
-                          Wood Grain Settings
-                        </Label>
-                        <div className="space-y-4">
-                          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                            <p className="text-xs text-green-800">
-                              <i className="fas fa-info-circle mr-1"></i>
-                              Toggle wood grain for each laminate code. When enabled, panels use dimensional mapping for optimization.
-                            </p>
-                          </div>
+                        {/* Sheet Height */}
+                        <div className="space-y-2">
+                          <Label className="text-xs text-slate-600">Sheet Height (mm)</Label>
+                          <Input
+                            type="number"
+                            value={sheetHeight}
+                            onChange={(e) => setSheetHeight(parseInt(e.target.value) || 2420)}
+                            placeholder="Height"
+                            className="text-sm"
+                            min="500"
+                            max="5000"
+                            data-testid="input-sheet-height"
+                          />
+                        </div>
 
-                          {/* Laminate codes list with toggles */}
-                          <div className="space-y-2 max-h-96 overflow-y-auto">
-                            {globalLaminateMemory.length === 0 ? (
-                              <div className="text-center py-8 text-gray-500">
-                                <i className="fas fa-inbox text-4xl mb-2"></i>
-                                <p className="text-sm">No laminate codes saved yet</p>
-                                <p className="text-xs mt-1">Add laminate codes in Master Settings or Cabinet Configuration</p>
-                              </div>
-                            ) : (
-                              globalLaminateMemory.map((code) => {
-                                const isEnabled = woodGrainsPreferences[code] === true;
-                                return (
-                                  <div
-                                    key={code}
-                                    className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-                                  >
-                                    <div className="flex items-center gap-3">
-                                      <i className={`fas fa-layer-group ${isEnabled ? 'text-green-500' : 'text-gray-400'}`}></i>
-                                      <div>
-                                        <div className="font-medium text-sm">{code}</div>
-                                        <div className="text-xs text-gray-500">
-                                          {isEnabled ? '✓ Wood grain enabled' : '✗ Wood grain disabled'}
-                                        </div>
-                                      </div>
-                                    </div>
-                                    <Button
-                                      type="button"
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={async () => {
-                                        const newValue = !isEnabled;
-                                        try {
-                                          const response = await apiRequest('POST', '/api/wood-grains-preference', { laminateCode: code, woodGrainsEnabled: newValue });
-                                          setWoodGrainsPreferences((prev) => ({ ...prev, [code]: newValue }));
-                                          toast({
-                                            title: newValue ? "Wood Grain Enabled" : "Wood Grain Disabled",
-                                            description: `${code} ${newValue ? 'now uses' : 'no longer uses'} wood grain memory`,
-                                          });
-                                        } catch (error) {
-                                          console.error('Error toggling wood grains:', error);
-                                          toast({
-                                            title: "Error",
-                                            description: "Failed to update wood grain preference",
-                                            variant: "destructive"
-                                          });
-                                        }
-                                      }}
-                                      className={`h-8 px-3 text-xs ${isEnabled ? 'bg-green-100 border-green-400 text-green-700 hover:bg-green-200' : 'hover:bg-gray-100'}`}
-                                      data-testid={`toggle-wood-grain-${code}`}
-                                    >
-                                      {isEnabled ? 'ON' : 'OFF'}
-                                    </Button>
-                                  </div>
-                                );
-                              })
-                            )}
-                          </div>
+                        {/* Kerf */}
+                        <div className="space-y-2">
+                          <Label className="text-xs text-slate-600">Kerf (mm)</Label>
+                          <Input
+                            type="number"
+                            value={kerf}
+                            onChange={(e) => {
+                              const value = parseInt(e.target.value);
+                              if (value >= 0 && value <= 10) {
+                                setKerf(value);
+                              }
+                            }}
+                            placeholder="Kerf"
+                            className="text-sm"
+                            min="0"
+                            max="10"
+                            data-testid="input-kerf"
+                          />
                         </div>
                       </div>
                     </div>
+
+                    {/* Wood Grain Settings Section */}
+                    <div className="mt-6 pt-4 border-t border-gray-200">
+                      <Label className="text-sm font-medium text-gray-700 mb-3 block">
+                        <i className="fas fa-seedling mr-2 text-green-500"></i>
+                        Wood Grain Settings
+                      </Label>
+                      <div className="space-y-4">
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                          <p className="text-xs text-green-800">
+                            <i className="fas fa-info-circle mr-1"></i>
+                            Toggle wood grain for each laminate code. When enabled, panels use dimensional mapping for optimization.
+                          </p>
+                        </div>
+
+                        {/* Laminate codes list with toggles */}
+                        <div className="space-y-2 max-h-96 overflow-y-auto">
+                          {globalLaminateMemory.length === 0 ? (
+                            <div className="text-center py-8 text-gray-500">
+                              <i className="fas fa-inbox text-4xl mb-2"></i>
+                              <p className="text-sm">No laminate codes saved yet</p>
+                              <p className="text-xs mt-1">Add laminate codes in Master Settings or Cabinet Configuration</p>
+                            </div>
+                          ) : (
+                            globalLaminateMemory.map((code) => {
+                              const isEnabled = woodGrainsPreferences[code] === true;
+                              return (
+                                <div
+                                  key={code}
+                                  className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <i className={`fas fa-layer-group ${isEnabled ? 'text-green-500' : 'text-gray-400'}`}></i>
+                                    <div>
+                                      <div className="font-medium text-sm">{code}</div>
+                                      <div className="text-xs text-gray-500">
+                                        {isEnabled ? '✓ Wood grain enabled' : '✗ Wood grain disabled'}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={async () => {
+                                      const newValue = !isEnabled;
+                                      try {
+                                        const response = await apiRequest('POST', '/api/wood-grains-preference', { laminateCode: code, woodGrainsEnabled: newValue });
+                                        setWoodGrainsPreferences((prev) => ({ ...prev, [code]: newValue }));
+                                        toast({
+                                          title: newValue ? "Wood Grain Enabled" : "Wood Grain Disabled",
+                                          description: `${code} ${newValue ? 'now uses' : 'no longer uses'} wood grain memory`,
+                                        });
+                                      } catch (error) {
+                                        console.error('Error toggling wood grains:', error);
+                                        toast({
+                                          title: "Error",
+                                          description: "Failed to update wood grain preference",
+                                          variant: "destructive"
+                                        });
+                                      }
+                                    }}
+                                    className={`h-8 px-3 text-xs ${isEnabled ? 'bg-green-100 border-green-400 text-green-700 hover:bg-green-200' : 'hover:bg-gray-100'}`}
+                                    data-testid={`toggle-wood-grain-${code}`}
+                                  >
+                                    {isEnabled ? 'ON' : 'OFF'}
+                                  </Button>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </CardContent>
               )}
             </Card>
@@ -8587,52 +8588,52 @@ export default function Home() {
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
-      </AlertDialog >
+      </AlertDialog>
 
       {/* Panel Spreadsheet Section */}
-      < Card className="bg-white border-gray-200 shadow-md mt-8" data - spreadsheet - section >
-      <CardHeader>
-        <CardTitle className="text-gray-900">
-          <i className="fas fa-table mr-2 text-blue-400"></i>
-          Panel Spreadsheet (Import/Export CSV)
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Spreadsheet onAddToCabinet={(rowData) => {
-          // Populate form with spreadsheet row data
-          if (rowData.height) form.setValue('height', parseFloat(rowData.height) || 0);
-          if (rowData.width) form.setValue('width', parseFloat(rowData.width) || 0);
-          if (rowData.qty) form.setValue('shutterCount', parseInt(rowData.qty) || 1);
-          if (rowData.roomName) form.setValue('roomName', rowData.roomName);
-          if (rowData.cabinetName) form.setValue('name', rowData.cabinetName);
-          if (rowData.plywoodBrand) form.setValue('plywoodType', rowData.plywoodBrand);
-          if (rowData.frontLaminate) {
-            form.setValue('topPanelLaminateCode', rowData.frontLaminate);
-            // Sync to all panels if link panels is enabled
-            if (panelsLinked) {
-              syncCabinetConfigFrontLaminate(rowData.frontLaminate, true);
+      <Card className="bg-white border-gray-200 shadow-md mt-8" data-spreadsheet-section>
+        <CardHeader>
+          <CardTitle className="text-gray-900">
+            <i className="fas fa-table mr-2 text-blue-400"></i>
+            Panel Spreadsheet (Import/Export CSV)
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Spreadsheet onAddToCabinet={(rowData) => {
+            // Populate form with spreadsheet row data
+            if (rowData.height) form.setValue('height', parseFloat(rowData.height) || 0);
+            if (rowData.width) form.setValue('width', parseFloat(rowData.width) || 0);
+            if (rowData.qty) form.setValue('shutterCount', parseInt(rowData.qty) || 1);
+            if (rowData.roomName) form.setValue('roomName', rowData.roomName);
+            if (rowData.cabinetName) form.setValue('name', rowData.cabinetName);
+            if (rowData.plywoodBrand) form.setValue('plywoodType', rowData.plywoodBrand);
+            if (rowData.frontLaminate) {
+              form.setValue('topPanelLaminateCode', rowData.frontLaminate);
+              // Sync to all panels if link panels is enabled
+              if (panelsLinked) {
+                syncCabinetConfigFrontLaminate(rowData.frontLaminate, true);
+              }
             }
-          }
-          if (rowData.innerLaminate) {
-            form.setValue('innerLaminateCode', rowData.innerLaminate);
-          }
-
-          // Scroll to cabinet section and show toast
-          setTimeout(() => {
-            if (cabinetSectionRef.current) {
-              cabinetSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            if (rowData.innerLaminate) {
+              form.setValue('innerLaminateCode', rowData.innerLaminate);
             }
-            toast({
-              title: "Cabinet Data Loaded",
-              description: "Spreadsheet row has been loaded into the cabinet form. Adjust as needed and click 'Add Cabinet'.",
-            });
-          }, 100);
-        }} />
-      </CardContent>
-    </Card >
 
-  {/* Design Center Section */ }
-  < Card className="bg-white border-gray-200 shadow-md mt-8" data - design - center - section >
+            // Scroll to cabinet section and show toast
+            setTimeout(() => {
+              if (cabinetSectionRef.current) {
+                cabinetSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }
+              toast({
+                title: "Cabinet Data Loaded",
+                description: "Spreadsheet row has been loaded into the cabinet form. Adjust as needed and click 'Add Cabinet'.",
+              });
+            }, 100);
+          }} />
+        </CardContent>
+      </Card>
+
+      {/* Design Center Section */}
+      <Card className="bg-white border-gray-200 shadow-md mt-8" data-design-center-section>
         <CardHeader>
           <CardTitle className="text-gray-900">
             <i className="fas fa-pencil-ruler mr-2 text-teal-500"></i>
@@ -8642,7 +8643,7 @@ export default function Home() {
         <CardContent className="p-0" style={{ minHeight: '600px' }}>
           <DesignCenter onExportToCutlist={handleDesignCenterExport} />
         </CardContent>
-      </Card >
-    </div >
+      </Card>
+    </div>
   );
 }
