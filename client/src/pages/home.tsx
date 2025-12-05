@@ -453,7 +453,9 @@ export default function Home() {
   // Master Settings state
   const [masterSettingsVisible, setMasterSettingsVisible] = useState(false);
   const [masterPlywoodBrand, setMasterPlywoodBrand] = useState('Apple Ply 16mm BWP');
+  const [masterPlywoodGodown, setMasterPlywoodGodown] = useState(''); // ✅ Master Plywood Godown
   const [masterLaminateCode, setMasterLaminateCode] = useState('');
+  const [masterLaminateGodown, setMasterLaminateGodown] = useState(''); // ✅ Master Laminate Godown
   const [masterInnerLaminateCode, setMasterInnerLaminateCode] = useState('off white');
   const [masterWoodGrainsToggle, setMasterWoodGrainsToggle] = useState(false); // ✅ Master toggle for wood grains
   const [woodGrainsPreferences, setWoodGrainsPreferences] = useState<Record<string, boolean>>({});
@@ -1197,6 +1199,28 @@ export default function Home() {
     setLeftLaminateSelection(newCode);
     setRightLaminateSelection(newCode);
     setBackLaminateSelection(newCode);
+  };
+
+  // Master Settings: Update ALL cabinets when master plywood godown changes
+  const updateAllCabinetsPlywoodGodown = (newGodown: string) => {
+    updateCabinets((prevCabinets: Cabinet[]) =>
+      prevCabinets.map(cabinet => ({
+        ...cabinet,
+        plywoodGodown: newGodown
+      }))
+    );
+    form.setValue('plywoodGodown', newGodown);
+  };
+
+  // Master Settings: Update ALL cabinets when master laminate godown changes
+  const updateAllCabinetsLaminateGodown = (newGodown: string) => {
+    updateCabinets((prevCabinets: Cabinet[]) =>
+      prevCabinets.map(cabinet => ({
+        ...cabinet,
+        laminateGodown: newGodown
+      }))
+    );
+    form.setValue('laminateGodown', newGodown);
   };
 
   // Handle export from DesignCenter
@@ -4151,6 +4175,19 @@ export default function Home() {
                         className="text-xs"
                         data-testid="input-master-custom-plywood"
                       />
+                      <div className="mt-2">
+                        <Label className="text-sm font-medium">Plywood Godown</Label>
+                        <Input
+                          type="text"
+                          value={masterPlywoodGodown}
+                          onChange={(e) => {
+                            setMasterPlywoodGodown(e.target.value);
+                            updateAllCabinetsPlywoodGodown(e.target.value);
+                          }}
+                          placeholder="Enter plywood godown/location"
+                          className="text-xs"
+                        />
+                      </div>
                     </div>
 
                     {/* Row 2: Laminate with Wood Grains button */}
@@ -4232,263 +4269,244 @@ export default function Home() {
                                   setMasterCustomLaminateInput('');
                                   setMasterLaminateCode('');
 
-                                  // ✅ Close dropdown after Escape
-                                  if (masterLaminateDropdownRef.current) {
-                                    masterLaminateDropdownRef.current.open = false;
-                                  }
-                                }
-                              }}
-                              onFocus={() => {
-                                // Clear code when focusing to type new one
-                                if (masterLaminateCode && !masterCustomLaminateInput) {
-                                  setMasterLaminateCode('');
-                                }
-                              }}
-                              placeholder="Type front laminate code"
-                              className="text-sm"
-                              data-testid="input-master-laminate-code"
-                            />
-                            {masterLaminateCode && !masterCustomLaminateInput && (
-                              <button
-                                onClick={() => {
-                                  setMasterLaminateCode('');
-                                  masterLaminateInputRef.current?.focus();
-                                }}
-                                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                                title="Clear selection"
-                              >
-                                ×
-                              </button>
+                                  <div className="text-xs text-green-600 mt-1 font-medium">
+                                    ↵ Press Enter to save "{masterCustomLaminateInput}"
+                                  </div>
+                        )}
+
+                            {/* Saved Codes with Select and Delete */}
+                            {globalLaminateMemory.length > 0 && (
+                              <details className="mt-2" open ref={masterLaminateDropdownRef}>
+                                <summary className="text-xs text-gray-600 cursor-pointer hover:text-gray-800 font-semibold">
+                                  ▼ Manage Saved Codes ({globalLaminateMemory.length})
+                                </summary>
+                                <div className="mt-2 max-h-40 overflow-y-auto border border-gray-200 rounded-md bg-white">
+                                  {globalLaminateMemory.map((code, index) => (
+                                    <div
+                                      key={index}
+                                      className={`flex items-center justify-between px-2 py-1.5 text-xs border-b border-gray-100 last:border-0 ${masterLaminateCode === code
+                                        ? 'bg-blue-100 hover:bg-blue-150'
+                                        : 'hover:bg-gray-50 cursor-pointer'
+                                        }`}
+                                    >
+                                      <span
+                                        className="flex-1 cursor-pointer font-medium"
+                                        onClick={async () => {
+                                          // Select this code
+                                          setMasterLaminateCode(code);
+                                          setMasterCustomLaminateInput('');
+
+                                          // ✅ Close dropdown after selecting a code
+                                          if (masterLaminateDropdownRef.current) {
+                                            masterLaminateDropdownRef.current.open = false;
+                                          }
+
+                                          // ✅ CRITICAL FIX: Mark current form panel laminates as user-selected
+                                          // This ensures validation passes when adding the cabinet
+                                          updateLaminateWithTracking('topPanelLaminateCode', code, 'user');
+                                          updateLaminateWithTracking('bottomPanelLaminateCode', code, 'user');
+                                          updateLaminateWithTracking('leftPanelLaminateCode', code, 'user');
+                                          updateLaminateWithTracking('rightPanelLaminateCode', code, 'user');
+                                          updateLaminateWithTracking('backPanelLaminateCode', code, 'user');
+
+                                          // ✅ REMOVED: Old masterWoodGrains toggle logic - system now uses DIRECT LINK to database
+                                          // Wood grain preferences are handled automatically by the auto-update useEffect
+                                        }}
+                                        title={`Click to select: ${code}`}
+                                      >
+                                        {masterLaminateCode === code && '✓ '}{code}
+                                      </span>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          deleteGlobalLaminateOption(code);
+                                        }}
+                                        className="text-red-500 hover:text-red-700 px-2 ml-2"
+                                        title="Delete laminate code"
+                                        data-testid={`button-delete-laminate-${index}`}
+                                      >
+                                        ×
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              </details>
                             )}
                           </div>
-
-                          {/* Hint for adding new codes */}
-                          {masterCustomLaminateInput && masterCustomLaminateInput.length >= 3 && !globalLaminateMemory.includes(masterCustomLaminateInput) && (
-                            <div className="text-xs text-green-600 mt-1 font-medium">
-                              ↵ Press Enter to save "{masterCustomLaminateInput}"
-                            </div>
-                          )}
-
-                          {/* Saved Codes with Select and Delete */}
-                          {globalLaminateMemory.length > 0 && (
-                            <details className="mt-2" open ref={masterLaminateDropdownRef}>
-                              <summary className="text-xs text-gray-600 cursor-pointer hover:text-gray-800 font-semibold">
-                                ▼ Manage Saved Codes ({globalLaminateMemory.length})
-                              </summary>
-                              <div className="mt-2 max-h-40 overflow-y-auto border border-gray-200 rounded-md bg-white">
-                                {globalLaminateMemory.map((code, index) => (
-                                  <div
-                                    key={index}
-                                    className={`flex items-center justify-between px-2 py-1.5 text-xs border-b border-gray-100 last:border-0 ${masterLaminateCode === code
-                                      ? 'bg-blue-100 hover:bg-blue-150'
-                                      : 'hover:bg-gray-50 cursor-pointer'
-                                      }`}
-                                  >
-                                    <span
-                                      className="flex-1 cursor-pointer font-medium"
-                                      onClick={async () => {
-                                        // Select this code
-                                        setMasterLaminateCode(code);
-                                        setMasterCustomLaminateInput('');
-
-                                        // ✅ Close dropdown after selecting a code
-                                        if (masterLaminateDropdownRef.current) {
-                                          masterLaminateDropdownRef.current.open = false;
-                                        }
-
-                                        // ✅ CRITICAL FIX: Mark current form panel laminates as user-selected
-                                        // This ensures validation passes when adding the cabinet
-                                        updateLaminateWithTracking('topPanelLaminateCode', code, 'user');
-                                        updateLaminateWithTracking('bottomPanelLaminateCode', code, 'user');
-                                        updateLaminateWithTracking('leftPanelLaminateCode', code, 'user');
-                                        updateLaminateWithTracking('rightPanelLaminateCode', code, 'user');
-                                        updateLaminateWithTracking('backPanelLaminateCode', code, 'user');
-
-                                        // ✅ REMOVED: Old masterWoodGrains toggle logic - system now uses DIRECT LINK to database
-                                        // Wood grain preferences are handled automatically by the auto-update useEffect
-                                      }}
-                                      title={`Click to select: ${code}`}
-                                    >
-                                      {masterLaminateCode === code && '✓ '}{code}
-                                    </span>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        deleteGlobalLaminateOption(code);
-                                      }}
-                                      className="text-red-500 hover:text-red-700 px-2 ml-2"
-                                      title="Delete laminate code"
-                                      data-testid={`button-delete-laminate-${index}`}
-                                    >
-                                      ×
-                                    </button>
-                                  </div>
-                                ))}
-                              </div>
-                            </details>
-                          )}
                         </div>
-                      </div>
-                    </div>
-
-                    {/* Optimize Plywood Usage Section */}
-                    <div className="mt-6 pt-4 border-t border-gray-200">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1">
-                          <Label className="text-sm font-medium text-gray-700 mb-1 block">
-                            Optimize Plywood Usage
-                          </Label>
-                          <p className="text-xs text-gray-500 leading-relaxed">
-                            Panels are grouped only when ALL materials match: Plywood Brand + Front Laminate + Inner Laminate.
-                            This ensures consistent material quality on each sheet.
-                          </p>
-                        </div>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setOptimizePlywoodUsage(!optimizePlywoodUsage)}
-                          className={`h-9 px-4 text-sm whitespace-nowrap ${optimizePlywoodUsage ? 'bg-green-100 border-green-400 text-green-700' : ''}`}
-                          data-testid="button-optimize-plywood"
-                        >
-                          {optimizePlywoodUsage ? 'ON' : 'OFF'}
-                        </Button>
-                      </div>
-                    </div>
-
-                    {/* Sheet Size Section */}
-                    <div className="mt-6 pt-4 border-t border-gray-200">
-                      <Label className="text-sm font-medium text-gray-700 mb-3 block">
-                        <i className="fas fa-ruler-combined mr-2 text-blue-500"></i>
-                        Sheet Size Settings
-                      </Label>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {/* Sheet Width */}
-                        <div className="space-y-2">
-                          <Label className="text-xs text-slate-600">Sheet Width (mm)</Label>
+                        <div className="mt-2">
+                          <Label className="text-sm font-medium">Laminate Godown</Label>
                           <Input
-                            type="number"
-                            value={sheetWidth}
-                            onChange={(e) => setSheetWidth(parseInt(e.target.value) || 1210)}
-                            placeholder="Width"
-                            className="text-sm"
-                            min="500"
-                            max="5000"
-                            data-testid="input-sheet-width"
-                          />
-                        </div>
-
-                        {/* Sheet Height */}
-                        <div className="space-y-2">
-                          <Label className="text-xs text-slate-600">Sheet Height (mm)</Label>
-                          <Input
-                            type="number"
-                            value={sheetHeight}
-                            onChange={(e) => setSheetHeight(parseInt(e.target.value) || 2420)}
-                            placeholder="Height"
-                            className="text-sm"
-                            min="500"
-                            max="5000"
-                            data-testid="input-sheet-height"
-                          />
-                        </div>
-
-                        {/* Kerf */}
-                        <div className="space-y-2">
-                          <Label className="text-xs text-slate-600">Kerf (mm)</Label>
-                          <Input
-                            type="number"
-                            value={kerf}
+                            type="text"
+                            value={masterLaminateGodown}
                             onChange={(e) => {
-                              const value = parseInt(e.target.value);
-                              if (value >= 0 && value <= 10) {
-                                setKerf(value);
-                              }
+                              setMasterLaminateGodown(e.target.value);
+                              updateAllCabinetsLaminateGodown(e.target.value);
                             }}
-                            placeholder="Kerf"
-                            className="text-sm"
-                            min="0"
-                            max="10"
-                            data-testid="input-kerf"
+                            placeholder="Enter laminate godown/location"
+                            className="text-xs"
                           />
                         </div>
                       </div>
-                    </div>
 
-                    {/* Wood Grain Settings Section */}
-                    <div className="mt-6 pt-4 border-t border-gray-200">
-                      <Label className="text-sm font-medium text-gray-700 mb-3 block">
-                        <i className="fas fa-seedling mr-2 text-green-500"></i>
-                        Wood Grain Settings
-                      </Label>
-                      <div className="space-y-4">
-                        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                          <p className="text-xs text-green-800">
-                            <i className="fas fa-info-circle mr-1"></i>
-                            Toggle wood grain for each laminate code. When enabled, panels use dimensional mapping for optimization.
-                          </p>
+                      {/* Optimize Plywood Usage Section */}
+                      <div className="mt-6 pt-4 border-t border-gray-200">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1">
+                            <Label className="text-sm font-medium text-gray-700 mb-1 block">
+                              Optimize Plywood Usage
+                            </Label>
+                            <p className="text-xs text-gray-500 leading-relaxed">
+                              Panels are grouped only when ALL materials match: Plywood Brand + Front Laminate + Inner Laminate.
+                              This ensures consistent material quality on each sheet.
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setOptimizePlywoodUsage(!optimizePlywoodUsage)}
+                            className={`h-9 px-4 text-sm whitespace-nowrap ${optimizePlywoodUsage ? 'bg-green-100 border-green-400 text-green-700' : ''}`}
+                            data-testid="button-optimize-plywood"
+                          >
+                            {optimizePlywoodUsage ? 'ON' : 'OFF'}
+                          </Button>
                         </div>
+                      </div>
 
-                        {/* Laminate codes list with toggles */}
-                        <div className="space-y-2 max-h-96 overflow-y-auto">
-                          {globalLaminateMemory.length === 0 ? (
-                            <div className="text-center py-8 text-gray-500">
-                              <i className="fas fa-inbox text-4xl mb-2"></i>
-                              <p className="text-sm">No laminate codes saved yet</p>
-                              <p className="text-xs mt-1">Add laminate codes in Master Settings or Cabinet Configuration</p>
-                            </div>
-                          ) : (
-                            globalLaminateMemory.map((code) => {
-                              const isEnabled = woodGrainsPreferences[code] === true;
-                              return (
-                                <div
-                                  key={code}
-                                  className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-                                >
-                                  <div className="flex items-center gap-3">
-                                    <i className={`fas fa-layer-group ${isEnabled ? 'text-green-500' : 'text-gray-400'}`}></i>
-                                    <div>
-                                      <div className="font-medium text-sm">{code}</div>
-                                      <div className="text-xs text-gray-500">
-                                        {isEnabled ? '✓ Wood grain enabled' : '✗ Wood grain disabled'}
+                      {/* Sheet Size Section */}
+                      <div className="mt-6 pt-4 border-t border-gray-200">
+                        <Label className="text-sm font-medium text-gray-700 mb-3 block">
+                          <i className="fas fa-ruler-combined mr-2 text-blue-500"></i>
+                          Sheet Size Settings
+                        </Label>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          {/* Sheet Width */}
+                          <div className="space-y-2">
+                            <Label className="text-xs text-slate-600">Sheet Width (mm)</Label>
+                            <Input
+                              type="number"
+                              value={sheetWidth}
+                              onChange={(e) => setSheetWidth(parseInt(e.target.value) || 1210)}
+                              placeholder="Width"
+                              className="text-sm"
+                              min="500"
+                              max="5000"
+                              data-testid="input-sheet-width"
+                            />
+                          </div>
+
+                          {/* Sheet Height */}
+                          <div className="space-y-2">
+                            <Label className="text-xs text-slate-600">Sheet Height (mm)</Label>
+                            <Input
+                              type="number"
+                              value={sheetHeight}
+                              onChange={(e) => setSheetHeight(parseInt(e.target.value) || 2420)}
+                              placeholder="Height"
+                              className="text-sm"
+                              min="500"
+                              max="5000"
+                              data-testid="input-sheet-height"
+                            />
+                          </div>
+
+                          {/* Kerf */}
+                          <div className="space-y-2">
+                            <Label className="text-xs text-slate-600">Kerf (mm)</Label>
+                            <Input
+                              type="number"
+                              value={kerf}
+                              onChange={(e) => {
+                                const value = parseInt(e.target.value);
+                                if (value >= 0 && value <= 10) {
+                                  setKerf(value);
+                                }
+                              }}
+                              placeholder="Kerf"
+                              className="text-sm"
+                              min="0"
+                              max="10"
+                              data-testid="input-kerf"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Wood Grain Settings Section */}
+                      <div className="mt-6 pt-4 border-t border-gray-200">
+                        <Label className="text-sm font-medium text-gray-700 mb-3 block">
+                          <i className="fas fa-seedling mr-2 text-green-500"></i>
+                          Wood Grain Settings
+                        </Label>
+                        <div className="space-y-4">
+                          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                            <p className="text-xs text-green-800">
+                              <i className="fas fa-info-circle mr-1"></i>
+                              Toggle wood grain for each laminate code. When enabled, panels use dimensional mapping for optimization.
+                            </p>
+                          </div>
+
+                          {/* Laminate codes list with toggles */}
+                          <div className="space-y-2 max-h-96 overflow-y-auto">
+                            {globalLaminateMemory.length === 0 ? (
+                              <div className="text-center py-8 text-gray-500">
+                                <i className="fas fa-inbox text-4xl mb-2"></i>
+                                <p className="text-sm">No laminate codes saved yet</p>
+                                <p className="text-xs mt-1">Add laminate codes in Master Settings or Cabinet Configuration</p>
+                              </div>
+                            ) : (
+                              globalLaminateMemory.map((code) => {
+                                const isEnabled = woodGrainsPreferences[code] === true;
+                                return (
+                                  <div
+                                    key={code}
+                                    className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                                  >
+                                    <div className="flex items-center gap-3">
+                                      <i className={`fas fa-layer-group ${isEnabled ? 'text-green-500' : 'text-gray-400'}`}></i>
+                                      <div>
+                                        <div className="font-medium text-sm">{code}</div>
+                                        <div className="text-xs text-gray-500">
+                                          {isEnabled ? '✓ Wood grain enabled' : '✗ Wood grain disabled'}
+                                        </div>
                                       </div>
                                     </div>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={async () => {
+                                        const newValue = !isEnabled;
+                                        try {
+                                          const response = await apiRequest('POST', '/api/wood-grains-preference', { laminateCode: code, woodGrainsEnabled: newValue });
+                                          setWoodGrainsPreferences((prev) => ({ ...prev, [code]: newValue }));
+                                          toast({
+                                            title: newValue ? "Wood Grain Enabled" : "Wood Grain Disabled",
+                                            description: `${code} ${newValue ? 'now uses' : 'no longer uses'} wood grain memory`,
+                                          });
+                                        } catch (error) {
+                                          console.error('Error toggling wood grains:', error);
+                                          toast({
+                                            title: "Error",
+                                            description: "Failed to update wood grain preference",
+                                            variant: "destructive"
+                                          });
+                                        }
+                                      }}
+                                      className={`h-8 px-3 text-xs ${isEnabled ? 'bg-green-100 border-green-400 text-green-700 hover:bg-green-200' : 'hover:bg-gray-100'}`}
+                                      data-testid={`toggle-wood-grain-${code}`}
+                                    >
+                                      {isEnabled ? 'ON' : 'OFF'}
+                                    </Button>
                                   </div>
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={async () => {
-                                      const newValue = !isEnabled;
-                                      try {
-                                        const response = await apiRequest('POST', '/api/wood-grains-preference', { laminateCode: code, woodGrainsEnabled: newValue });
-                                        setWoodGrainsPreferences((prev) => ({ ...prev, [code]: newValue }));
-                                        toast({
-                                          title: newValue ? "Wood Grain Enabled" : "Wood Grain Disabled",
-                                          description: `${code} ${newValue ? 'now uses' : 'no longer uses'} wood grain memory`,
-                                        });
-                                      } catch (error) {
-                                        console.error('Error toggling wood grains:', error);
-                                        toast({
-                                          title: "Error",
-                                          description: "Failed to update wood grain preference",
-                                          variant: "destructive"
-                                        });
-                                      }
-                                    }}
-                                    className={`h-8 px-3 text-xs ${isEnabled ? 'bg-green-100 border-green-400 text-green-700 hover:bg-green-200' : 'hover:bg-gray-100'}`}
-                                    data-testid={`toggle-wood-grain-${code}`}
-                                  >
-                                    {isEnabled ? 'ON' : 'OFF'}
-                                  </Button>
-                                </div>
-                              );
-                            })
-                          )}
+                                );
+                              })
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
                 </CardContent>
               )}
             </Card>
@@ -7321,16 +7339,17 @@ export default function Home() {
 
           </div>
         </div>
-      </main>
+      </main >
 
       {/* Preview Dialog */}
-      <Dialog open={showPreviewDialog} onOpenChange={(open) => {
+      < Dialog open={showPreviewDialog} onOpenChange={(open) => {
         setShowPreviewDialog(open);
         // Reset deleted sheets when opening preview
         if (open) {
           setDeletedPreviewSheets(new Set());
         }
-      }}>
+      }
+      }>
         <DialogContent className="max-w-7xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Cutting Layout Preview</DialogTitle>
@@ -8176,10 +8195,10 @@ export default function Home() {
             );
           })()}
         </DialogContent>
-      </Dialog>
+      </Dialog >
 
       {/* Manual Panel Dialog */}
-      <Dialog open={showManualPanelDialog} onOpenChange={setShowManualPanelDialog}>
+      < Dialog open={showManualPanelDialog} onOpenChange={setShowManualPanelDialog} >
         <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader className="pb-2">
             <DialogTitle className="text-lg">
@@ -8388,10 +8407,10 @@ export default function Home() {
             </div>
           </div>
         </DialogContent>
-      </Dialog>
+      </Dialog >
 
       {/* Clear Preview Confirmation Dialog */}
-      <AlertDialog open={showClearConfirmDialog} onOpenChange={setShowClearConfirmDialog}>
+      < AlertDialog open={showClearConfirmDialog} onOpenChange={setShowClearConfirmDialog} >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Clear All Cabinets & Spreadsheet?</AlertDialogTitle>
@@ -8471,10 +8490,10 @@ export default function Home() {
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
-      </AlertDialog>
+      </AlertDialog >
 
       {/* Material Validation Error Dialog */}
-      <AlertDialog open={showMaterialConfirmDialog} onOpenChange={setShowMaterialConfirmDialog}>
+      < AlertDialog open={showMaterialConfirmDialog} onOpenChange={setShowMaterialConfirmDialog} >
         <AlertDialogContent className="max-w-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-red-600">Laminate Code Required</AlertDialogTitle>
@@ -8512,10 +8531,10 @@ export default function Home() {
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
-      </AlertDialog>
+      </AlertDialog >
 
       {/* Panel Delete Confirmation Dialog */}
-      <AlertDialog open={!!panelToDelete} onOpenChange={(open) => !open && setPanelToDelete(null)}>
+      < AlertDialog open={!!panelToDelete} onOpenChange={(open) => !open && setPanelToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Panel?</AlertDialogTitle>
@@ -8543,52 +8562,52 @@ export default function Home() {
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
-      </AlertDialog>
+      </AlertDialog >
 
       {/* Panel Spreadsheet Section */}
-      <Card className="bg-white border-gray-200 shadow-md mt-8" data-spreadsheet-section>
-        <CardHeader>
-          <CardTitle className="text-gray-900">
-            <i className="fas fa-table mr-2 text-blue-400"></i>
-            Panel Spreadsheet (Import/Export CSV)
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Spreadsheet onAddToCabinet={(rowData) => {
-            // Populate form with spreadsheet row data
-            if (rowData.height) form.setValue('height', parseFloat(rowData.height) || 0);
-            if (rowData.width) form.setValue('width', parseFloat(rowData.width) || 0);
-            if (rowData.qty) form.setValue('shutterCount', parseInt(rowData.qty) || 1);
-            if (rowData.roomName) form.setValue('roomName', rowData.roomName);
-            if (rowData.cabinetName) form.setValue('name', rowData.cabinetName);
-            if (rowData.plywoodBrand) form.setValue('plywoodType', rowData.plywoodBrand);
-            if (rowData.frontLaminate) {
-              form.setValue('topPanelLaminateCode', rowData.frontLaminate);
-              // Sync to all panels if link panels is enabled
-              if (panelsLinked) {
-                syncCabinetConfigFrontLaminate(rowData.frontLaminate, true);
-              }
+      < Card className="bg-white border-gray-200 shadow-md mt-8" data - spreadsheet - section >
+      <CardHeader>
+        <CardTitle className="text-gray-900">
+          <i className="fas fa-table mr-2 text-blue-400"></i>
+          Panel Spreadsheet (Import/Export CSV)
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Spreadsheet onAddToCabinet={(rowData) => {
+          // Populate form with spreadsheet row data
+          if (rowData.height) form.setValue('height', parseFloat(rowData.height) || 0);
+          if (rowData.width) form.setValue('width', parseFloat(rowData.width) || 0);
+          if (rowData.qty) form.setValue('shutterCount', parseInt(rowData.qty) || 1);
+          if (rowData.roomName) form.setValue('roomName', rowData.roomName);
+          if (rowData.cabinetName) form.setValue('name', rowData.cabinetName);
+          if (rowData.plywoodBrand) form.setValue('plywoodType', rowData.plywoodBrand);
+          if (rowData.frontLaminate) {
+            form.setValue('topPanelLaminateCode', rowData.frontLaminate);
+            // Sync to all panels if link panels is enabled
+            if (panelsLinked) {
+              syncCabinetConfigFrontLaminate(rowData.frontLaminate, true);
             }
-            if (rowData.innerLaminate) {
-              form.setValue('innerLaminateCode', rowData.innerLaminate);
+          }
+          if (rowData.innerLaminate) {
+            form.setValue('innerLaminateCode', rowData.innerLaminate);
+          }
+
+          // Scroll to cabinet section and show toast
+          setTimeout(() => {
+            if (cabinetSectionRef.current) {
+              cabinetSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
+            toast({
+              title: "Cabinet Data Loaded",
+              description: "Spreadsheet row has been loaded into the cabinet form. Adjust as needed and click 'Add Cabinet'.",
+            });
+          }, 100);
+        }} />
+      </CardContent>
+    </Card >
 
-            // Scroll to cabinet section and show toast
-            setTimeout(() => {
-              if (cabinetSectionRef.current) {
-                cabinetSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              }
-              toast({
-                title: "Cabinet Data Loaded",
-                description: "Spreadsheet row has been loaded into the cabinet form. Adjust as needed and click 'Add Cabinet'.",
-              });
-            }, 100);
-          }} />
-        </CardContent>
-      </Card>
-
-      {/* Design Center Section */}
-      <Card className="bg-white border-gray-200 shadow-md mt-8" data-design-center-section>
+  {/* Design Center Section */ }
+  < Card className="bg-white border-gray-200 shadow-md mt-8" data - design - center - section >
         <CardHeader>
           <CardTitle className="text-gray-900">
             <i className="fas fa-pencil-ruler mr-2 text-teal-500"></i>
@@ -8598,7 +8617,7 @@ export default function Home() {
         <CardContent className="p-0" style={{ minHeight: '600px' }}>
           <DesignCenter onExportToCutlist={handleDesignCenterExport} />
         </CardContent>
-      </Card>
-    </div>
+      </Card >
+    </div >
   );
 }

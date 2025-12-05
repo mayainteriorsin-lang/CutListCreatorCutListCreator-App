@@ -164,6 +164,10 @@ export const cabinetSchema = z.object({
 
   // Gaddi thickness field for Quick Shutter
   gaddiThickness: z.string().optional(),
+
+  // Godown Storage Fields
+  plywoodGodown: z.string().optional(),
+  laminateGodown: z.string().optional(),
 });
 
 export const laminateCodeSchema = z.object({
