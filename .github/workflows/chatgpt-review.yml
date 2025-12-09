@@ -1,23 +1,51 @@
-- name: Run ChatGPT review
-  run: |
-    # Safe fallback diff – avoids HEAD~1 failure
-    changes=$(git diff HEAD^ HEAD 2>/dev/null || echo "No previous commit")
+name: ChatGPT Code Review
 
-    echo "Changes detected:"
-    echo "$changes"
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
-    echo "Sending to OpenAI…"
+jobs:
+  review:
+    permissions:
+      contents: read
+      pull-requests: write
+    runs-on: ubuntu-latest
 
-    review=$(curl -s https://api.openai.com/v1/chat/completions \
-      -H "Content-Type: application/json" \
-      -H "Authorization: Bearer ${{ secrets.OPENAI_API_KEY }}" \
-      -d "{
-        \"model\": \"gpt-4o-mini\",
-        \"messages\": [
-          {\"role\": \"system\", \"content\": \"You are a senior full-stack engineer. Review the following code diff for bugs, security issues, performance problems, and improvements.\"},
-          {\"role\": \"user\", \"content\": \"$changes\"}
-        ]
-      }" | jq -r '.choices[0].message.content')
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-    echo "Review output:"
-    echo "$review"
+      - name: Run ChatGPT review
+        run: |
+          # Safe fallback diff — avoids HEAD~1 errors
+          changes=$(git diff HEAD^ HEAD 2>/dev/null || echo "No previous commit")
+
+          echo "Changes detected:"
+          echo "$changes"
+
+          echo "Sending to OpenAI…"
+
+          review=$(curl -s https://api.openai.com/v1/chat/completions \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.OPENAI_API_KEY }}" \
+            -d "{
+              \"model\": \"gpt-4o-mini\",
+              \"messages\": [
+                {\"role\": \"system\", \"content\": \"You are a senior full-stack engineer. Review the following code diff for bugs, security issues, performance problems, and improvements.\"},
+                {\"role\": \"user\", \"content\": \"$changes\"}
+              ]
+            }" | jq -r '.choices[0].message.content')
+
+          echo "Review output:"
+          echo "$review"
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: peter-evans/create-or-update-comment@v2
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            ## 🔍 ChatGPT Code Review
+            $review
