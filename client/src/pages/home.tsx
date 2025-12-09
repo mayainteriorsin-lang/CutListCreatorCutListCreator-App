@@ -19,6 +19,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { useToast } from '@/hooks/use-toast';
 import { GodownCombobox } from "@/components/ui/GodownCombobox";
+import { PlywoodSelector } from "@/components/master-settings/PlywoodSelector";
+import { LaminateSelector } from "@/components/master-settings/LaminateSelector";
 import DesignCenter from "../components/ui/DesignCenter";
 import Spreadsheet from '@/components/Spreadsheet';
 import { Cabinet, cabinetSchema, ShutterType, Panel, PanelGroup, CuttingListSummary, LaminateCode, cabinetTypes, CabinetType, LaminateMemory, PlywoodBrandMemory, LaminateCodeGodown } from '@shared/schema';
@@ -468,20 +470,11 @@ export default function Home() {
   } = useMaterialStore();
 
   const [masterSettingsVisible, setMasterSettingsVisible] = useState(false);
-  const [masterCustomLaminateInput, setMasterCustomLaminateInput] = useState('');
-  const [masterCustomInnerLaminateInput, setMasterCustomInnerLaminateInput] = useState('');
-  const [masterCustomPlywoodInput, setMasterCustomPlywoodInput] = useState('');
-  const masterLaminateInputRef = useRef<HTMLInputElement>(null);
-  const masterInnerLaminateInputRef = useRef<HTMLInputElement>(null);
-  const masterLaminateDropdownRef = useRef<HTMLDetailsElement>(null);
-
-  // Derived state for easy access (UI compatibility)
-  const masterPlywoodBrand = (masterSettings as any)?.plywoodBrand || 'Apple Ply 16mm BWP';
-  const masterPlywoodGodown = (masterSettings as any)?.plywoodGodown || '';
-  const masterLaminateCode = masterSettings?.masterLaminateCode || '';
-  const masterLaminateGodown = (masterSettings as any)?.laminateGodown || '';
-  const masterInnerLaminateCode = (masterSettings as any)?.innerLaminateCode || 'off white';
-  const masterWoodGrainsToggle = (masterSettings as any)?.woodGrainsEnabled === 'true'; // string to boolean
+  const [masterPlywoodBrand, setMasterPlywoodBrand] = useState('Apple Ply 16mm BWP');
+  const [masterLaminateCode, setMasterLaminateCode] = useState('');
+  const [masterInnerLaminateCode, setMasterInnerLaminateCode] = useState('off white');
+  const [masterPlywoodGodown, setMasterPlywoodGodown] = useState('');
+  const [masterLaminateGodown, setMasterLaminateGodown] = useState('');
 
   // Wood grain preferences still tracked locally for now, but synced with types
   const [woodGrainsPreferences, setWoodGrainsPreferences] = useState<Record<string, boolean>>({});
@@ -495,6 +488,69 @@ export default function Home() {
     fetchMasterSettings();
     fetchMaterials();
   }, []); // Run once on mount
+
+  useEffect(() => {
+    if (masterSettings?.masterLaminateCode && !masterLaminateCode) {
+      setMasterLaminateCode(masterSettings.masterLaminateCode);
+    }
+    const inner = (masterSettings as any)?.masterInnerLaminateCode ?? (masterSettings as any)?.innerLaminateCode;
+    if (inner && !masterInnerLaminateCode) {
+      setMasterInnerLaminateCode(inner);
+    }
+    if ((masterSettings as any)?.plywoodGodown && !masterPlywoodGodown) {
+      setMasterPlywoodGodown((masterSettings as any).plywoodGodown);
+    }
+    if ((masterSettings as any)?.laminateGodown && !masterLaminateGodown) {
+      setMasterLaminateGodown((masterSettings as any).laminateGodown);
+    }
+  }, [masterLaminateCode, masterLaminateGodown, masterPlywoodGodown, masterSettings]);
+
+  useEffect(() => {
+    if (!masterPlywoodBrand && plywoodOptions.length > 0) {
+      setMasterPlywoodBrand(plywoodOptions[0].brand);
+    }
+  }, [masterPlywoodBrand, plywoodOptions]);
+
+  const getMasterDefaults = () => {
+    return {
+      plywoodBrand: masterPlywoodBrand || (masterSettings as any)?.masterPlywoodBrand || 'Apple Ply 16mm BWP',
+      plywoodGodown: masterPlywoodGodown || (masterSettings as any)?.plywoodGodown || '',
+      laminateCode: masterLaminateCode || masterSettings?.masterLaminateCode || '',
+      innerLaminateCode: masterInnerLaminateCode || (masterSettings as any)?.masterInnerLaminateCode || (masterSettings as any)?.innerLaminateCode || 'off white',
+      laminateGodown: masterLaminateGodown || (masterSettings as any)?.laminateGodown || ''
+    };
+  };
+
+  const applyMasterDefaultsToCabinet = (cabinet: Cabinet): Cabinet => {
+    const defaults = getMasterDefaults();
+    const withBasics: Cabinet = {
+      ...cabinet,
+      A: cabinet.A ?? defaults.plywoodBrand,
+      plywoodType: cabinet.plywoodType || defaults.plywoodBrand,
+      plywoodGodown: cabinet.plywoodGodown || defaults.plywoodGodown,
+      laminateGodown: cabinet.laminateGodown || defaults.laminateGodown,
+      B: (cabinet as any).B ?? defaults.laminateCode,
+      C: (cabinet as any).C ?? defaults.innerLaminateCode,
+      topPanelLaminateCode: cabinet.topPanelLaminateCode || defaults.laminateCode,
+      bottomPanelLaminateCode: cabinet.bottomPanelLaminateCode || defaults.laminateCode,
+      leftPanelLaminateCode: cabinet.leftPanelLaminateCode || defaults.laminateCode,
+      rightPanelLaminateCode: cabinet.rightPanelLaminateCode || defaults.laminateCode,
+      backPanelLaminateCode: cabinet.backPanelLaminateCode || defaults.laminateCode,
+      shutterLaminateCode: cabinet.shutterLaminateCode || defaults.laminateCode,
+      topPanelInnerLaminateCode: cabinet.topPanelInnerLaminateCode || defaults.innerLaminateCode,
+      bottomPanelInnerLaminateCode: cabinet.bottomPanelInnerLaminateCode || defaults.innerLaminateCode,
+      leftPanelInnerLaminateCode: cabinet.leftPanelInnerLaminateCode || defaults.innerLaminateCode,
+      rightPanelInnerLaminateCode: cabinet.rightPanelInnerLaminateCode || defaults.innerLaminateCode,
+      backPanelInnerLaminateCode: cabinet.backPanelInnerLaminateCode || defaults.innerLaminateCode,
+      innerLaminateCode: cabinet.innerLaminateCode || defaults.innerLaminateCode,
+      shutters: (cabinet.shutters || []).map(shutter => ({
+        ...shutter,
+        laminateCode: shutter.laminateCode || defaults.laminateCode,
+        innerLaminateCode: (shutter as any).innerLaminateCode || defaults.innerLaminateCode
+      }))
+    };
+    return withBasics;
+  };
 
   // ✅ CRITICAL FIX: Persist tracking across page refreshes using localStorage
   const LAMINATE_TRACKING_KEY = 'userSelectedLaminates_v1';
@@ -579,6 +635,7 @@ export default function Home() {
 
   // Load stored form memory
   const storedMemory = loadCabinetFormMemory();
+  const masterDefaults = getMasterDefaults();
 
   const form = useForm<Cabinet>({
     resolver: zodResolver(cabinetSchema),
@@ -606,24 +663,24 @@ export default function Home() {
       shutterHeightReduction: 0,
       shutterWidthReduction: 0,
       shutters: [],
-      shutterLaminateCode: storedMemory.shutterLaminateCode ?? '',
-      shutterInnerLaminateCode: storedMemory.shutterInnerLaminateCode ?? '',
-      topPanelLaminateCode: storedMemory.topPanelLaminateCode ?? '',
-      bottomPanelLaminateCode: storedMemory.topPanelLaminateCode ?? '',
-      leftPanelLaminateCode: storedMemory.topPanelLaminateCode ?? '',
-      rightPanelLaminateCode: storedMemory.topPanelLaminateCode ?? '',
-      backPanelLaminateCode: storedMemory.backPanelLaminateCode ?? '',
-      topPanelInnerLaminateCode: 'off white',
-      bottomPanelInnerLaminateCode: 'off white',
-      leftPanelInnerLaminateCode: 'off white',
-      rightPanelInnerLaminateCode: 'off white',
-      backPanelInnerLaminateCode: 'off white',
-      centerPostInnerLaminateCode: 'off white', // ✅ FIX: Add missing for grain direction lookup
-      shelvesInnerLaminateCode: 'off white', // ✅ FIX: Add missing for grain direction lookup
-      plywoodType: storedMemory.plywoodType ?? 'Apple Ply 16mm BWP',
+      shutterLaminateCode: storedMemory.shutterLaminateCode ?? masterDefaults.laminateCode,
+      shutterInnerLaminateCode: storedMemory.shutterInnerLaminateCode ?? masterDefaults.innerLaminateCode,
+      topPanelLaminateCode: storedMemory.topPanelLaminateCode ?? masterDefaults.laminateCode,
+      bottomPanelLaminateCode: storedMemory.topPanelLaminateCode ?? masterDefaults.laminateCode,
+      leftPanelLaminateCode: storedMemory.topPanelLaminateCode ?? masterDefaults.laminateCode,
+      rightPanelLaminateCode: storedMemory.topPanelLaminateCode ?? masterDefaults.laminateCode,
+      backPanelLaminateCode: storedMemory.backPanelLaminateCode ?? masterDefaults.laminateCode,
+      topPanelInnerLaminateCode: masterDefaults.innerLaminateCode,
+      bottomPanelInnerLaminateCode: masterDefaults.innerLaminateCode,
+      leftPanelInnerLaminateCode: masterDefaults.innerLaminateCode,
+      rightPanelInnerLaminateCode: masterDefaults.innerLaminateCode,
+      backPanelInnerLaminateCode: masterDefaults.innerLaminateCode,
+      centerPostInnerLaminateCode: masterDefaults.innerLaminateCode, // ?. FIX: Add missing for grain direction lookup
+      shelvesInnerLaminateCode: masterDefaults.innerLaminateCode, // ?. FIX: Add missing for grain direction lookup
+      plywoodType: storedMemory.plywoodType ?? masterDefaults.plywoodBrand,
       backPanelPlywoodBrand: storedMemory.backPanelPlywoodBrand ?? 'Apple ply 6mm BWP',
-      shutterPlywoodBrand: storedMemory.shutterPlywoodBrand ?? (storedMemory.plywoodType ?? 'Apple Ply 16mm BWP'),
-      innerLaminateCode: 'off white',
+      shutterPlywoodBrand: storedMemory.shutterPlywoodBrand ?? (storedMemory.plywoodType ?? masterDefaults.plywoodBrand),
+      innerLaminateCode: masterDefaults.innerLaminateCode,
       // Grain direction fields - default to false for new forms
       topPanelGrainDirection: false,
       bottomPanelGrainDirection: false,
@@ -1188,6 +1245,7 @@ export default function Home() {
         shutterLaminateCode: newCode
       }))
     );
+    setMasterLaminateCode(newCode);
     // Update current cabinet form
     form.setValue('topPanelLaminateCode', newCode);
     form.setValue('bottomPanelLaminateCode', newCode);
@@ -2801,6 +2859,7 @@ export default function Home() {
 
   // Add cabinet (with validation)
   const addCabinet = (cabinet: Cabinet) => {
+    cabinet = applyMasterDefaultsToCabinet(cabinet);
     // ✅ FIX: Use the UI state (cabinetConfigMode) instead of form value to ensure correct mode detection
     // This ensures Basic mode validation works even if form submission doesn't include configurationMode
     const mode = cabinetConfigMode;
@@ -2922,44 +2981,45 @@ export default function Home() {
     const shutterMemory = loadShutterFormMemory();
     const cabinetMemory = loadCabinetFormMemory();
 
-    form.reset({
+    const resetCabinetDefaults = applyMasterDefaultsToCabinet({
       id: crypto.randomUUID(),
       name: `Shutter #${cabinets.length + 2}`,
       type: 'single',
-      height: cabinetMemory.height ?? 800,  // ✅ Restore height from memory
-      width: cabinetMemory.width ?? 600,    // ✅ Restore width from memory
+      configurationMode: cabinetConfigMode,
+      height: cabinetMemory.height ?? 800,  // ?. Restore height from memory
+      width: cabinetMemory.width ?? 600,    // ?. Restore width from memory
       depth: cabinetMemory.depth ?? 450,
       centerPostEnabled: false,
       centerPostQuantity: 1,
       centerPostHeight: 764,
       centerPostDepth: 430,
-      centerPostLaminateCode: '',
+      centerPostLaminateCode: "",
       shelvesQuantity: 1,
       shelvesEnabled: false,
-      shelvesLaminateCode: '',
+      shelvesLaminateCode: "",
       widthReduction: cabinetMemory.widthReduction ?? 36,
       shuttersEnabled: false,
       shutterCount: 1,
-      shutterType: 'Standard',
+      shutterType: "Standard",
       shutterHeightReduction: 0,
       shutterWidthReduction: 0,
       shutters: [],
-      shutterLaminateCode: shutterMemory?.shutterLaminateCode || '',  // ✅ Keep laminate code
-      shutterInnerLaminateCode: shutterMemory?.shutterInnerLaminateCode || '',  // ✅ Keep inner laminate
-      plywoodType: cabinetMemory.plywoodType ?? 'Apple Ply 16mm BWP',
-      backPanelPlywoodBrand: cabinetMemory.backPanelPlywoodBrand ?? 'Apple ply 6mm BWP',
-      shutterPlywoodBrand: shutterMemory?.shutterPlywoodBrand ?? (cabinetMemory.plywoodType ?? 'Apple Ply 16mm BWP'),
-      topPanelLaminateCode: cabinetMemory.topPanelLaminateCode ?? '',
-      bottomPanelLaminateCode: cabinetMemory.topPanelLaminateCode ?? '',
-      leftPanelLaminateCode: cabinetMemory.topPanelLaminateCode ?? '',
-      rightPanelLaminateCode: cabinetMemory.topPanelLaminateCode ?? '',
-      backPanelLaminateCode: cabinetMemory.backPanelLaminateCode ?? '',
-      topPanelInnerLaminateCode: 'off white',
-      bottomPanelInnerLaminateCode: 'off white',
-      leftPanelInnerLaminateCode: 'off white',
-      rightPanelInnerLaminateCode: 'off white',
-      backPanelInnerLaminateCode: 'off white',
-      innerLaminateCode: 'off white',
+      shutterLaminateCode: shutterMemory?.shutterLaminateCode || "",  // ?. Keep laminate code
+      shutterInnerLaminateCode: shutterMemory?.shutterInnerLaminateCode || "",  // ?. Keep inner laminate
+      plywoodType: cabinetMemory.plywoodType ?? undefined,
+      backPanelPlywoodBrand: cabinetMemory.backPanelPlywoodBrand ?? "Apple ply 6mm BWP",
+      shutterPlywoodBrand: shutterMemory?.shutterPlywoodBrand ?? (cabinetMemory.plywoodType ?? undefined),
+      topPanelLaminateCode: cabinetMemory.topPanelLaminateCode ?? "",
+      bottomPanelLaminateCode: cabinetMemory.topPanelLaminateCode ?? "",
+      leftPanelLaminateCode: cabinetMemory.topPanelLaminateCode ?? "",
+      rightPanelLaminateCode: cabinetMemory.topPanelLaminateCode ?? "",
+      backPanelLaminateCode: cabinetMemory.backPanelLaminateCode ?? "",
+      topPanelInnerLaminateCode: "off white",
+      bottomPanelInnerLaminateCode: "off white",
+      leftPanelInnerLaminateCode: "off white",
+      rightPanelInnerLaminateCode: "off white",
+      backPanelInnerLaminateCode: "off white",
+      innerLaminateCode: "off white",
       topPanelGrainDirection: false,
       bottomPanelGrainDirection: false,
       leftPanelGrainDirection: false,
@@ -2967,7 +3027,8 @@ export default function Home() {
       backPanelGrainDirection: false,
       shutterGrainDirection: false,
       shutterGaddi: false
-    });
+    } as Cabinet);
+    form.reset(resetCabinetDefaults);
   };
 
   // Add quick cabinet
@@ -2976,10 +3037,11 @@ export default function Home() {
     const cabinetMemory = loadCabinetFormMemory(); // ✅ FIX: Load stored memory like regular form does
 
     for (let i = 0; i < config.quantity; i++) {
-      const baseCabinet: Cabinet = {
+      const baseCabinet: Cabinet = applyMasterDefaultsToCabinet({
         id: crypto.randomUUID(),
         name: `${cabinetTypes.find(t => t.value === type)?.label} #${cabinets.length + i + 1}`,
         type,
+        configurationMode: 'advanced',
         height: config.height,
         width: config.width,
         depth: 450,
@@ -3016,9 +3078,9 @@ export default function Home() {
         centerPostInnerLaminateCode: 'off white',
         shelvesInnerLaminateCode: 'off white',
         innerLaminateCode: 'off white',
-        plywoodType: cabinetMemory.plywoodType ?? 'Apple Ply 16mm BWP',
+        plywoodType: cabinetMemory.plywoodType ?? undefined,
         backPanelPlywoodBrand: cabinetMemory.backPanelPlywoodBrand ?? 'Apple ply 6mm BWP',
-        shutterPlywoodBrand: cabinetMemory.shutterPlywoodBrand ?? (cabinetMemory.plywoodType ?? 'Apple Ply 16mm BWP'),
+        shutterPlywoodBrand: cabinetMemory.shutterPlywoodBrand ?? (cabinetMemory.plywoodType ?? undefined),
         shutterLaminateCode: cabinetMemory.shutterLaminateCode ?? '',
         shutterInnerLaminateCode: cabinetMemory.shutterInnerLaminateCode ?? '',
         backPanelWidthReduction: 0,
@@ -3030,7 +3092,7 @@ export default function Home() {
         backPanelGrainDirection: false,
         shutterGrainDirection: false,
         shutterGaddi: false
-      };
+      } as Cabinet);
 
       // ✅ DIRECT LINK: Compute grain direction using database preferences only
       const cabinet = {
@@ -4129,60 +4191,20 @@ export default function Home() {
                     {/* Row 1: Plywood Brand */}
                     <div className="space-y-2">
                       <Label className="text-sm font-medium">Plywood Brand</Label>
-                      <Select
+                      <PlywoodSelector
                         value={masterPlywoodBrand}
-                        onValueChange={(value) => {
-                          saveMasterSettings({ plywoodBrand: value });
-                          updateAllCabinetsPlywood(value);
+                        onChange={(value) => {
+                          const trimmed = value.trim();
+                          setMasterPlywoodBrand(trimmed);
+                          updateAllCabinetsPlywood(trimmed);
                         }}
-                        data-testid="select-master-plywood"
-                      >
-                        <SelectTrigger className="text-sm">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {plywoodOptions.map((brand) => (
-                            <SelectItem key={brand.id} value={brand.brand}>
-                              {brand.brand}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Input
-                        type="text"
-                        value={masterCustomPlywoodInput}
-                        onChange={(e) => setMasterCustomPlywoodInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && masterCustomPlywoodInput.trim()) {
-                            e.preventDefault();
-                            const newBrand = masterCustomPlywoodInput.trim();
-
-                            // Check if brand already exists
-                            const exists = plywoodOptions.some(
-                              (b) => b.brand.toLowerCase() === newBrand.toLowerCase()
-                            );
-
-                            if (!exists) {
-                              // Save new brand to store (optimistic update + API)
-                              addPlywood(newBrand);
-                            }
-
-                            // Update master setting and all cabinets
-                            saveMasterSettings({ plywoodBrand: newBrand });
-                            updateAllCabinetsPlywood(newBrand);
-                            setMasterCustomPlywoodInput('');
-                          }
-                        }}
-                        placeholder="Type custom plywood brand"
-                        className="text-xs"
-                        data-testid="input-master-custom-plywood"
                       />
                       <div className="mt-2">
                         <Label className="text-sm font-medium">Plywood Godown</Label>
                         <GodownCombobox
                           value={masterPlywoodGodown}
                           onChange={(value) => {
-                            saveMasterSettings({ plywoodGodown: value });
+                            setMasterPlywoodGodown(value);
                             updateAllCabinetsPlywoodGodown(value); // Side-effect preserved
                           }}
                           placeholder="Select plywood godown"
@@ -4196,169 +4218,13 @@ export default function Home() {
                       <Label className="text-sm font-medium">Laminate</Label>
                       <div className="flex gap-2 items-start">
                         <div className="flex-1 space-y-2">
-                          <div className="relative">
-                            <Input
-                              ref={masterLaminateInputRef}
-                              type="text"
-                              value={masterLaminateCode || masterCustomLaminateInput}
-                              onChange={async (e) => {
-                                const inputValue = e.target.value;
-                                const inputElement = masterLaminateInputRef.current;
-
-                                setMasterCustomLaminateInput(inputValue);
-
-                                if (!inputElement || !inputValue.trim()) {
-                                  return;
-                                }
-
-                                // Find first matching code
-                                const matchingCode = globalLaminateMemory.find(code =>
-                                  code.toLowerCase().startsWith(inputValue.trim().toLowerCase())
-                                );
-
-                                if (matchingCode) {
-                                  // Set full suggestion
-                                  setMasterCustomLaminateInput(matchingCode);
-                                  // Highlight the auto-filled portion
-                                  setTimeout(() => {
-                                    inputElement.setSelectionRange(inputValue.length, matchingCode.length);
-                                  }, 0);
-                                }
-                              }}
-                              onKeyDown={async (e) => {
-                                if (e.key === 'Tab' && masterCustomLaminateInput.trim()) {
-                                  // Accept the autofill suggestion
-                                  e.preventDefault();
-                                  const inputElement = masterLaminateInputRef.current;
-                                  if (inputElement) {
-                                    inputElement.setSelectionRange(
-                                      masterCustomLaminateInput.length,
-                                      masterCustomLaminateInput.length
-                                    );
-                                  }
-                                } else if (e.key === 'Enter' && masterCustomLaminateInput.trim()) {
-                                  e.preventDefault();
-                                  const codeToSave = masterCustomLaminateInput.trim();
-
-                                  // Save to store (optimistic update + API) if new
-                                  if (!laminateOptions.some(opt => opt.code === codeToSave)) {
-                                    addLaminate(codeToSave, codeToSave);
-                                  }
-
-                                  // Save to master settings
-                                  saveMasterSettings({ masterLaminateCode: codeToSave });
-
-                                  // ✅ CRITICAL FIX: Mark current form panel laminates as user-selected
-                                  // This ensures validation passes when adding the cabinet
-                                  updateLaminateWithTracking('topPanelLaminateCode', codeToSave, 'user');
-                                  updateLaminateWithTracking('bottomPanelLaminateCode', codeToSave, 'user');
-                                  updateLaminateWithTracking('leftPanelLaminateCode', codeToSave, 'user');
-                                  updateLaminateWithTracking('rightPanelLaminateCode', codeToSave, 'user');
-                                  updateLaminateWithTracking('backPanelLaminateCode', codeToSave, 'user');
-
-                                  // ✅ REMOVED: Old auto-load wood grains preference logic - handled by DIRECT LINK system
-
-                                  // Clear input
-                                  setMasterCustomLaminateInput('');
-
-                                  // ✅ Close dropdown after saving new code
-                                  if (masterLaminateDropdownRef.current) {
-                                    masterLaminateDropdownRef.current.open = false;
-                                  }
-                                } else if (e.key === 'Escape') {
-                                  // Clear field
-                                  setMasterCustomLaminateInput('');
-                                  setMasterLaminateCode('');
-                                }
-                              }}
-                              onFocus={() => {
-                                if (masterLaminateCode && !masterCustomLaminateInput) {
-                                  setMasterLaminateCode('');
-                                }
-                              }}
-                              placeholder="Type front laminate code"
-                              className="text-sm"
-                              data-testid="input-master-laminate-code"
-                            />
-
-                            {masterLaminateCode && !masterCustomLaminateInput && (
-                              <button
-                                onClick={() => {
-                                  setMasterLaminateCode('');
-                                  masterLaminateInputRef.current?.focus();
-                                }}
-                                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                                title="Clear selection"
-                              >
-                                ×
-                              </button>
-                            )}
-
-                            {masterCustomLaminateInput && masterCustomLaminateInput.length >= 3 && !globalLaminateMemory.includes(masterCustomLaminateInput) && (
-                              <div className="text-xs text-green-600 mt-1 font-medium">
-                                ↵ Press Enter to save "{masterCustomLaminateInput}"
-                              </div>
-                            )}
-
-                            {/* Saved Codes with Select and Delete */}
-                            {globalLaminateMemory.length > 0 && (
-                              <details className="mt-2" open ref={masterLaminateDropdownRef}>
-                                <summary className="text-xs text-gray-600 cursor-pointer hover:text-gray-800 font-semibold">
-                                  ▼ Manage Saved Codes ({globalLaminateMemory.length})
-                                </summary>
-                                <div className="mt-2 max-h-40 overflow-y-auto border border-gray-200 rounded-md bg-white">
-                                  {globalLaminateMemory.map((code, index) => (
-                                    <div
-                                      key={index}
-                                      className={`flex items-center justify-between px-2 py-1.5 text-xs border-b border-gray-100 last:border-0 ${masterLaminateCode === code
-                                        ? 'bg-blue-100 hover:bg-blue-150'
-                                        : 'hover:bg-gray-50 cursor-pointer'
-                                        }`}
-                                    >
-                                      <span
-                                        className="flex-1 cursor-pointer font-medium"
-                                        onClick={async () => {
-                                          // Select this code
-                                          setMasterLaminateCode(code);
-                                          setMasterCustomLaminateInput('');
-
-                                          // ✅ Close dropdown after selecting a code
-                                          if (masterLaminateDropdownRef.current) {
-                                            masterLaminateDropdownRef.current.open = false;
-                                          }
-
-                                          // ✅ CRITICAL FIX: Mark current form panel laminates as user-selected
-                                          // This ensures validation passes when adding the cabinet
-                                          updateLaminateWithTracking('topPanelLaminateCode', code, 'user');
-                                          updateLaminateWithTracking('bottomPanelLaminateCode', code, 'user');
-                                          updateLaminateWithTracking('leftPanelLaminateCode', code, 'user');
-                                          updateLaminateWithTracking('rightPanelLaminateCode', code, 'user');
-                                          updateLaminateWithTracking('backPanelLaminateCode', code, 'user');
-
-                                          // ✅ REMOVED: Old masterWoodGrains toggle logic - system now uses DIRECT LINK to database
-                                          // Wood grain preferences are handled automatically by the auto-update useEffect
-                                        }}
-                                        title={`Click to select: ${code}`}
-                                      >
-                                        {masterLaminateCode === code && '✓ '}{code}
-                                      </span>
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          deleteGlobalLaminateOption(code);
-                                        }}
-                                        className="text-red-500 hover:text-red-700 px-2 ml-2"
-                                        title="Delete laminate code"
-                                        data-testid={`button-delete-laminate-${index}`}
-                                      >
-                                        ×
-                                      </button>
-                                    </div>
-                                  ))}
-                                </div>
-                              </details>
-                            )}
-                          </div>
+                          <LaminateSelector
+                            value={masterLaminateCode}
+                            onChange={(code) => {
+                              setMasterLaminateCode(code);
+                              updateAllCabinetsLaminateCode(code);
+                            }}
+                          />
                         </div>
                         <div className="mt-2">
                           <Label className="text-sm font-medium">Laminate Godown</Label>
@@ -8647,3 +8513,4 @@ export default function Home() {
     </div>
   );
 }
+

@@ -35,7 +35,7 @@ export const useMaterialStore = create<MaterialState>((set, get) => ({
     fetchMasterSettings: async () => {
         set({ isLoadingMasterSettings: true });
         try {
-            const response = await fetch('/api/master-settings-memory');
+            const response = await fetch('/api/master-settings');
             if (!response.ok) throw new Error('Failed to fetch master settings');
             const data = await response.json();
             set({ masterSettings: data });
@@ -47,18 +47,20 @@ export const useMaterialStore = create<MaterialState>((set, get) => ({
     },
 
     saveMasterSettings: async (settings) => {
-        // Optimistic update could go here if needed, but for settings, standard async is usually fine
         try {
-            // Merge current settings with new ones for the request
             const current = get().masterSettings || {};
-            const payload = { ...current, ...settings };
+            const payload = {
+                sheetWidth: settings.sheetWidth ?? (current as any).sheetWidth,
+                sheetHeight: settings.sheetHeight ?? (current as any).sheetHeight,
+                kerf: settings.kerf ?? (current as any).kerf,
+                masterLaminateCode: settings.masterLaminateCode ?? (current as any).masterLaminateCode ?? null
+            };
 
-            const response = await apiRequest('POST', '/api/master-settings-memory', payload);
+            const response = await apiRequest('POST', '/api/master-settings', payload);
             const data = await response.json();
             set({ masterSettings: data });
         } catch (error) {
             console.error('Error saving master settings:', error);
-            // Ideally rollback state here if we did optimistic update
         }
     },
 
@@ -66,8 +68,8 @@ export const useMaterialStore = create<MaterialState>((set, get) => ({
         set({ isLoadingMaterials: true });
         try {
             const [plywoodRes, laminateRes] = await Promise.all([
-                fetch('/api/plywood-brand-memory'),
-                fetch('/api/laminate-code-godown')
+                fetch('/api/godown/plywood'),
+                fetch('/api/godown/laminate')
             ]);
 
             const plywoodData = await plywoodRes.json();
@@ -86,9 +88,8 @@ export const useMaterialStore = create<MaterialState>((set, get) => ({
 
     addLaminate: async (code, name) => {
         const codeName = name || code;
-        // Optimistic update
         const tempItem: LaminateCodeGodown = {
-            id: -1, // temporary ID
+            id: -1,
             code,
             name: codeName,
             woodGrainsEnabled: 'false',
@@ -105,12 +106,10 @@ export const useMaterialStore = create<MaterialState>((set, get) => ({
         }));
 
         try {
-            await apiRequest('POST', '/api/laminate-code-godown', { code: code, name: codeName });
-            // Re-fetch to get the real ID and consistent state
+            await apiRequest('POST', '/api/godown/laminate', { code: code, name: codeName });
             await get().fetchMaterials();
         } catch (error) {
             console.error('Error adding laminate:', error);
-            // Rollback
             set(state => ({
                 laminateOptions: state.laminateOptions.filter(opt => opt.code !== code)
             }));
@@ -118,7 +117,6 @@ export const useMaterialStore = create<MaterialState>((set, get) => ({
     },
 
     addPlywood: async (brand) => {
-        // Optimistic update
         const tempItem: PlywoodBrandMemory = {
             id: -1,
             brand,
@@ -130,8 +128,8 @@ export const useMaterialStore = create<MaterialState>((set, get) => ({
         }));
 
         try {
-            await apiRequest('POST', '/api/plywood-brand-memory', { brand });
-            await get().fetchMaterials(); // Re-fetch to ensure sync
+            await apiRequest('POST', '/api/godown/plywood', { brand });
+            await get().fetchMaterials();
         } catch (error) {
             console.error('Error adding plywood brand:', error);
             set(state => ({

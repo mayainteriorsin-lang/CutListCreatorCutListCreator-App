@@ -1,0 +1,17 @@
+
+> rest-express@1.0.0 dev
+> cross-env NODE_ENV=development tsx server/index.ts
+
+3:51:00 PM [express] serving on port 5000
+3:51:14 PM [express] GET /api/master-settings-memory 200 in 2160ms :: {"id":1,"sheetWidth":"1210","sâ€¦
+3:51:14 PM [express] GET /api/master-settings 304 in 2450ms :: {"id":1,"sheetWidth":"1210","sheetHeiâ€¦
+3:51:14 PM [express] GET /api/godown/plywood 304 in 2408ms :: []
+3:51:14 PM [express] GET /api/laminate-code-godown 304 in 2405ms :: []
+3:51:14 PM [express] GET /api/wood-grains-preferences 304 in 2411ms :: []
+3:51:15 PM [express] POST /api/master-settings-memory 200 in 507ms :: {"id":1,"sheetWidth":"1210","sâ€¦
+3:51:15 PM [express] GET /api/godown/laminate 304 in 3478ms :: []
+3:51:16 PM [express] GET /api/godown/plywood 304 in 270ms :: []
+3:51:16 PM [express] GET /api/godown-memory 304 in 271ms :: []
+3:51:16 PM [express] GET /api/master-settings 200 in 269ms :: {"id":1,"sheetWidth":"1210","sheetHeigâ€¦
+3:51:16 PM [express] GET /api/godown/laminate 304 in 269ms :: []
+^C^C

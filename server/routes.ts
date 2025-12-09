@@ -10,6 +10,13 @@ import { eq, sql, desc } from "drizzle-orm";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { z } from "zod";
 
+const masterSettingsUpdateSchema = z.object({
+  masterLaminateCode: z.string().trim().min(1).optional().nullable(),
+  sheetWidth: z.string().optional(),
+  sheetHeight: z.string().optional(),
+  kerf: z.string().optional(),
+});
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Global laminate memory routes
 
@@ -263,6 +270,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Simplified Master Settings routes (single master laminate + sheet defaults)
+  app.get("/api/master-settings", async (_req, res) => {
+    try {
+      let [settings] = await db.select().from(masterSettingsMemory).limit(1);
+      if (!settings) {
+        const [inserted] = await db.insert(masterSettingsMemory).values({}).returning();
+        settings = inserted;
+      }
+      res.json(settings);
+    } catch (error) {
+      console.error("Error fetching Master Settings:", error);
+      res.status(500).json({ error: "Failed to fetch Master Settings" });
+    }
+  });
+
+  app.post("/api/master-settings", async (req, res) => {
+    try {
+      const validation = masterSettingsUpdateSchema.safeParse(req.body ?? {});
+      if (!validation.success) {
+        return res.status(400).json({
+          error: "Invalid request data",
+          details: validation.error.issues
+        });
+      }
+
+      const { masterLaminateCode, sheetWidth, sheetHeight, kerf } = validation.data;
+      const normalizedMasterLaminateCode =
+        masterLaminateCode === undefined
+          ? undefined
+          : (masterLaminateCode === null ? null : masterLaminateCode.trim() || null);
+
+      const [existing] = await db.select().from(masterSettingsMemory).limit(1);
+
+      if (existing) {
+        const [updated] = await db.update(masterSettingsMemory)
+          .set({
+            sheetWidth: sheetWidth ?? existing.sheetWidth ?? '1210',
+            sheetHeight: sheetHeight ?? existing.sheetHeight ?? '2420',
+            kerf: kerf ?? existing.kerf ?? '5',
+            masterLaminateCode: normalizedMasterLaminateCode !== undefined ? normalizedMasterLaminateCode : existing.masterLaminateCode,
+            updatedAt: sql`now()`
+          })
+          .where(eq(masterSettingsMemory.id, existing.id))
+          .returning();
+        return res.json(updated);
+      }
+
+      const [inserted] = await db.insert(masterSettingsMemory)
+        .values({
+          sheetWidth: sheetWidth ?? '1210',
+          sheetHeight: sheetHeight ?? '2420',
+          kerf: kerf ?? '5',
+          masterLaminateCode: normalizedMasterLaminateCode ?? null
+        })
+        .returning();
+
+      return res.status(201).json(inserted);
+    } catch (error) {
+      console.error("Error saving Master Settings:", error);
+      res.status(500).json({ error: "Failed to save Master Settings" });
+    }
+  });
+
   // Godown Memory routes
 
   // Get all godown names
@@ -301,6 +371,111 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error saving godown memory:", error);
       res.status(500).json({ error: "Failed to save godown" });
+    }
+  });
+
+  // Godown plywood brands (history + autocomplete)
+  app.get("/api/godown/plywood", async (_req, res) => {
+    try {
+      const brands = await db.select().from(plywoodBrandMemory).orderBy(desc(plywoodBrandMemory.createdAt));
+      res.json(brands);
+    } catch (error) {
+      console.error("Error fetching plywood godown brands:", error);
+      res.status(500).json({ error: "Failed to fetch plywood brands" });
+    }
+  });
+
+  app.post("/api/godown/plywood", async (req, res) => {
+    try {
+      const brandRaw = (req.body?.brand as string | undefined)?.trim() ?? "";
+      if (!brandRaw) {
+        return res.status(400).json({ error: "Brand is required" });
+      }
+
+      const brandLower = brandRaw.toLowerCase();
+      const existing = await db.select()
+        .from(plywoodBrandMemory)
+        .where(sql`lower(${plywoodBrandMemory.brand}) = ${brandLower}`);
+
+      if (existing.length > 0) {
+        return res.json(existing[0]);
+      }
+
+      const validation = insertPlywoodBrandMemorySchema.safeParse({ brand: brandRaw });
+      if (!validation.success) {
+        return res.status(400).json({ error: "Invalid data", details: validation.error });
+      }
+
+      const [inserted] = await db.insert(plywoodBrandMemory)
+        .values({ brand: brandRaw })
+        .returning();
+
+      res.status(201).json(inserted);
+    } catch (error) {
+      console.error("Error saving plywood brand to godown:", error);
+      res.status(500).json({ error: "Failed to save plywood brand" });
+    }
+  });
+
+  // Godown laminate codes (history + autocomplete)
+  app.get("/api/godown/laminate", async (_req, res) => {
+    try {
+      const codes = await db.select().from(laminateCodeGodown).orderBy(desc(laminateCodeGodown.createdAt));
+      res.json(codes);
+    } catch (error) {
+      console.error("Error fetching laminate godown codes:", error);
+      res.status(500).json({ error: "Failed to fetch laminate codes" });
+    }
+  });
+
+  app.post("/api/godown/laminate", async (req, res) => {
+    try {
+      const codeRaw = (req.body?.code as string | undefined)?.trim() ?? "";
+      const nameRaw = (req.body?.name as string | undefined)?.trim() ?? "";
+
+      if (!codeRaw) {
+        return res.status(400).json({ error: "Laminate code is required" });
+      }
+
+      const codeLower = codeRaw.toLowerCase();
+      const existing = await db.select()
+        .from(laminateCodeGodown)
+        .where(sql`lower(${laminateCodeGodown.code}) = ${codeLower}`);
+
+      if (existing.length > 0) {
+        return res.json(existing[0]);
+      }
+
+      const validation = insertLaminateCodeGodownSchema.safeParse({
+        code: codeRaw,
+        name: nameRaw || codeRaw,
+        innerCode: null,
+        supplier: null,
+        thickness: null,
+        description: null,
+        woodGrainsEnabled: 'false'
+      });
+
+      if (!validation.success) {
+        return res.status(400).json({ error: "Invalid data", details: validation.error });
+      }
+
+      const [inserted] = await db.insert(laminateCodeGodown)
+        .values({
+          code: codeRaw,
+          name: nameRaw || codeRaw,
+          innerCode: null,
+          supplier: null,
+          thickness: null,
+          description: null,
+          woodGrainsEnabled: 'false'
+        })
+        .returning();
+
+      res.status(201).json(inserted);
+    } catch (error) {
+      console.error("Error saving laminate code to godown:", error);
+      res.status(500).json({ error: "Failed to save laminate code" });
     }
   });
 
