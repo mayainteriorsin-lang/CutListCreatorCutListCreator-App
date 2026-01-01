@@ -1,4 +1,9 @@
 ﻿import "dotenv/config";
+// FIX: Sanitize DATABASE_URL if it has quotes (env issue)
+if (process.env.DATABASE_URL && (process.env.DATABASE_URL.startsWith('"') || process.env.DATABASE_URL.startsWith("'"))) {
+  process.env.DATABASE_URL = process.env.DATABASE_URL.replace(/^["']|["']$/g, '');
+}
+
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
@@ -79,7 +84,8 @@ app.get('/test', (req, res) => {
   // Other ports are firewalled. Default to 5000 if not specified.
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
-  const port = parseInt(process.env.PORT || '5000', 10);
+  const defaultPort = app.get("env") === "development" ? 5173 : 5000;
+  const port = parseInt(process.env.PORT || `${defaultPort}`, 10);
   server.listen({
     port,
     host: "0.0.0.0",

@@ -22,6 +22,8 @@ interface MaterialState {
     // Optimistic updates + API calls
     addLaminate: (code: string, name?: string) => Promise<void>;
     addPlywood: (brand: string) => Promise<void>;
+    removeLaminate: (code: string) => void;
+    removePlywood: (brand: string) => void;
 }
 
 export const useMaterialStore = create<MaterialState>((set, get) => ({
@@ -48,13 +50,23 @@ export const useMaterialStore = create<MaterialState>((set, get) => ({
 
     saveMasterSettings: async (settings) => {
         try {
-            const current = get().masterSettings || {};
-            const payload = {
-                sheetWidth: settings.sheetWidth ?? (current as any).sheetWidth,
-                sheetHeight: settings.sheetHeight ?? (current as any).sheetHeight,
-                kerf: settings.kerf ?? (current as any).kerf,
-                masterLaminateCode: settings.masterLaminateCode ?? (current as any).masterLaminateCode ?? null
-            };
+            const payload: Record<string, unknown> = {};
+
+            if (settings.sheetWidth !== undefined) payload.sheetWidth = String(settings.sheetWidth);
+            if (settings.sheetHeight !== undefined) payload.sheetHeight = String(settings.sheetHeight);
+            if (settings.kerf !== undefined) payload.kerf = String(settings.kerf);
+            if ((settings as any).masterLaminateCode !== undefined) {
+                payload.masterLaminateCode = (settings as any).masterLaminateCode;
+            }
+            if ((settings as any).masterPlywoodBrand !== undefined) {
+                payload.masterPlywoodBrand = (settings as any).masterPlywoodBrand;
+            }
+            if ((settings as any).optimizePlywoodUsage !== undefined) {
+                const raw = (settings as any).optimizePlywoodUsage;
+                payload.optimizePlywoodUsage = typeof raw === 'string' ? raw === 'true' : Boolean(raw);
+            }
+
+            if (Object.keys(payload).length === 0) return;
 
             const response = await apiRequest('POST', '/api/master-settings', payload);
             const data = await response.json();
@@ -69,7 +81,7 @@ export const useMaterialStore = create<MaterialState>((set, get) => ({
         try {
             const [plywoodRes, laminateRes] = await Promise.all([
                 fetch('/api/godown/plywood'),
-                fetch('/api/godown/laminate')
+                fetch('/api/laminate-code-godown')
             ]);
 
             const plywoodData = await plywoodRes.json();
@@ -106,7 +118,7 @@ export const useMaterialStore = create<MaterialState>((set, get) => ({
         }));
 
         try {
-            await apiRequest('POST', '/api/godown/laminate', { code: code, name: codeName });
+            await apiRequest('POST', '/api/laminate-code-godown', { code: code, name: codeName });
             await get().fetchMaterials();
         } catch (error) {
             console.error('Error adding laminate:', error);
@@ -135,6 +147,33 @@ export const useMaterialStore = create<MaterialState>((set, get) => ({
             set(state => ({
                 plywoodOptions: state.plywoodOptions.filter(opt => opt.brand !== brand)
             }));
+        }
+    },
+
+    removeLaminate: async (code) => {
+        const target = code.trim().toLowerCase();
+        set(state => ({
+            laminateOptions: state.laminateOptions.filter(opt => (opt.code || '').trim().toLowerCase() !== target)
+        }));
+        try {
+            await apiRequest('DELETE', `/api/laminate-code-godown/${encodeURIComponent(code)}`);
+        } catch (error) {
+            console.error('Error removing laminate:', error);
+            // Re-fetch to sync with server if delete failed
+            get().fetchMaterials();
+        }
+    },
+
+    removePlywood: async (brand) => {
+        const target = brand.trim().toLowerCase();
+        set(state => ({
+            plywoodOptions: state.plywoodOptions.filter(opt => (opt.brand || '').trim().toLowerCase() !== target)
+        }));
+        try {
+            await apiRequest('DELETE', `/api/plywood-brand-memory/${encodeURIComponent(brand)}`);
+        } catch (error) {
+            console.error('Error removing plywood:', error);
+            get().fetchMaterials();
         }
     }
 }));

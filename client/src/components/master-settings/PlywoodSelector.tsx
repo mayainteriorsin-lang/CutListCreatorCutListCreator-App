@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Input } from "@/components/ui/input";
+import { useMaterialStore } from "@/features/materialStore";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useCreatePlywoodBrand, usePlywoodBrands } from "@/hooks/usePlywoodGodown";
@@ -15,128 +15,222 @@ export function PlywoodSelector({ value, onChange, onCreate }: PlywoodSelectorPr
   const { data: brands = [] } = usePlywoodBrands();
   const createBrand = useCreatePlywoodBrand();
   const queryClient = useQueryClient();
-  const [inputValue, setInputValue] = useState(value || "");
-  const [open, setOpen] = useState(false);
+  const removePlywood = useMaterialStore((state) => state.removePlywood);
+  const fetchMaterials = useMaterialStore((state) => state.fetchMaterials);
 
-  const uniqueBrands = useMemo(() => {
+  const [plywoodInput, setPlywoodInput] = useState(value || "");
+  const [selectedPlywood, setSelectedPlywood] = useState<string | null>(value || null);
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const plywoodOptions = useMemo(() => {
     const seen = new Set<string>();
-    return brands.filter((item) => {
-      const key = item.brand.trim().toLowerCase();
-      if (!key || seen.has(key)) return false;
+    const deduped: string[] = [];
+
+    brands.forEach((entry) => {
+      const brand = (entry.brand || "").trim();
+      const key = brand.toLowerCase();
+      if (!brand || seen.has(key)) return;
       seen.add(key);
-      return true;
+      deduped.push(brand);
     });
+
+    return deduped;
   }, [brands]);
 
   useEffect(() => {
-    setInputValue(value || "");
+    setSelectedPlywood(value || null);
+    setPlywoodInput(value || "");
   }, [value]);
 
-  const filtered = useMemo(() => {
-    if (!inputValue) return uniqueBrands;
-    return uniqueBrands.filter((item) =>
-      item.brand.toLowerCase().includes(inputValue.toLowerCase())
-    );
-  }, [uniqueBrands, inputValue]);
-
-  const selectBrand = (brand: string) => {
-    setInputValue(brand);
-    onChange(brand);
-    setOpen(false);
-  };
-
-  const handleCreate = onCreate ?? ((brand: string, skipSelect: boolean = false) => {
-    const existing = uniqueBrands.find(
-      (b) => b.brand.toLowerCase() === brand.toLowerCase()
-    );
-    if (existing) {
-      if (!skipSelect) {
-        selectBrand(existing.brand);
-      } else {
-        setOpen(false);
+  useEffect(() => {
+    const closeOnOutsideClick = (event: MouseEvent | TouchEvent) => {
+      if (!containerRef.current) return;
+      const target = event.target as Node;
+      if (!containerRef.current.contains(target)) {
+        setIsOpen(false);
       }
-      return;
-    }
+    };
 
-    createBrand.mutate(
-      { brand },
-      {
-        onSuccess: (created) => {
-          if (!skipSelect) {
-            selectBrand(created.brand);
-          } else {
-            setOpen(false);
-          }
-        },
-      }
-    );
-  });
+    document.addEventListener("pointerdown", closeOnOutsideClick);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsideClick);
+    };
+  }, []);
+
+
 
   const handleEnter = () => {
-    const trimmed = inputValue.trim();
+    const trimmed = plywoodInput.trim();
     if (!trimmed) return;
+    const lower = trimmed.toLowerCase();
+    const exists = plywoodOptions.some((item) => item.toLowerCase() === lower);
 
-    onChange(trimmed);
-    handleCreate(trimmed, true);
-    setInputValue("");
-    setOpen(false);
+    if (!exists) {
+      if (onCreate) {
+        onCreate(trimmed);
+      } else {
+        createBrand.mutate(
+          { brand: trimmed },
+          {
+            onSuccess: () => {
+              fetchMaterials();
+            },
+          }
+        );
+      }
+    }
+
+    // ✅ Rapid Entry Mode: Clear input but keep open for next entry
+    setSelectedPlywood(null);
+    setPlywoodInput("");
+    setIsOpen(false);
+  };
+
+  const handleSelect = (brand: string) => {
+    setSelectedPlywood(brand);
+    setPlywoodInput(brand);
+    onChange(brand);
+    setIsOpen(false);
+  };
+
+  const handleDelete = (brand: string) => {
+    const target = brand.toLowerCase();
+    queryClient.setQueryData(["godown", "plywood"], (prev: any) => {
+      if (!Array.isArray(prev)) return prev;
+      return prev.filter((entry: any) => (entry.brand || "").toLowerCase() !== target);
+    });
+    removePlywood(brand);
+    if (selectedPlywood && selectedPlywood.toLowerCase() === target) {
+      setSelectedPlywood(null);
+      setPlywoodInput("");
+    }
+
+    // Clean up localStorage to remove deleted plywood from saved form memory
+    cleanupDeletedPlywoodFromLocalStorage(brand);
+  };
+
+  // Helper function to clean deleted plywood from localStorage
+  const cleanupDeletedPlywoodFromLocalStorage = (deletedBrand: string) => {
+    if (typeof window === 'undefined') return;
+
+    const target = deletedBrand.toLowerCase();
+
+    try {
+      // Clean shutter form memory
+      const SHUTTER_FORM_MEMORY_KEY = 'shutterFormMemory_v1';
+      const shutterMemory = localStorage.getItem(SHUTTER_FORM_MEMORY_KEY);
+      if (shutterMemory) {
+        const parsed = JSON.parse(shutterMemory);
+        let changed = false;
+
+        if (parsed.shutterPlywoodBrand?.toLowerCase() === target) {
+          delete parsed.shutterPlywoodBrand;
+          changed = true;
+        }
+
+        if (changed) {
+          localStorage.setItem(SHUTTER_FORM_MEMORY_KEY, JSON.stringify(parsed));
+        }
+      }
+
+      // Clean cabinet form memory
+      const CABINET_FORM_MEMORY_KEY = 'cabinetFormMemory_v1';
+      const cabinetMemory = localStorage.getItem(CABINET_FORM_MEMORY_KEY);
+      if (cabinetMemory) {
+        const parsed = JSON.parse(cabinetMemory);
+        let changed = false;
+
+        // Check all cabinet-related plywood fields
+        const fieldsToCheck = [
+          'topPanelPlywoodBrand',
+          'bottomPanelPlywoodBrand',
+          'leftPanelPlywoodBrand',
+          'rightPanelPlywoodBrand',
+          'backPanelPlywoodBrand',
+          'shutterPlywoodBrand',
+          'shelfPlywoodBrand',
+        ];
+
+        fieldsToCheck.forEach(field => {
+          if (parsed[field]?.toLowerCase() === target) {
+            delete parsed[field];
+            changed = true;
+          }
+        });
+
+        if (changed) {
+          localStorage.setItem(CABINET_FORM_MEMORY_KEY, JSON.stringify(parsed));
+        }
+      }
+
+      console.log(`🧹 Cleaned deleted plywood "${deletedBrand}" from localStorage`);
+    } catch (error) {
+      console.error('Failed to clean localStorage after plywood deletion:', error);
+    }
   };
 
   return (
-    <div className="relative">
-      <Input
-        value={inputValue}
-        onChange={(e) => {
-          setInputValue(e.target.value);
-          setOpen(true);
-        }}
-        onFocus={() => setOpen(true)}
-        onClick={() => setOpen(true)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            e.preventDefault();
-            handleEnter();
-          }
-        }}
-        placeholder="Type or select plywood brand"
-        className="text-sm pr-8"
-      />
-      <button
-        type="button"
-        className="absolute inset-y-0 right-2 flex items-center text-gray-400 text-xs"
-        onClick={() => setOpen((prev) => !prev)}
-        aria-label="Toggle plywood dropdown"
-      >
-        ▼
-      </button>
-      {open && filtered.length > 0 && (
+    <div className="relative" ref={containerRef}>
+      <div className="dropdown-input-wrapper w-full">
+        <input
+          value={plywoodInput}
+          onChange={(e) => {
+            setPlywoodInput(e.target.value);
+            setIsOpen(true);
+          }}
+          onFocus={() => setIsOpen(true)}
+          onClick={() => setIsOpen(true)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              handleEnter();
+            }
+          }}
+          placeholder="Type or select plywood brand"
+          className="dropdown-input w-full"
+        />
+
+        <button
+          type="button"
+          className={`dropdown-arrow ${isOpen ? "open" : ""} text-xl pr-3`}
+          onClick={() => setIsOpen((prev) => !prev)}
+          aria-label="Toggle dropdown"
+        >
+          ▼
+        </button>
+      </div>
+      {isOpen && (
         <Card className="absolute z-10 mt-1 w-full border shadow-sm">
           <ScrollArea className="max-h-52">
-            <ul className="divide-y divide-gray-100">
-              {filtered.map((item) => (
-                <li
-                  key={item.id}
-                  className="px-3 py-2 text-sm hover:bg-gray-50 cursor-pointer flex items-center justify-between"
-                  onClick={() => selectBrand(item.brand)}
-                >
-                  <span>{item.brand}</span>
-                  <button
-                    type="button"
-                    className="text-gray-400 hover:text-red-500 ml-3 text-xs"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      queryClient.setQueryData(["godown", "plywood"], (prev: any) => {
-                        if (!Array.isArray(prev)) return prev;
-                        return prev.filter((p: any) => (p.brand || "").toLowerCase() !== item.brand.toLowerCase());
-                      });
-                    }}
-                    aria-label={`Delete ${item.brand}`}
+            {plywoodOptions.length > 0 ? (
+              <ul className="divide-y divide-gray-100">
+                {plywoodOptions.map((brand) => (
+                  <li
+                    key={brand}
+                    className="px-3 py-2 text-sm hover:bg-gray-50 cursor-pointer flex items-center justify-between"
+                    onClick={() => handleSelect(brand)}
                   >
-                    ×
-                  </button>
-                </li>
-              ))}
-            </ul>
+                    <span>{brand}</span>
+                    <button
+                      type="button"
+                      className="text-red-700 font-bold hover:text-red-900 ml-3 text-sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(brand);
+                      }}
+                      aria-label={`Delete ${brand}`}
+                    >
+                      x
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="p-4 text-center text-gray-500 text-sm">
+                No plywood brands found. Type to add a new brand.
+              </div>
+            )}
           </ScrollArea>
         </Card>
       )}

@@ -236,6 +236,8 @@ export const masterSettingsMemory = pgTable("master_settings_memory", {
   sheetHeight: varchar("sheet_height", { length: 50 }).notNull().default('2420'),
   kerf: varchar("kerf", { length: 50 }).notNull().default('5'),
   masterLaminateCode: varchar("master_laminate_code", { length: 255 }), // ✅ Master laminate code - owner of all new codes
+  masterPlywoodBrand: varchar("master_plywood_brand", { length: 255 }).default('Apple Ply 16mm BWP'), // ✅ Master plywood brand
+  optimizePlywoodUsage: varchar("optimize_plywood_usage", { length: 10 }).notNull().default('true'), // ✅ Persisted toggle
   updatedAt: timestamp("updated_at").default(sql`now()`).notNull(),
 });
 

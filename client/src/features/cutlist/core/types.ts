@@ -44,10 +44,22 @@ export interface OptimizerPart {
 }
 
 /**
- * Optimization result from MaxRects
+ * Panel count validation result
+ */
+export interface ValidationResult {
+  totalInput: number;        // Total input panels (sum of quantities)
+  totalPlaced: number;       // Total panels successfully placed
+  totalUnplaced: number;     // Total panels that couldn't be placed
+  panelsLost: number;        // Difference (should always be 0)
+  allAccountedFor: boolean;  // True if no panels were lost
+}
+
+/**
+ * Optimization result from MaxRects or Genetic algorithm
  */
 export interface OptimizationResult {
   panels: Sheet[];
+  validation?: ValidationResult;  // Panel count validation (optional for backward compatibility)
 }
 
 /**

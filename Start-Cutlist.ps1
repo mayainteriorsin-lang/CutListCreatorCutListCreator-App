@@ -1,35 +1,39 @@
-﻿# Start/Restart CutListCreator dev server
-# Kills stray node processes, loads .env, starts dev server, opens browser, and logs to dev-server.log
+﻿# Start CutListCreator (backend + frontend)
 
-# 1) Kill all node processes
+# 1) Kill all node.exe processes
 try {
   taskkill /IM node.exe /F 2>$null | Out-Null
 } catch {}
 
-# 2) Change directory to the project
-$projectPath = "C:\Users\hi\workspace\CutListCreator"
-Set-Location $projectPath
+# 2) Root folder of project
+$root = "C:\Users\hi\workspace\CutListCreator"
+Set-Location $root
 
-# 3) Load .env automatically
-$envFile = Join-Path $projectPath ".env"
+# 3) Load .env (if it exists)
+$envFile = Join-Path $root ".env"
 if (Test-Path $envFile) {
   Get-Content $envFile | ForEach-Object {
-    if ($_ -match '^\s*#' -or $_ -match '^\s*$') { return }
+    if ($_ -match '^\s*#' -or $_ -match '^\s*$') { return }  # skip comments/empty
     $parts = $_ -split '=', 2
     if ($parts.Count -eq 2) {
-      $name = $parts[0].Trim()
-      $value = $parts[1].Trim('"').Trim()
+      $name  = $parts[0].Trim()
+      $value = $parts[1].Trim().Trim('"').Trim("'")
       if ($name) {
-        try { $env[$name] = $value } catch { Set-Item -Path "env:$name" -Value $value }
+        [Environment]::SetEnvironmentVariable($name, $value, 'Process')
       }
     }
   }
 }
 
-# 4) Start the dev server with logging to dev-server.log
-$logPath = Join-Path $projectPath "dev-server.log"
-Start-Process -FilePath "cmd.exe" -ArgumentList '/c',"npm run dev > `"$logPath`" 2>&1" -WorkingDirectory $projectPath
+# 4) Start BACKEND from root (port 5000)
+Start-Process -FilePath "powershell.exe" `
+  -ArgumentList "-NoExit", "-Command", "cd '$root'; npm run dev:server"
 
-# 5) Wait briefly then open the app in the browser
-Start-Sleep -Seconds 3
-Start-Process "http://localhost:5000"
+# 5) Start FRONTEND from client folder with --force flag (Vite, port 5173)
+$clientDir = Join-Path $root "client"
+Start-Process -FilePath "powershell.exe" `
+  -ArgumentList "-NoExit", "-Command", "cd '$clientDir'; npm run dev -- --force"
+
+# 6) Wait a bit, then open browser
+Start-Sleep -Seconds 8
+Start-Process "http://localhost:5173"

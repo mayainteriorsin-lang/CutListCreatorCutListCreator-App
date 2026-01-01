@@ -9,16 +9,61 @@ import { laminateMemory, insertLaminateMemorySchema, laminateWoodGrainsPreferenc
 import { eq, sql, desc } from "drizzle-orm";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { z } from "zod";
+import { crmRouter } from "./routes/crmRoutes";
+import { aiInteriorDetectRouter } from "./routes/aiInteriorDetect";
+import { aiWardrobeLayoutRouter } from "./routes/aiWardrobeLayout";
 
 const masterSettingsUpdateSchema = z.object({
   masterLaminateCode: z.string().trim().min(1).optional().nullable(),
+  masterPlywoodBrand: z.string().trim().min(1).optional().nullable(),
   sheetWidth: z.string().optional(),
   sheetHeight: z.string().optional(),
   kerf: z.string().optional(),
+  optimizePlywoodUsage: z.boolean().optional(),
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // ✅ AUTO-MIGRATION: Ensure Table Exists First
+  try {
+    await db.execute(sql`CREATE TABLE IF NOT EXISTS master_settings_memory (
+        id SERIAL PRIMARY KEY,
+        sheet_width VARCHAR(50) NOT NULL DEFAULT '1210',
+        sheet_height VARCHAR(50) NOT NULL DEFAULT '2420',
+        kerf VARCHAR(50) NOT NULL DEFAULT '5',
+        master_laminate_code VARCHAR(255),
+        master_plywood_brand text,
+        optimize_plywood_usage VARCHAR(10) NOT NULL DEFAULT 'true',
+        updated_at TIMESTAMP DEFAULT NOW() NOT NULL
+     )`);
+  } catch (e) {
+    console.error("Init Table Error:", e);
+  }
+
+  // ✅ AUTO-MIGRATION: Add master_plywood_brand if missing (Robust Version)
+  try {
+    // 1. Add column (text type is safer/more equivalent in PG)
+    await db.execute(sql`ALTER TABLE master_settings_memory ADD COLUMN IF NOT EXISTS master_plywood_brand text`);
+    console.log("✅ Database Schema Updated: master_plywood_brand column added.");
+
+    // 2. Set default for existing rows if null -> AND set Column Default
+    await db.execute(sql`UPDATE master_settings_memory SET master_plywood_brand = 'Apple Ply 16mm BWP' WHERE master_plywood_brand IS NULL`);
+    await db.execute(sql`ALTER TABLE master_settings_memory ALTER COLUMN master_plywood_brand SET DEFAULT 'Apple Ply 16mm BWP'`);
+  } catch (err: any) {
+    console.error("❌ MIGRATION FAILED MSG:", err.message);
+  }
+
+  // ✅ AUTO-MIGRATION: Update CRM Quotes table (Store full JSON snapshot)
+  try {
+    await db.execute(sql`ALTER TABLE quotes ADD COLUMN IF NOT EXISTS data text`);
+    console.log("✅ Database Schema Updated: quotes.data column added.");
+  } catch (e) {
+    console.error("Quotes migration error:", e);
+  }
+
   // Global laminate memory routes
+  app.use("/api/crm", crmRouter);
+  app.use("/api/ai", aiInteriorDetectRouter());
+  app.use("/api/ai", aiWardrobeLayoutRouter());
 
   // Get all saved laminate codes
   app.get("/api/laminate-memory", async (req, res) => {
@@ -212,7 +257,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           sheetWidth: '1210',
           sheetHeight: '2420',
           kerf: '5',
-          masterLaminateCode: null
+          masterLaminateCode: null,
+          masterPlywoodBrand: 'Apple Ply 16mm BWP'
         });
       }
 
@@ -234,7 +280,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const { sheetWidth, sheetHeight, kerf, masterLaminateCode } = validation.data;
+      const { sheetWidth, sheetHeight, kerf, masterLaminateCode, masterPlywoodBrand } = validation.data;
 
       // Check if any memory record exists
       const existing = await db.select().from(masterSettingsMemory).limit(1);
@@ -247,6 +293,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             sheetHeight: sheetHeight || '2420',
             kerf: kerf || '5',
             masterLaminateCode: masterLaminateCode || null,
+            masterPlywoodBrand: masterPlywoodBrand || null,
             updatedAt: sql`now()`
           })
           .where(eq(masterSettingsMemory.id, existing[0].id))
@@ -259,7 +306,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             sheetWidth: sheetWidth || '1210',
             sheetHeight: sheetHeight || '2420',
             kerf: kerf || '5',
-            masterLaminateCode: masterLaminateCode || null
+            masterLaminateCode: masterLaminateCode || null,
+            masterPlywoodBrand: masterPlywoodBrand || null
           })
           .returning();
         return res.status(201).json(newMemory);
@@ -295,11 +343,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const { masterLaminateCode, sheetWidth, sheetHeight, kerf } = validation.data;
+      const { masterLaminateCode, masterPlywoodBrand, sheetWidth, sheetHeight, kerf, optimizePlywoodUsage } = validation.data;
       const normalizedMasterLaminateCode =
         masterLaminateCode === undefined
           ? undefined
           : (masterLaminateCode === null ? null : masterLaminateCode.trim() || null);
+
+      const normalizedMasterPlywoodBrand =
+        masterPlywoodBrand === undefined
+          ? undefined
+          : (masterPlywoodBrand === null ? null : masterPlywoodBrand.trim() || null);
 
       const [existing] = await db.select().from(masterSettingsMemory).limit(1);
 
@@ -310,6 +363,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             sheetHeight: sheetHeight ?? existing.sheetHeight ?? '2420',
             kerf: kerf ?? existing.kerf ?? '5',
             masterLaminateCode: normalizedMasterLaminateCode !== undefined ? normalizedMasterLaminateCode : existing.masterLaminateCode,
+            masterPlywoodBrand: normalizedMasterPlywoodBrand !== undefined ? normalizedMasterPlywoodBrand : existing.masterPlywoodBrand,
+            optimizePlywoodUsage: optimizePlywoodUsage !== undefined ? String(optimizePlywoodUsage) : existing.optimizePlywoodUsage,
             updatedAt: sql`now()`
           })
           .where(eq(masterSettingsMemory.id, existing.id))
@@ -322,7 +377,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           sheetWidth: sheetWidth ?? '1210',
           sheetHeight: sheetHeight ?? '2420',
           kerf: kerf ?? '5',
-          masterLaminateCode: normalizedMasterLaminateCode ?? null
+          masterLaminateCode: normalizedMasterLaminateCode ?? null,
+          masterPlywoodBrand: normalizedMasterPlywoodBrand ?? 'Apple Ply 16mm BWP',
+          optimizePlywoodUsage: optimizePlywoodUsage !== undefined ? String(optimizePlywoodUsage) : 'true'
         })
         .returning();
 
@@ -417,67 +474,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Godown laminate codes (history + autocomplete)
-  app.get("/api/godown/laminate", async (_req, res) => {
-    try {
-      const codes = await db.select().from(laminateCodeGodown).orderBy(desc(laminateCodeGodown.createdAt));
-      res.json(codes);
-    } catch (error) {
-      console.error("Error fetching laminate godown codes:", error);
-      res.status(500).json({ error: "Failed to fetch laminate codes" });
-    }
-  });
-
-  app.post("/api/godown/laminate", async (req, res) => {
-    try {
-      const codeRaw = (req.body?.code as string | undefined)?.trim() ?? "";
-      const nameRaw = (req.body?.name as string | undefined)?.trim() ?? "";
-
-      if (!codeRaw) {
-        return res.status(400).json({ error: "Laminate code is required" });
-      }
-
-      const codeLower = codeRaw.toLowerCase();
-      const existing = await db.select()
-        .from(laminateCodeGodown)
-        .where(sql`lower(${laminateCodeGodown.code}) = ${codeLower}`);
-
-      if (existing.length > 0) {
-        return res.json(existing[0]);
-      }
-
-      const validation = insertLaminateCodeGodownSchema.safeParse({
-        code: codeRaw,
-        name: nameRaw || codeRaw,
-        innerCode: null,
-        supplier: null,
-        thickness: null,
-        description: null,
-        woodGrainsEnabled: 'false'
-      });
-
-      if (!validation.success) {
-        return res.status(400).json({ error: "Invalid data", details: validation.error });
-      }
-
-      const [inserted] = await db.insert(laminateCodeGodown)
-        .values({
-          code: codeRaw,
-          name: nameRaw || codeRaw,
-          innerCode: null,
-          supplier: null,
-          thickness: null,
-          description: null,
-          woodGrainsEnabled: 'false'
-        })
-        .returning();
-
-      res.status(201).json(inserted);
-    } catch (error) {
-      console.error("Error saving laminate code to godown:", error);
-      res.status(500).json({ error: "Failed to save laminate code" });
-    }
-  });
+  // ✅ Redundant routes deleted. Use /api/laminate-code-godown instead.
 
   // ✅ CENTRAL LAMINATE CODE GODOWN (Warehouse) Routes
 

@@ -1,9 +1,8 @@
-// drawGaddiMark - draw dotted gaddi line that follows nomW/nomH rule even if panel rotated
-// - doc: jsPDF-like doc (has line, setLineWidth, setDrawColor, setLineDash)
-// - panel: { x, y, w, h, rotationDegrees }  // rotationDegrees: 0,90,180,270 (clockwise)
-// - type: string containing "TOP"|"BOTTOM"|"LEFT"|"RIGHT"
-// - nomW, nomH: numbers (units must match panel.w/h units or you must scale)
-// - options: optional { inset: number, lineWidth: number, dashPattern: number[], color: number|[r,g,b] }
+// ===============================================
+// GADDI MARK - MATCHES PREVIEW EXACTLY
+// Simple edge-aligned lines (TOP edge horizontal, LEFT edge vertical)
+// ===============================================
+
 export function drawGaddiMark(
   doc: any,
   panel: { x: number; y: number; w: number; h: number; rotationDegrees?: number },
@@ -17,217 +16,117 @@ export function drawGaddiMark(
     color?: number | [number, number, number];
   }
 ) {
-  // --- defaults
-  const inset = options?.inset ?? 6; // distance from panel border
-  const lineWidth = options?.lineWidth ?? 0.8;
-  const dashPattern = options?.dashPattern ?? [1, 2];
-  const color = options?.color ?? 150; // gray
+  // ----------------- SETTINGS -----------------
+  const inset = options?.inset ?? 4;
+  const lineWidth = options?.lineWidth ?? 1.2;
+  const dashPattern = options?.dashPattern ?? [2, 2];
+  const rawColor = options?.color;
 
-  // --- 1) Decide which nominal value to use (this is your rule)
-  // TOP/BOTTOM -> use nomW (width); LEFT/RIGHT -> use nomH (height)
+  // ----------------- SAFE COLOR -----------------
+  const color: [number, number, number] = Array.isArray(rawColor) && rawColor.length === 3
+    ? [
+        Number.isFinite(rawColor[0]) ? rawColor[0] : 0,
+        Number.isFinite(rawColor[1]) ? rawColor[1] : 0,
+        Number.isFinite(rawColor[2]) ? rawColor[2] : 0
+      ]
+    : typeof rawColor === "number" && Number.isFinite(rawColor)
+    ? [rawColor, rawColor, rawColor]
+    : [255, 0, 0]; // default RED gaddi mark
+
+  // ----------------- TYPE CHECK -----------------
   const isLeftRight = /LEFT|RIGHT/i.test(type);
   const isTopBottom = /TOP|BOTTOM/i.test(type);
+  const isShutter = /SHUTTER/i.test(type);
 
-  if (!isLeftRight && !isTopBottom) {
-    // unknown type -> nothing to draw
-    return;
-  }
+  // Must be a valid panel type for gaddi
+  if (!isLeftRight && !isTopBottom && !isShutter) return;
 
-  const markValue = isLeftRight ? nomH : nomW; // the numeric value to mark (your rule)
+  // Skip if panel too small
+  if (panel.w < 10 || panel.h < 10) return;
 
-  // --- 2) Convert markValue into drawing length (assuming same units).
-  // If you use different units (mm vs points), apply a scale here.
-  // For now we assume 1 unit of nomW/nomH = 1 unit of panel.w/h.
-  let length = Math.abs(markValue);
+  // ----------------- DETERMINE DIRECTION -----------------
+  // Match preview logic: w >= h means horizontal, else vertical
+  const isHorizontal = panel.w >= panel.h;
 
-  // Clamp length so it won't exceed panel size (safety)
-  if (isTopBottom) {
-    // when marking width, it should not be longer than panel.w
-    length = Math.min(length, panel.w - 2 * inset);
+  // ----------------- CALCULATE LINE COORDINATES -----------------
+  // MATCH PREVIEW EXACTLY:
+  // Horizontal: line at TOP edge, from left+inset to right-inset
+  // Vertical: line at LEFT edge, from top+inset to bottom-inset
+
+  let x1: number, y1: number, x2: number, y2: number;
+
+  if (isHorizontal) {
+    // Horizontal line at TOP edge (y = panel.y + inset)
+    x1 = panel.x + inset;
+    y1 = panel.y + inset;
+    x2 = panel.x + panel.w - inset;
+    y2 = panel.y + inset;
   } else {
-    // when marking height, not longer than panel.h
-    length = Math.min(length, panel.h - 2 * inset);
+    // Vertical line at LEFT edge (x = panel.x + inset)
+    x1 = panel.x + inset;
+    y1 = panel.y + inset;
+    x2 = panel.x + inset;
+    y2 = panel.y + panel.h - inset;
   }
-  if (length <= 0) return;
 
-  // --- 3) Build local (panel-space) start and end points (before rotation)
-  // Panel local coords origin at panel.x, panel.y (top-left)
-  // We'll draw line from (sx, sy) to (ex, ey) in local coords, then rotate around center.
-  let sx = 0, sy = 0, ex = 0, ey = 0;
+  // ----------------- DRAW LINE -----------------
+  doc.setLineWidth(lineWidth);
+  doc.setDrawColor(color[0], color[1], color[2]);
+  doc.setLineDash(dashPattern);
 
-  if (isTopBottom) {
-    // TOP or BOTTOM: Check panel placement to decide line direction
-    // If panel.w > panel.h: width is on X-axis → horizontal line
-    // If panel.h > panel.w: width is on Y-axis → vertical line
-    const widthOnXAxis = panel.w >= panel.h;
+  doc.line(x1, y1, x2, y2);
 
-    if (widthOnXAxis) {
-      // Width on X-axis: draw horizontal line at top/bottom
-      const nearTop = /TOP/i.test(type);
-      const yLocal = nearTop ? inset : (panel.h - inset);
-      const startX = (panel.w - length) / 2;
-      sx = startX; sy = yLocal;
-      ex = startX + length; ey = yLocal;
-    } else {
-      // Width on Y-axis: draw vertical line at left/right
-      const nearLeft = /TOP/i.test(type) ? true : false; // arbitrary, just pick a side
-      const xLocal = nearLeft ? inset : (panel.w - inset);
-      const startY = (panel.h - length) / 2;
-      sx = xLocal; sy = startY;
-      ex = xLocal; ey = startY + length;
-    }
+  doc.setLineDash([]);
+
+  // ----------------- DRAW LABEL -----------------
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(6);
+  doc.setTextColor(0, 0, 0);
+
+  if (isHorizontal) {
+    // Label below the horizontal line
+    const labelX = panel.x + inset + 6;
+    const labelY = panel.y + inset + 5;
+    doc.text("GADDI", labelX, labelY);
   } else {
-    // LEFT or RIGHT: Check panel placement to decide line direction
-    // If panel.w >= panel.h: height is on X-axis → horizontal line
-    // If panel.h > panel.w: height is on Y-axis → vertical line
-    const heightOnXAxis = panel.w >= panel.h;
-
-    if (heightOnXAxis) {
-      // Height on X-axis: draw horizontal line at left/right
-      const nearLeft = /LEFT/i.test(type);
-      const yLocal = nearLeft ? inset : (panel.h - inset);
-      const startX = (panel.w - length) / 2;
-      sx = startX; sy = yLocal;
-      ex = startX + length; ey = yLocal;
-    } else {
-      // Height on Y-axis: draw vertical line at top/bottom
-      const nearLeft = /LEFT/i.test(type);
-      const xLocal = nearLeft ? inset : (panel.w - inset);
-      const startY = (panel.h - length) / 2;
-      sx = xLocal; sy = startY;
-      ex = xLocal; ey = startY + length;
-    }
+    // Label to the right of the vertical line, rotated
+    const labelX = panel.x + inset + 5;
+    const labelY = panel.y + inset + 6;
+    doc.text("GADDI", labelX, labelY, { angle: 90 });
   }
 
-  // --- 4) Map local points to global (rotated) coordinates
-  // rotate around panel center
-  const cx = panel.x + panel.w / 2;
-  const cy = panel.y + panel.h / 2;
-  const rot = ((panel.rotationDegrees ?? 0) % 360 + 360) % 360; // 0..359
-
-  function localToGlobal(pxLocal: number, pyLocal: number) {
-    // local coords origin = panel.x, panel.y (top-left)
-    const lx = panel.x + pxLocal;
-    const ly = panel.y + pyLocal;
-
-    // translate to center
-    const tx = lx - cx;
-    const ty = ly - cy;
-
-    // rotation (clockwise rot degrees)
-    const theta = (rot * Math.PI) / 180;
-    const cosT = Math.cos(theta);
-    const sinT = Math.sin(theta);
-
-    // rotated point relative to center
-    const rx = tx * cosT + ty * sinT;
-    const ry = -tx * sinT + ty * cosT; // note: using PDF/Canvas coordinate assumption
-    // back to global coords
-    return { x: cx + rx, y: cy + ry };
-  }
-
-  const p0 = localToGlobal(sx, sy);
-  const p1 = localToGlobal(ex, ey);
-
-  // --- 5) Save previous state (best-effort), set drawing style
-  const prevLineWidth = (doc.getLineWidth ? doc.getLineWidth() : undefined);
-  const prevDrawColor = (doc.getDrawColor ? doc.getDrawColor() : undefined);
-  let prevDash: any = null;
-  try { prevDash = (doc as any)._currentDash ?? null; } catch { prevDash = null; }
-
-  try {
-    if ((doc as any).setLineWidth) doc.setLineWidth(lineWidth);
-    if ((doc as any).setDrawColor) doc.setDrawColor(color);
-    if ((doc as any).setLineDash) (doc as any).setLineDash(dashPattern);
-
-    // draw dotted line
-    doc.line(p0.x, p0.y, p1.x, p1.y);
-
-    // Draw "GADDI" text label along the line
-    // Reset line dash for text (jsPDF can mess up text with dashes active)
-    if ((doc as any).setLineDash) (doc as any).setLineDash([]);
-
-    const midX = (p0.x + p1.x) / 2;
-    const midY = (p0.y + p1.y) / 2;
-
-    // Determine if line is horizontal or vertical
-    const isHorizontal = Math.abs(p1.x - p0.x) > Math.abs(p1.y - p0.y);
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(6);
-    doc.setTextColor(0, 0, 0); // Black color
-
-    if (isHorizontal) {
-      // Horizontal line (X-axis): text on the LEFT, INSIDE panel with 11px gap (scaled to ~7pt)
-      const leftX = Math.min(p0.x, p1.x) + 2;
-      doc.text("GADDI", leftX, midY + 7, { align: "left" });
-    } else {
-      // Vertical line (Y-axis): text at BOTTOM, INSIDE panel with 15px gap (scaled to ~9pt)
-      const bottomY = Math.max(p0.y, p1.y) - 3;
-      doc.text("GADDI", midX + 9, bottomY, { align: "left", angle: 90 });
-    }
-
-    // Reset text color
-    doc.setTextColor(0);
-  } finally {
-    // restore
-    if (prevLineWidth != null && (doc as any).setLineWidth) (doc as any).setLineWidth(prevLineWidth);
-    if (prevDrawColor != null && (doc as any).setDrawColor) (doc as any).setDrawColor(prevDrawColor);
-    if ((doc as any).setLineDash) {
-      if (prevDash && Array.isArray(prevDash)) (doc as any).setLineDash(prevDash);
-      else (doc as any).setLineDash([]);
-    } else {
-      try { (doc as any).setLineDash([]); } catch (_) { /* ignore */ }
-    }
-  }
+  // Reset colors to black after drawing
+  doc.setTextColor(0, 0, 0);
+  doc.setDrawColor(0, 0, 0);
 }
 
-/**
- * Calculate gaddi line direction based on grain direction
- * @param gaddiEnabled - Whether gaddi is enabled for this panel
- * @param grainDirection - Whether wood grain direction is enabled
- * @returns Direction of gaddi line or null if disabled
- */
+// ----------------- SUPPORT METHODS -----------------
+
 export function calculateGaddiLineDirection(
   gaddiEnabled: boolean,
-  grainDirection: boolean
-): 'horizontal' | 'vertical' | null {
+  panelType: string,
+  w: number,
+  h: number
+): "horizontal" | "vertical" | null {
   if (!gaddiEnabled) return null;
-  // If grain direction is enabled, gaddi line follows the grain (vertical)
-  // Otherwise, gaddi line is horizontal
-  return grainDirection ? 'vertical' : 'horizontal';
+
+  const isLeftRight = /LEFT|RIGHT/i.test(panelType);
+  const isTopBottom = /TOP|BOTTOM/i.test(panelType);
+  const isShutter = /SHUTTER/i.test(panelType);
+
+  if (!isLeftRight && !isTopBottom && !isShutter) return null;
+
+  if (isTopBottom) return w >= h ? "horizontal" : "vertical";
+  return w >= h ? "horizontal" : "vertical";
 }
 
-/**
- * Determine if gaddi marking should be shown for a panel
- * @param panel - Panel object with gaddi property
- * @returns True if gaddi marking should be displayed
- */
 export function shouldShowGaddiMarking(panel: any): boolean {
   return Boolean(panel?.gaddi);
 }
 
-/**
- * Validate gaddi rule constraints for a panel
- * @param panel - Panel object to validate
- * @returns True if panel passes gaddi validation rules
- */
 export function validateGaddiRule(panel: any): boolean {
-  // If gaddi is not enabled, no validation needed
   if (!panel?.gaddi) return true;
-
-  // Validate panel has required dimensions
-  if (!panel.width || !panel.height || panel.width <= 0 || panel.height <= 0) {
-    return false;
-  }
-
-  // Gaddi panels should have minimum dimensions
-  const minDimension = 100; // 100mm minimum
-  if (panel.width < minDimension || panel.height < minDimension) {
-    return false;
-  }
-
-  // All validations passed
+  if (!panel.width || !panel.height || panel.width <= 0 || panel.height <= 0) return false;
+  if (panel.width < 100 || panel.height < 100) return false;
   return true;
 }
-

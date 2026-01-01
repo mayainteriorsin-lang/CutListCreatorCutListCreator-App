@@ -1,10 +1,10 @@
-function mulberry32(seed: number) { 
-  return function() { 
-    let t = seed += 0x6D2B79F5; 
-    t = Math.imul(t ^ (t >>> 15), t | 1); 
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61); 
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296; 
-  }; 
+function mulberry32(seed: number) {
+  return function () {
+    let t = seed += 0x6D2B79F5;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
 }
 
 const EPS = 1e-4; // more realistic tolerance for mm-based layouts
@@ -48,15 +48,6 @@ const rectContains = (a: Rect, b: Rect) =>
   b.x + b.w <= a.x + a.w + EPS &&
   b.y + b.h <= a.y + a.h + EPS;
 
-function detectSide(id: string): "Top"|"Bottom"|"Left"|"Right"|"Back"|null {
-  const s = (id || "").toLowerCase();
-  if (/\btop\b/.test(s)) return "Top";
-  if (/\bbottom\b/.test(s)) return "Bottom";
-  if (/\bleft\b/.test(s)) return "Left";
-  if (/\bright\b/.test(s)) return "Right";
-  if (/\bback\b/.test(s)) return "Back";
-  return null;
-}
 
 class MaxRectsBin {
   W: number;
@@ -76,23 +67,37 @@ class MaxRectsBin {
   }
 
   tryPlace(piece: any, strategy: string) {
-    let bestScore = { a: Infinity, s1: Infinity, s2: Infinity }, best: any = null, idxBest = -1;
+    let bestScore = { a: Infinity, s1: Infinity, s2: Infinity }, best: any = null;
 
     for (let i = 0; i < this.free.length; i++) {
       const fr = this.free[i];
 
-      // NO ROTATION - Try non-rotated orientation ONLY
+      // Try NORMAL orientation
       if (piece.w <= fr.w && piece.h <= fr.h) {
         const aWaste = fr.w * fr.h - piece.w * piece.h;
         const s1 = Math.min(fr.w - piece.w, fr.h - piece.h);
         const s2 = Math.max(fr.w - piece.w, fr.h - piece.h);
         const key = (strategy === "BAF") ? aWaste : (strategy === "BSSF" ? s1 : s2);
         const cand = { a: key, s1, s2, rot: false, rect: { x: fr.x, y: fr.y, w: piece.w, h: piece.h }, i };
-        if (s1 <= EPS && s2 <= EPS) { bestScore = cand; best = cand; idxBest = i; break; }
+        if (s1 <= EPS && s2 <= EPS) { bestScore = cand; best = cand; break; }
         if (key < bestScore.a || (key === bestScore.a && (s1 < bestScore.s1 || (s1 === bestScore.s1 && s2 < bestScore.s2)))) {
           bestScore = cand;
           best = cand;
-          idxBest = i;
+        }
+      }
+
+      // Try ROTATED orientation (only if rotation allowed)
+      if (piece.rotate && piece.h <= fr.w && piece.w <= fr.h) {
+        const rotW = piece.h, rotH = piece.w;  // Swap dimensions
+        const aWaste = fr.w * fr.h - rotW * rotH;
+        const s1 = Math.min(fr.w - rotW, fr.h - rotH);
+        const s2 = Math.max(fr.w - rotW, fr.h - rotH);
+        const key = (strategy === "BAF") ? aWaste : (strategy === "BSSF" ? s1 : s2);
+        const cand = { a: key, s1, s2, rot: true, rect: { x: fr.x, y: fr.y, w: rotW, h: rotH }, i };
+        if (s1 <= EPS && s2 <= EPS) { bestScore = cand; best = cand; break; }
+        if (key < bestScore.a || (key === bestScore.a && (s1 < bestScore.s1 || (s1 === bestScore.s1 && s2 < bestScore.s2)))) {
+          bestScore = cand;
+          best = cand;
         }
       }
     }
@@ -106,8 +111,8 @@ class MaxRectsBin {
       y: best.rect.y + this.kerf / 2,
       w: best.rect.w - this.kerf,
       h: best.rect.h - this.kerf,
-      rotated: false,
-      rotateAllowed: false,
+      rotated: best.rot,
+      rotateAllowed: !!piece.rotate,
       gaddi: !!piece.gaddi,
       laminateCode: piece.laminateCode || '',
       nomW: (piece as any).nomW || piece.w,
@@ -118,40 +123,6 @@ class MaxRectsBin {
     this.placed.push(placed);
     this.usedArea += best.rect.w * best.rect.h;
     return placed;
-  }
-
-  split(index: number, used: Rect) {
-    const base = this.free[index]; 
-    this.free.splice(index, 1);
-    const add: Rect[] = [];
-    
-    if (used.x > base.x + EPS) {
-      add.push({ x: base.x, y: base.y, w: used.x - base.x, h: base.h });
-    }
-    if (used.x + used.w < base.x + base.w - EPS) {
-      add.push({
-        x: used.x + used.w, 
-        y: base.y, 
-        w: (base.x + base.w) - (used.x + used.w), 
-        h: base.h
-      });
-    }
-    if (used.y > base.y + EPS) {
-      add.push({ x: base.x, y: base.y, w: base.w, h: used.y - base.y });
-    }
-    if (used.y + used.h < base.y + base.h - EPS) {
-      add.push({
-        x: base.x, 
-        y: used.y + used.h, 
-        w: base.w, 
-        h: (base.y + base.h) - (used.y + used.h)
-      });
-    }
-
-    this.free.push(...add.filter(r => r.w > EPS && r.h > EPS));
-    this.prune(); 
-    this.mergeNeighbors();
-    this.free = this.free.filter(r => r.w > EPS && r.h > EPS);
   }
 
   private splitAll(used: Rect) {
@@ -192,7 +163,7 @@ class MaxRectsBin {
       // Compute X-axis overlap span for top/bottom slices
       const ix0 = Math.max(fr.x, used.x);
       const ix1 = Math.min(fr.x + fr.w, used.x + used.w);
-      const iw  = ix1 - ix0;
+      const iw = ix1 - ix0;
 
       // Top slice
       if (fr.y < used.y && iw > EPS) {
@@ -236,8 +207,8 @@ class MaxRectsBin {
 
           // X-axis merge (side by side)
           if (Math.abs(a.y - b.y) <= EPS &&
-              Math.abs(a.h - b.h) <= EPS &&
-              (Math.abs(a.x + a.w - b.x) <= EPS || Math.abs(b.x + b.w - a.x) <= EPS)) {
+            Math.abs(a.h - b.h) <= EPS &&
+            (Math.abs(a.x + a.w - b.x) <= EPS || Math.abs(b.x + b.w - a.x) <= EPS)) {
             const nx = Math.min(a.x, b.x), ny = a.y, nw = a.w + b.w, nh = Math.max(a.h, b.h);
             this.free.splice(j, 1); this.free.splice(i, 1); this.free.push({ x: nx, y: ny, w: nw, h: nh });
             merged = true; break outer;
@@ -245,8 +216,8 @@ class MaxRectsBin {
 
           // Y-axis merge (top to bottom)
           if (Math.abs(a.x - b.x) <= EPS &&
-              Math.abs(a.w - b.w) <= EPS &&
-              (Math.abs(a.y + a.h - b.y) <= EPS || Math.abs(b.y + b.h - a.y) <= EPS)) {
+            Math.abs(a.w - b.w) <= EPS &&
+            (Math.abs(a.y + a.h - b.y) <= EPS || Math.abs(b.y + b.h - a.y) <= EPS)) {
             const nx = a.x, ny = Math.min(a.y, b.y), nw = Math.max(a.w, b.w), nh = a.h + b.h;
             this.free.splice(j, 1); this.free.splice(i, 1); this.free.push({ x: nx, y: ny, w: nw, h: nh });
             merged = true; break outer;
@@ -287,15 +258,15 @@ function packOnce(pieces: any[], W: number, H: number, kerf: number, strategy: s
     });
 
   const panels: MaxRectsBin[] = [];
-  const newBin = () => { 
-    const b = new MaxRectsBin(W, H, kerf); 
-    panels.push(b); 
-    return b; 
+  const newBin = () => {
+    const b = new MaxRectsBin(W, H, kerf);
+    panels.push(b);
+    return b;
   };
-  
+
   // Start with at least one sheet
   if (panels.length === 0) newBin();
-  
+
   const leftovers: any[] = [];
 
   for (const p of pieces) {
@@ -312,19 +283,19 @@ function packOnce(pieces: any[], W: number, H: number, kerf: number, strategy: s
       panelType: (p as any).panelType,  // 📐 Panel type
       axisLockReason: (p as any).axisLockReason  // 📐 Axis constraint
     };
-    
+
     let placed = null;
-    
+
     // ✅ Try every existing sheet first before creating a new one
     for (let b = 0; b < panels.length && !placed; b++) {
       placed = panels[b].tryPlace(tryP, strategy);
     }
-    
+
     // If doesn't fit on any existing sheet, open a new one and try
     if (!placed) {
       const newSheet = newBin();
       placed = newSheet.tryPlace(tryP, strategy);
-      if (!placed) { 
+      if (!placed) {
         leftovers.push(p); // Really doesn't fit at all
       }
     }
@@ -364,45 +335,46 @@ export function optimizeCutlist({
   // Expand each part into instances with axis-lock constraints
   const expanded: any[] = [];
   const expandLog: any[] = [];
-  
-  parts.forEach(p => { 
+
+  parts.forEach(p => {
     for (let i = 0; i < p.qty; i++) {
       const instanceId = `${p.id}::${i}`;
       const panelType = (p as any).panelType || 'panel';
-      
-      const piece = { 
+
+      const piece = {
         id: instanceId,
         origId: p.id,
-        w: p.w, 
-        h: p.h, 
-        rotate: false,  // NO ROTATION - always false
-        rotateAllowed: false,  // NO ROTATION - always false
+        w: p.w,
+        h: p.h,
+        rotate: p.rotate ?? false,  // Use input flag (respects wood grain setting)
+        rotateAllowed: p.rotate ?? false,  // Use input flag
         gaddi: !!p.gaddi,
         laminateCode: p.laminateCode || '',
         nomW: (p as any).nomW || p.w,
         nomH: (p as any).nomH || p.h,
         panelType: panelType
       };
-      
+
       expanded.push(piece);
-      
+
       expandLog.push({
         instanceId,
         panelType,
         dimensions: `${piece.w}×${piece.h}mm`,
-        rotation: '🔒 DISABLED'
+        rotation: piece.rotate ? '🔄 ALLOWED' : '🔒 DISABLED (grain)'
       });
     }
   });
-  
-  // 📊 LOG ALL EXPANDED INSTANCES - ROTATION DISABLED
-  console.groupCollapsed(`🆔 OPTIMIZER EXPANDED INSTANCES (Total: ${expanded.length}) — ROTATION DISABLED`);
-  console.log('🔒 ROTATION DISABLED - All pieces placed in original orientation only');
+
+  // 📊 LOG ALL EXPANDED INSTANCES
+  const rotCount = expanded.filter((e: any) => e.rotate).length;
+  console.groupCollapsed(`🆔 OPTIMIZER EXPANDED INSTANCES (Total: ${expanded.length}) — ${rotCount} can rotate`);
+  console.log(`🔄 Rotation: ${rotCount} pieces can rotate, ${expanded.length - rotCount} locked (grain)`);
   console.table(expandLog);
   console.groupEnd();
 
   const base = expanded.slice().sort((a, b) => {
-    const d = area(b) - area(a); 
+    const d = area(b) - area(a);
     if (d) return d;
     const ra = Math.max(a.w, a.h) / Math.min(a.w, a.h);
     const rb = Math.max(b.w, b.h) / Math.min(b.w, b.h);
@@ -417,10 +389,10 @@ export function optimizeCutlist({
     const order = base.slice();
 
     const swaps = Math.max(5, Math.floor(order.length * 0.2));
-    for (let k = 0; k < swaps; k++) { 
+    for (let k = 0; k < swaps; k++) {
       const i = Math.floor(rnd() * order.length);
-      const j = Math.floor(rnd() * order.length); 
-      [order[i], order[j]] = [order[j], order[i]]; 
+      const j = Math.floor(rnd() * order.length);
+      [order[i], order[j]] = [order[j], order[i]];
     }
     if (rnd() < 0.5) {
       order.sort((a, b) => {
@@ -460,8 +432,8 @@ export function optimizeCutlist({
 
         // Bounds check
         if (a.x < -EPS || a.y < -EPS ||
-            a.x + a.w > sheetW + EPS ||
-            a.y + a.h > sheetH + EPS) {
+          a.x + a.w > sheetW + EPS ||
+          a.y + a.h > sheetH + EPS) {
           throw new Error(
             `Panel exceeds sheet boundaries (Sheet ${sheetIdx + 1}, ${a.id})`
           );
@@ -490,9 +462,53 @@ export function optimizeCutlist({
     throw error; // Propagate error to stop PDF generation
   }
 
+  // ========== PANEL COUNT VALIDATION ==========
+  // Calculate total input panels (sum of all quantities)
+  const totalInputPanels = parts.reduce((sum, part) => sum + part.qty, 0);
+
+  // Calculate total placed panels
+  const totalPlacedPanels = best.panels.reduce((sum: number, panel: any) => sum + panel.placed.length, 0);
+
+  // Calculate unplaced panels
+  const totalUnplacedPanels = best.leftover.length;
+
+  // Verify panel conservation
+  const totalOutputPanels = totalPlacedPanels + totalUnplacedPanels;
+  const panelsLost = totalInputPanels - totalOutputPanels;
+
+  console.group('📊 PANEL COUNT VALIDATION (MaxRects)');
+  console.log(`Input panels: ${totalInputPanels}`);
+  const placedPercent = totalInputPanels > 0 ? ((totalPlacedPanels / totalInputPanels) * 100).toFixed(1) : '0.0';
+  console.log(`Placed panels: ${totalPlacedPanels} (${placedPercent}%)`);
+  console.log(`Unplaced panels: ${totalUnplacedPanels}`);
+  console.log(`Total output: ${totalOutputPanels}`);
+
+  if (panelsLost !== 0) {
+    console.error(`❌ CRITICAL ERROR: ${Math.abs(panelsLost)} panels ${panelsLost > 0 ? 'LOST' : 'DUPLICATED'} during optimization!`);
+    console.error('Input parts:', parts.map(p => `${p.id} (qty: ${p.qty})`));
+    console.error('Placed IDs:', best.panels.flatMap((b: any) => b.placed.map((p: any) => p.id)));
+    console.error('Unplaced IDs:', best.leftover.map((p: any) => p.id));
+    throw new Error(`Panel count mismatch: ${panelsLost} panels ${panelsLost > 0 ? 'lost' : 'duplicated'}`);
+  } else {
+    console.log('✅ All panels accounted for - no panels lost!');
+  }
+  console.groupEnd();
+
+  // Detailed placement summary
+  if (totalUnplacedPanels > 0) {
+    console.warn(`⚠️ WARNING: ${totalUnplacedPanels} panels could not be placed (oversized or constraint issues)`);
+    console.table(best.leftover.map((p: any) => ({
+      id: p.id,
+      width: p.w,
+      height: p.h,
+      rotate: p.rotate ? 'allowed' : 'locked',
+      reason: (p.w > W && p.h > H) || (!p.rotate && (p.w > W || p.h > H)) ? 'Too large' : 'Unknown'
+    })));
+  }
+
   return {
     panels: best.panels.map((p: any) => ({
-      W: p.W, 
+      W: p.W,
       H: p.H,
       placed: p.placed,
       free: p.free
@@ -505,6 +521,13 @@ export function optimizeCutlist({
       wastePct,
       efficiencyPct
     },
-    unplaced: best.leftover
+    unplaced: best.leftover,
+    validation: {
+      totalInput: totalInputPanels,
+      totalPlaced: totalPlacedPanels,
+      totalUnplaced: totalUnplacedPanels,
+      panelsLost: panelsLost,
+      allAccountedFor: panelsLost === 0
+    }
   };
 }
