@@ -2,12 +2,20 @@
 > rest-express@1.0.0 dev
 > cross-env NODE_ENV=development tsx server/index.ts
 
-8:47:33 PM [express] serving on port 5000
-8:47:46 PM [express] GET /api/laminate-code-godown 304 in 2053ms :: []
-8:47:46 PM [express] GET /api/wood-grains-preferences 304 in 2064ms :: []
-8:47:46 PM [express] GET /api/godown/laminate 304 in 2083ms :: []
-8:47:46 PM [express] GET /api/master-settings-memory 200 in 2080ms :: {"id":1,"sheetWidth":"1210","sâ€¦
-8:47:46 PM [express] GET /api/master-settings 304 in 2509ms :: {"id":1,"sheetWidth":"1210","sheetHeiâ€¦
-8:47:46 PM [express] GET /api/godown/plywood 304 in 2499ms :: []
-8:47:47 PM [express] POST /api/master-settings-memory 200 in 591ms :: {"id":1,"sheetWidth":"1210","sâ€¦
+2:20:27 PM [express] serving on port 5000
+2:20:33 PM [express] GET /api/master-settings 200 in 1700ms :: {"id":1,"sheetWidth":"1210","sheetHeiâ€¦
+2:20:33 PM [express] GET /api/wood-grains-preferences 304 in 1690ms :: [{"id":2,"laminateCode":"123"â€¦
+2:20:33 PM [express] GET /api/laminate-code-godown 304 in 1720ms :: [{"id":5,"code":"111","name":"11â€¦
+2:20:33 PM [express] GET /api/godown/plywood 304 in 1731ms :: [{"id":4,"brand":"front wood","createdâ€¦
+2:20:33 PM [express] GET /api/master-settings-memory 200 in 1808ms :: {"id":1,"sheetWidth":"1210","sâ€¦
+2:20:33 PM [express] GET /api/godown/laminate 304 in 1900ms :: [{"id":6,"code":"678","name":"678","iâ€¦
+2:20:34 PM [express] POST /api/master-settings-memory 200 in 818ms :: {"id":1,"sheetWidth":"1210","sâ€¦
+2:20:34 PM [express] GET /api/godown/plywood 304 in 285ms :: [{"id":4,"brand":"front wood","createdAâ€¦
+2:20:34 PM [express] GET /api/godown/laminate 304 in 288ms :: [{"id":6,"code":"678","name":"678","inâ€¦
+2:20:47 PM [express] POST /api/master-settings 200 in 2267ms :: {"id":1,"sheetWidth":"1210","sheetHeâ€¦
+2:21:08 PM [express] POST /api/godown/plywood 201 in 2064ms :: {"id":5,"brand":"jkjads","createdAt":â€¦
+2:21:08 PM [express] GET /api/godown/plywood 200 in 470ms :: [{"id":5,"brand":"jkjads","createdAt":"â€¦
+2:21:55 PM [express] POST /api/godown/laminate 201 in 2096ms :: {"id":7,"code":"off white","name":"oâ€¦
+2:21:56 PM [express] POST /api/master-settings 200 in 557ms :: {"id":1,"sheetWidth":"1210","sheetHeiâ€¦
+2:21:57 PM [express] GET /api/godown/laminate 200 in 1884ms :: [{"id":7,"code":"off white","name":"oâ€¦
 ^C^C

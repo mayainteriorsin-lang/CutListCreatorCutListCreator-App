@@ -18,7 +18,6 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { useToast } from '@/hooks/use-toast';
-import { GodownCombobox } from "@/components/ui/GodownCombobox";
 import { PlywoodSelector } from "@/components/master-settings/PlywoodSelector";
 import { LaminateSelector } from "@/components/master-settings/LaminateSelector";
 import DesignCenter from "../components/ui/DesignCenter";
@@ -365,7 +364,6 @@ export default function Home() {
   const [units, setUnits] = useState<'mm' | 'inches'>('mm');
   const [laminateCodes, setLaminateCodes] = useState<LaminateCode[]>([]);
   const [calculationLogicLocked, setCalculationLogicLocked] = useState<boolean>(true);
-  const [selectedLaminateCode, setSelectedLaminateCode] = useState('');
   const [selectedRoom, setSelectedRoom] = useState('Kitchen');
   const [customRoomName, setCustomRoomName] = useState('');
   const [clientName, setClientName] = useState('');
@@ -473,8 +471,6 @@ export default function Home() {
   const [masterPlywoodBrand, setMasterPlywoodBrand] = useState('Apple Ply 16mm BWP');
   const [masterLaminateCode, setMasterLaminateCode] = useState('');
   const [masterInnerLaminateCode, setMasterInnerLaminateCode] = useState('off white');
-  const [masterPlywoodGodown, setMasterPlywoodGodown] = useState('');
-  const [masterLaminateGodown, setMasterLaminateGodown] = useState('');
 
   // Wood grain preferences still tracked locally for now, but synced with types
   const [woodGrainsPreferences, setWoodGrainsPreferences] = useState<Record<string, boolean>>({});
@@ -497,13 +493,7 @@ export default function Home() {
     if (inner && !masterInnerLaminateCode) {
       setMasterInnerLaminateCode(inner);
     }
-    if ((masterSettings as any)?.plywoodGodown && !masterPlywoodGodown) {
-      setMasterPlywoodGodown((masterSettings as any).plywoodGodown);
-    }
-    if ((masterSettings as any)?.laminateGodown && !masterLaminateGodown) {
-      setMasterLaminateGodown((masterSettings as any).laminateGodown);
-    }
-  }, [masterLaminateCode, masterLaminateGodown, masterPlywoodGodown, masterSettings]);
+  }, [masterLaminateCode, masterSettings]);
 
   useEffect(() => {
     if (!masterPlywoodBrand && plywoodOptions.length > 0) {
@@ -514,10 +504,8 @@ export default function Home() {
   const getMasterDefaults = () => {
     return {
       plywoodBrand: masterPlywoodBrand || (masterSettings as any)?.masterPlywoodBrand || 'Apple Ply 16mm BWP',
-      plywoodGodown: masterPlywoodGodown || (masterSettings as any)?.plywoodGodown || '',
       laminateCode: masterLaminateCode || masterSettings?.masterLaminateCode || '',
-      innerLaminateCode: masterInnerLaminateCode || (masterSettings as any)?.masterInnerLaminateCode || (masterSettings as any)?.innerLaminateCode || 'off white',
-      laminateGodown: masterLaminateGodown || (masterSettings as any)?.laminateGodown || ''
+      innerLaminateCode: masterInnerLaminateCode || (masterSettings as any)?.masterInnerLaminateCode || (masterSettings as any)?.innerLaminateCode || 'off white'
     };
   };
 
@@ -527,8 +515,6 @@ export default function Home() {
       ...cabinet,
       A: cabinet.A ?? defaults.plywoodBrand,
       plywoodType: cabinet.plywoodType || defaults.plywoodBrand,
-      plywoodGodown: cabinet.plywoodGodown || defaults.plywoodGodown,
-      laminateGodown: cabinet.laminateGodown || defaults.laminateGodown,
       B: (cabinet as any).B ?? defaults.laminateCode,
       C: (cabinet as any).C ?? defaults.innerLaminateCode,
       topPanelLaminateCode: cabinet.topPanelLaminateCode || defaults.laminateCode,
@@ -679,7 +665,7 @@ export default function Home() {
       shelvesInnerLaminateCode: masterDefaults.innerLaminateCode, // ?. FIX: Add missing for grain direction lookup
       plywoodType: storedMemory.plywoodType ?? masterDefaults.plywoodBrand,
       backPanelPlywoodBrand: storedMemory.backPanelPlywoodBrand ?? 'Apple ply 6mm BWP',
-      shutterPlywoodBrand: storedMemory.shutterPlywoodBrand ?? (storedMemory.plywoodType ?? masterDefaults.plywoodBrand),
+      shutterPlywoodBrand: storedMemory.shutterPlywoodBrand ?? '',
       innerLaminateCode: masterDefaults.innerLaminateCode,
       // Grain direction fields - default to false for new forms
       topPanelGrainDirection: false,
@@ -936,6 +922,24 @@ export default function Home() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/laminate-code-godown'] });
+    },
+  });
+
+  const savePlywoodBrandMutation = useMutation({
+    mutationFn: async (brand: string) => {
+      return apiRequest('POST', '/api/godown/plywood', { brand });
+    },
+    onSuccess: () => {
+      fetchMaterials();
+    },
+  });
+
+  const deletePlywoodBrandMutation = useMutation({
+    mutationFn: async (brand: string) => {
+      return apiRequest('DELETE', `/api/plywood-brand-memory/${encodeURIComponent(brand)}`);
+    },
+    onSuccess: () => {
+      fetchMaterials();
     },
   });
 
@@ -1259,28 +1263,6 @@ export default function Home() {
     setLeftLaminateSelection(newCode);
     setRightLaminateSelection(newCode);
     setBackLaminateSelection(newCode);
-  };
-
-  // Master Settings: Update ALL cabinets when master plywood godown changes
-  const updateAllCabinetsPlywoodGodown = (newGodown: string) => {
-    updateCabinets((prevCabinets: Cabinet[]) =>
-      prevCabinets.map(cabinet => ({
-        ...cabinet,
-        plywoodGodown: newGodown
-      }))
-    );
-    form.setValue('plywoodGodown', newGodown);
-  };
-
-  // Master Settings: Update ALL cabinets when master laminate godown changes
-  const updateAllCabinetsLaminateGodown = (newGodown: string) => {
-    updateCabinets((prevCabinets: Cabinet[]) =>
-      prevCabinets.map(cabinet => ({
-        ...cabinet,
-        laminateGodown: newGodown
-      }))
-    );
-    form.setValue('laminateGodown', newGodown);
   };
 
   // Handle export from DesignCenter
@@ -2704,7 +2686,7 @@ export default function Home() {
       innerLaminateCode: 'off white',
       plywoodType: memory.plywoodType ?? 'Apple Ply 16mm BWP',
       backPanelPlywoodBrand: memory.backPanelPlywoodBrand ?? 'Apple ply 6mm BWP',
-      shutterPlywoodBrand: shutterMemoryNew.shutterPlywoodBrand ?? (memory.plywoodType ?? 'Apple Ply 16mm BWP'), // ✅ Use shutter memory
+      shutterPlywoodBrand: shutterMemoryNew.shutterPlywoodBrand ?? '', // ✅ Use shutter memory only; master plywood stays on main field
       // ✅ DIRECT LINK: Initialize grain directions from database preferences, not hardcoded false
       topPanelGrainDirection: hasTopWoodGrain,
       bottomPanelGrainDirection: hasTopWoodGrain,
@@ -2998,6 +2980,8 @@ export default function Home() {
       shelvesEnabled: false,
       shelvesLaminateCode: "",
       widthReduction: cabinetMemory.widthReduction ?? 36,
+      backPanelWidthReduction: (cabinetMemory as any).backPanelWidthReduction ?? 20,
+      backPanelHeightReduction: (cabinetMemory as any).backPanelHeightReduction ?? 20,
       shuttersEnabled: false,
       shutterCount: 1,
       shutterType: "Standard",
@@ -3008,7 +2992,7 @@ export default function Home() {
       shutterInnerLaminateCode: shutterMemory?.shutterInnerLaminateCode || "",  // ?. Keep inner laminate
       plywoodType: cabinetMemory.plywoodType ?? undefined,
       backPanelPlywoodBrand: cabinetMemory.backPanelPlywoodBrand ?? "Apple ply 6mm BWP",
-      shutterPlywoodBrand: shutterMemory?.shutterPlywoodBrand ?? (cabinetMemory.plywoodType ?? undefined),
+      shutterPlywoodBrand: shutterMemory?.shutterPlywoodBrand ?? undefined,
       topPanelLaminateCode: cabinetMemory.topPanelLaminateCode ?? "",
       bottomPanelLaminateCode: cabinetMemory.topPanelLaminateCode ?? "",
       leftPanelLaminateCode: cabinetMemory.topPanelLaminateCode ?? "",
@@ -3080,7 +3064,7 @@ export default function Home() {
         innerLaminateCode: 'off white',
         plywoodType: cabinetMemory.plywoodType ?? undefined,
         backPanelPlywoodBrand: cabinetMemory.backPanelPlywoodBrand ?? 'Apple ply 6mm BWP',
-        shutterPlywoodBrand: cabinetMemory.shutterPlywoodBrand ?? (cabinetMemory.plywoodType ?? undefined),
+        shutterPlywoodBrand: cabinetMemory.shutterPlywoodBrand ?? undefined,
         shutterLaminateCode: cabinetMemory.shutterLaminateCode ?? '',
         shutterInnerLaminateCode: cabinetMemory.shutterInnerLaminateCode ?? '',
         backPanelWidthReduction: 0,
@@ -4196,21 +4180,10 @@ export default function Home() {
                         onChange={(value) => {
                           const trimmed = value.trim();
                           setMasterPlywoodBrand(trimmed);
-                          updateAllCabinetsPlywood(trimmed);
+                          // Master Settings ONLY stores default
+                          // NO cabinet auto update
                         }}
                       />
-                      <div className="mt-2">
-                        <Label className="text-sm font-medium">Plywood Godown</Label>
-                        <GodownCombobox
-                          value={masterPlywoodGodown}
-                          onChange={(value) => {
-                            setMasterPlywoodGodown(value);
-                            updateAllCabinetsPlywoodGodown(value); // Side-effect preserved
-                          }}
-                          placeholder="Select plywood godown"
-                          type="plywood"
-                        />
-                      </div>
                     </div>
 
                     {/* Row 2: Laminate with Wood Grains button */}
@@ -4221,21 +4194,8 @@ export default function Home() {
                           <LaminateSelector
                             value={masterLaminateCode}
                             onChange={(code) => {
-                              setMasterLaminateCode(code);
                               updateAllCabinetsLaminateCode(code);
                             }}
-                          />
-                        </div>
-                        <div className="mt-2">
-                          <Label className="text-sm font-medium">Laminate Godown</Label>
-                          <GodownCombobox
-                            value={masterLaminateGodown}
-                            onChange={(value) => {
-                              setMasterLaminateGodown(value);
-                              updateAllCabinetsLaminateGodown(value); // Side-effect preserved
-                            }}
-                            placeholder="Select laminate godown"
-                            type="laminate"
                           />
                         </div>
                       </div>
@@ -8338,7 +8298,7 @@ export default function Home() {
                   widthReduction: 36,
                   plywoodType: masterPlywoodBrand || 'Apple Ply 16mm BWP',
                   backPanelPlywoodBrand: 'Apple ply 6mm BWP',
-                  shutterPlywoodBrand: masterPlywoodBrand || 'Apple Ply 16mm BWP',
+                  shutterPlywoodBrand: '',
                   topPanelLaminateCode: masterLaminateCode || '',
                   bottomPanelLaminateCode: masterLaminateCode || '',
                   leftPanelLaminateCode: masterLaminateCode || '',
@@ -8513,4 +8473,3 @@ export default function Home() {
     </div>
   );
 }
-
