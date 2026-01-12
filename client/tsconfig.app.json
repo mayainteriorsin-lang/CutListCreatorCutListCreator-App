@@ -21,6 +21,8 @@
 
     /* Linting */
     "strict": true,
+    "noUncheckedIndexedAccess": false,
+    "exactOptionalPropertyTypes": false,
     "noFallthroughCasesInSwitch": true
   },
   "include": ["src", "../shared"]
