@@ -1,5 +1,15 @@
 import React, { useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
+import {
+  CheckCircle2,
+  Copy,
+  Mail,
+  Link2,
+  MessageCircle,
+  Clock
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useVisualQuotationStore } from "../../store/visualQuotationStore";
 import { calculatePricing } from "../../engine/pricingEngine";
@@ -43,7 +53,7 @@ const ApprovalBar: React.FC = () => {
   const shareMessage = `Hello ${customerName},
 Your quotation for ${projectName} is ready.
 Quotation No: ${quotationId}
-Amount: ₹${totalAmount}
+Amount: ₹${totalAmount.toLocaleString("en-IN")}
 View here: ${quotationLink}`;
 
   const handleWhatsappShare = () => {
@@ -76,102 +86,83 @@ View here: ${quotationLink}`;
   };
 
   return (
-    <div style={styles.bar}>
-      <div style={styles.left}>
-        Status: <strong>{status}</strong>
-      </div>
+    <div className="flex-shrink-0 h-10 bg-white border-t border-slate-200 shadow-lg">
+      <div className="h-full px-3 flex items-center justify-between gap-2">
+        {/* Status */}
+        <div className="flex items-center gap-2">
+          {isApproved ? (
+            <Badge className="bg-green-100 text-green-700 border-green-200 gap-1 h-6 text-[10px]">
+              <CheckCircle2 className="h-3 w-3" />
+              Approved
+            </Badge>
+          ) : (
+            <Badge variant="secondary" className="gap-1 h-6 text-[10px]">
+              <Clock className="h-3 w-3" />
+              Draft
+            </Badge>
+          )}
+        </div>
 
-      <div style={styles.right}>
-        {isApproved && (
-          <div style={styles.share}>
-            <span style={styles.shareLabel}>Share:</span>
-            <div style={styles.shareButtons}>
-              <button
-                style={{ ...styles.shareButton, background: "#22c55e", color: "#fff" }}
+        {/* Actions */}
+        <div className="flex items-center gap-1">
+          {/* Share buttons (only when approved) */}
+          {isApproved && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={handleWhatsappShare}
-                disabled={!isApproved || !customerMobile}
+                disabled={!customerMobile}
+                className="h-7 text-[10px] px-2 bg-green-50 border-green-200 text-green-700"
               >
-                Share via WhatsApp
-              </button>
-              <button
-                style={{ ...styles.shareButton, background: "#2563eb", color: "#fff" }}
+                <MessageCircle className="h-3 w-3 mr-1" />
+                WhatsApp
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={handleEmailShare}
-                disabled={!isApproved}
+                className="h-7 text-[10px] px-2"
               >
-                Share via Email
-              </button>
-              <button
-                style={{ ...styles.shareButton, background: "#f3f4f6", color: "#111827" }}
+                <Mail className="h-3 w-3 mr-1" />
+                Email
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={handleCopyLink}
-                disabled={!isApproved}
+                className="h-7 text-[10px] px-2"
               >
-                Copy Link
-              </button>
-            </div>
-          </div>
-        )}
+                <Link2 className="h-3 w-3" />
+              </Button>
+            </>
+          )}
 
-        {status !== "APPROVED" ? (
-          <button style={styles.approve} onClick={approveQuote}>
-            Approve Quote
-          </button>
-        ) : (
-          <button style={styles.reset} onClick={resetDraft}>
-            Duplicate Quote
-          </button>
-        )}
+          {/* Main action button */}
+          {!isApproved ? (
+            <Button
+              onClick={approveQuote}
+              size="sm"
+              className="h-7 text-[10px] px-3 bg-green-600 hover:bg-green-700"
+            >
+              <CheckCircle2 className="h-3 w-3 mr-1" />
+              Approve
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={resetDraft}
+              className="h-7 text-[10px] px-2"
+            >
+              <Copy className="h-3 w-3 mr-1" />
+              Duplicate
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );
 };
 
 export default ApprovalBar;
-
-const styles: { [k: string]: React.CSSProperties } = {
-  bar: {
-    position: "sticky",
-    bottom: 0,
-    background: "#ffffff",
-    borderTop: "1px solid #e5e7eb",
-    padding: "10px 16px",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    zIndex: 10,
-  },
-  left: { fontSize: 13 },
-  right: { display: "flex", gap: 8 },
-  approve: {
-    padding: "8px 14px",
-    borderRadius: 10,
-    border: "1px solid #16a34a",
-    background: "#16a34a",
-    color: "#fff",
-    fontWeight: 800,
-    cursor: "pointer",
-  },
-  reset: {
-    padding: "8px 14px",
-    borderRadius: 10,
-    border: "1px solid #d1d5db",
-    background: "#f9fafb",
-    fontWeight: 800,
-    cursor: "pointer",
-  },
-  share: {
-    display: "flex",
-    alignItems: "center",
-    gap: 6,
-    flexWrap: "wrap",
-  },
-  shareLabel: { fontSize: 12, color: "#374151", fontWeight: 700 },
-  shareButtons: { display: "flex", gap: 6, flexWrap: "wrap" },
-  shareButton: {
-    padding: "8px 12px",
-    borderRadius: 8,
-    border: "1px solid #e5e7eb",
-    fontWeight: 700,
-    cursor: "pointer",
-    fontSize: 12,
-  },
-};

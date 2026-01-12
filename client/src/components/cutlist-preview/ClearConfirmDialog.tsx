@@ -1,3 +1,4 @@
+import { UseFormReturn } from "react-hook-form";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -10,6 +11,27 @@ import {
 } from "@/components/ui/alert-dialog";
 
 import { toast } from "@/hooks/use-toast";
+import { Cabinet, Panel } from "@shared/schema";
+// PATCH 28: Use preview store for delete state
+import { usePreviewStore } from "@/features/preview";
+
+// PATCH 18 + 19 + 24 + 28: Strict prop typing with store actions, autosave clear, and preview store
+export interface ClearConfirmDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  form: UseFormReturn<any>;
+  updateCabinets: (cabinets: Cabinet[]) => void;
+  setManualPanels: (panels: Panel[]) => void;
+  // PATCH 28: Removed - now uses preview store directly
+  // setDeletedPreviewSheets: (sheets: Set<string>) => void;
+  // setDeletedPreviewPanels: (panels: Set<string>) => void;
+  closePreview: () => void;
+  setIsPreviewActive: (active: boolean) => void;
+  masterPlywoodBrand?: string;
+  masterLaminateCode?: string;
+  // PATCH 24: Clear autosave callback
+  onClearAutosave?: () => void;
+}
 
 export default function ClearConfirmDialog({
   open,
@@ -17,13 +39,14 @@ export default function ClearConfirmDialog({
   form,
   updateCabinets,
   setManualPanels,
-  setDeletedPreviewSheets,
-  setDeletedPreviewPanels,
-  setShowPreviewDialog,
+  closePreview,
   setIsPreviewActive,
   masterPlywoodBrand,
   masterLaminateCode,
-}: any) {
+  onClearAutosave,
+}: ClearConfirmDialogProps) {
+  // PATCH 28: Use preview store for clearing delete state
+  const clearPreviewState = usePreviewStore((s) => s.clearAll);
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
@@ -41,11 +64,14 @@ export default function ClearConfirmDialog({
             onClick={() => {
               localStorage.removeItem("cutlist_spreadsheet_v1");
 
+              // PATCH 24: Clear autosave when clearing all data
+              onClearAutosave?.();
+
               updateCabinets([]);
               setManualPanels([]);
-              setDeletedPreviewSheets(new Set());
-              setDeletedPreviewPanels(new Set());
-              setShowPreviewDialog(false);
+              // PATCH 28: Use preview store to clear delete state
+              clearPreviewState();
+              closePreview();
               setIsPreviewActive(false);
 
               form.reset({

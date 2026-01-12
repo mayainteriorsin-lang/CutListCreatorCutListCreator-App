@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { db } from "./db";
+import { db, pool, safeDbQuery } from "./db";
 import { execSync } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
@@ -12,6 +12,19 @@ import { z } from "zod";
 import { crmRouter } from "./routes/crmRoutes";
 import { aiInteriorDetectRouter } from "./routes/aiInteriorDetect";
 import { aiWardrobeLayoutRouter } from "./routes/aiWardrobeLayout";
+import { normString, normNumber, normBoolean, normArray, normDate, normDateISO } from "./normalize";
+import {
+  MasterSettingsResponseSchema,
+  PlywoodListSchema,
+  LaminateListSchema,
+  WoodGrainsListSchema,
+  MasterSettingsMemorySchema,
+  safeValidate,
+  safeValidateArray
+} from "@shared/schemas";
+import { ok, err } from "./lib/apiEnvelope";
+import { safeQuery as safeQueryAdapter } from "./db/adapter";
+import { getCache, setCache, clearCache, CACHE_KEYS } from "./cache/globalCache";
 
 const masterSettingsUpdateSchema = z.object({
   masterLaminateCode: z.string().trim().min(1).optional().nullable(),
@@ -21,6 +34,32 @@ const masterSettingsUpdateSchema = z.object({
   kerf: z.string().optional(),
   optimizePlywoodUsage: z.boolean().optional(),
 });
+
+// PATCH 14: Enhanced safe query helper with automatic retries
+// PATCH 50: Added timeout option to prevent hanging queries
+// Wraps database calls with error handling and retry logic
+async function safeQuery<T>(
+  queryFn: () => Promise<T>,
+  fallback: T,
+  options: { retries?: number; delayMs?: number; timeoutMs?: number } = {}
+): Promise<T> {
+  const { timeoutMs = 10000 } = options; // 10 second default timeout
+
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    setTimeout(() => reject(new Error('Query timeout')), timeoutMs);
+  });
+
+  try {
+    const result = await Promise.race([
+      safeQueryAdapter(queryFn, fallback, { retries: options.retries || 3, delayMs: options.delayMs || 50 }),
+      timeoutPromise
+    ]);
+    return result;
+  } catch (error) {
+    console.error('[QUERY TIMEOUT]', error);
+    return fallback;
+  }
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // ✅ AUTO-MIGRATION: Ensure Table Exists First
@@ -60,73 +99,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.error("Quotes migration error:", e);
   }
 
+  // PATCH 7: Health check endpoint
+  app.get("/api/health", (_req, res) => {
+    res.json({
+      status: "ok",
+      time: new Date().toISOString(),
+      message: "Backend running"
+    });
+  });
+
   // Global laminate memory routes
   app.use("/api/crm", crmRouter);
   app.use("/api/ai", aiInteriorDetectRouter());
   app.use("/api/ai", aiWardrobeLayoutRouter());
 
-  // Get all saved laminate codes
-  app.get("/api/laminate-memory", async (req, res) => {
-    try {
-      const codes = await db.select().from(laminateMemory).orderBy(laminateMemory.createdAt);
-      res.json(codes);
-    } catch (error) {
-      console.error("Error fetching laminate memory:", error);
-      res.status(500).json({ error: "Failed to fetch laminate codes" });
-    }
-  });
-
-  // Save a new laminate code to memory
-  app.post("/api/laminate-memory", async (req, res) => {
-    try {
-      const validation = insertLaminateMemorySchema.safeParse(req.body);
-      if (!validation.success) {
-        return res.status(400).json({ error: "Invalid data", details: validation.error });
-      }
-
-      const { code } = validation.data;
-
-      // Check if code already exists
-      const existing = await db.select().from(laminateMemory).where(eq(laminateMemory.code, code));
-      if (existing.length > 0) {
-        return res.status(409).json({ error: "Code already exists" });
-      }
-
-      const [newCode] = await db.insert(laminateMemory).values({ code }).returning();
-      res.status(201).json(newCode);
-    } catch (error) {
-      console.error("Error saving laminate code:", error);
-      res.status(500).json({ error: "Failed to save laminate code" });
-    }
-  });
-
-  // Delete a laminate code from memory
-  app.delete("/api/laminate-memory/:code", async (req, res) => {
-    try {
-      const { code } = req.params;
-      const deleted = await db.delete(laminateMemory).where(eq(laminateMemory.code, code)).returning();
-
-      if (deleted.length === 0) {
-        return res.status(404).json({ error: "Code not found" });
-      }
-
-      res.json({ message: "Code deleted successfully" });
-    } catch (error) {
-      console.error("Error deleting laminate code:", error);
-      res.status(500).json({ error: "Failed to delete laminate code" });
-    }
-  });
+  // PATCH 50: Removed deprecated /api/laminate-memory routes
+  // Data migrated to /api/laminate-code-godown
+  // See shared/schema.ts for details
 
   // Plywood brand memory routes
 
   // Get all saved plywood brands
-  app.get("/api/plywood-brand-memory", async (req, res) => {
+  app.get("/api/plywood-brand-memory", async (_req, res) => {
     try {
-      const brands = await db.select().from(plywoodBrandMemory).orderBy(plywoodBrandMemory.createdAt);
-      res.json(brands);
+      const brands = await safeQuery(
+        () => db.select().from(plywoodBrandMemory).orderBy(plywoodBrandMemory.createdAt),
+        []
+      );
+      res.json(Array.isArray(brands) ? brands : []);
     } catch (error) {
       console.error("Error fetching plywood brand memory:", error);
-      res.status(500).json({ error: "Failed to fetch plywood brands" });
+      res.json([]);
     }
   });
 
@@ -142,7 +145,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Check if brand already exists
       const existing = await db.select().from(plywoodBrandMemory).where(eq(plywoodBrandMemory.brand, brand));
-      if (existing.length > 0) {
+      if (existingCheck.rows && existingCheck.rows.length > 0) {
         return res.status(409).json({ error: "Brand already exists" });
       }
 
@@ -174,25 +177,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Quick Shutter memory routes
 
   // Get the most recent Quick Shutter settings
-  app.get("/api/quick-shutter-memory", async (req, res) => {
-    try {
-      const memory = await db.select()
-        .from(quickShutterMemory)
-        .orderBy(desc(quickShutterMemory.updatedAt))
-        .limit(1);
+  app.get("/api/quick-shutter-memory", async (_req, res) => {
+    const defaultMemory = {
+      roomName: null,
+      plywoodBrand: null,
+      laminateCode: null
+    };
 
-      if (memory.length === 0) {
-        return res.json({
-          roomName: null,
-          plywoodBrand: null,
-          laminateCode: null
-        });
+    try {
+      const memory = await safeQuery(
+        () => db.select()
+          .from(quickShutterMemory)
+          .orderBy(desc(quickShutterMemory.updatedAt))
+          .limit(1),
+        []
+      );
+
+      if (!Array.isArray(memory) || memory.length === 0) {
+        return res.json(defaultMemory);
       }
 
-      res.json(memory[0]);
+      res.json(memory[0] || defaultMemory);
     } catch (error) {
       console.error("Error fetching Quick Shutter memory:", error);
-      res.status(500).json({ error: "Failed to fetch Quick Shutter memory" });
+      res.json(defaultMemory);
     }
   });
 
@@ -213,7 +221,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if any memory record exists
       const existing = await db.select().from(quickShutterMemory).limit(1);
 
-      if (existing.length > 0) {
+      if (existingCheck.rows && existingCheck.rows.length > 0) {
         // Update existing record
         const [updated] = await db.update(quickShutterMemory)
           .set({
@@ -245,27 +253,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Master Settings memory routes
 
   // Get the most recent Master Settings
-  app.get("/api/master-settings-memory", async (req, res) => {
-    try {
-      const memory = await db.select()
-        .from(masterSettingsMemory)
-        .orderBy(desc(masterSettingsMemory.updatedAt))
-        .limit(1);
+  app.get("/api/master-settings-memory", async (_req, res) => {
+    const defaultSettings = {
+      sheetWidth: '1210',
+      sheetHeight: '2420',
+      kerf: '5',
+      masterLaminateCode: null,
+      masterPlywoodBrand: 'Apple Ply 16mm BWP',
+      plywoodTypes: [] as string[],
+      laminateCodes: [] as string[]
+    };
 
-      if (memory.length === 0) {
-        return res.json({
-          sheetWidth: '1210',
-          sheetHeight: '2420',
-          kerf: '5',
-          masterLaminateCode: null,
-          masterPlywoodBrand: 'Apple Ply 16mm BWP'
-        });
+    try {
+      // PATCH 15: Check cache first
+      const cached = getCache(CACHE_KEYS.MASTER_SETTINGS_MEMORY);
+      if (cached) {
+        return res.json(ok(cached));
       }
 
-      res.json(memory[0]);
-    } catch (error) {
+      const memory = await safeQuery(
+        () => db.select()
+          .from(masterSettingsMemory)
+          .orderBy(desc(masterSettingsMemory.updatedAt))
+          .limit(1),
+        []
+      );
+
+      if (!Array.isArray(memory) || memory.length === 0) {
+        return res.json(ok(defaultSettings));
+      }
+
+      // PATCH 9 + 13 + 14: Normalize ALL fields for guaranteed types
+      const settings = (memory[0] || {}) as any;
+      const normalizedSettings = {
+        sheetWidth: normString(settings?.sheetWidth) || '1210',
+        sheetHeight: normString(settings?.sheetHeight) || '2420',
+        kerf: normString(settings?.kerf) || '5',
+        masterLaminateCode: settings?.masterLaminateCode ? normString(settings.masterLaminateCode) : null,
+        masterPlywoodBrand: normString(settings?.masterPlywoodBrand) || 'Apple Ply 16mm BWP',
+        optimizePlywoodUsage: normString(settings?.optimizePlywoodUsage) || 'true',
+        updatedAt: normDateISO(settings?.updatedAt),
+        plywoodTypes: normArray(settings?.plywoodTypes).map(normString),
+        laminateCodes: normArray(settings?.laminateCodes).map(normString)
+      };
+
+      // PATCH 12 + 13: Validate response and wrap with ok()
+      const validated = safeValidate(MasterSettingsMemorySchema, normalizedSettings, defaultSettings);
+
+      // PATCH 15: Store in cache
+      setCache(CACHE_KEYS.MASTER_SETTINGS_MEMORY, validated);
+
+      res.json(ok(validated));
+    } catch (error: any) {
       console.error("Error fetching Master Settings memory:", error);
-      res.status(500).json({ error: "Failed to fetch Master Settings memory" });
+      res.status(500).json(err("Failed to load master settings memory", error?.message));
     }
   });
 
@@ -274,10 +315,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const validation = insertMasterSettingsMemorySchema.safeParse(req.body);
       if (!validation.success) {
-        return res.status(400).json({
-          error: "Invalid request data",
-          details: validation.error.issues
-        });
+        return res.status(400).json(err("Invalid request data", validation.error.issues));
       }
 
       const { sheetWidth, sheetHeight, kerf, masterLaminateCode, masterPlywoodBrand } = validation.data;
@@ -285,7 +323,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if any memory record exists
       const existing = await db.select().from(masterSettingsMemory).limit(1);
 
-      if (existing.length > 0) {
+      if (existingCheck.rows && existingCheck.rows.length > 0) {
         // Update existing record
         const [updated] = await db.update(masterSettingsMemory)
           .set({
@@ -296,9 +334,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
             masterPlywoodBrand: masterPlywoodBrand || null,
             updatedAt: sql`now()`
           })
-          .where(eq(masterSettingsMemory.id, existing[0].id))
+          .where(eq(masterSettingsMemory.id, existing[0]?.id))
           .returning();
-        return res.json(updated);
+
+        // PATCH 15: Invalidate cache on mutation
+        clearCache(CACHE_KEYS.MASTER_SETTINGS_MEMORY);
+
+        return res.json(ok(updated));
       } else {
         // Insert new record
         const [newMemory] = await db.insert(masterSettingsMemory)
@@ -310,26 +352,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
             masterPlywoodBrand: masterPlywoodBrand || null
           })
           .returning();
-        return res.status(201).json(newMemory);
+
+        // PATCH 15: Invalidate cache on mutation
+        clearCache(CACHE_KEYS.MASTER_SETTINGS_MEMORY);
+
+        return res.json(ok(newMemory));
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving Master Settings memory:", error);
-      res.status(500).json({ error: "Failed to save Master Settings memory" });
+      res.status(500).json(err("Failed to save Master Settings memory", error?.message));
     }
   });
 
   // Simplified Master Settings routes (single master laminate + sheet defaults)
   app.get("/api/master-settings", async (_req, res) => {
+    const defaultSettings = {
+      id: 0,
+      sheetWidth: '1210',
+      sheetHeight: '2420',
+      kerf: '5',
+      masterLaminateCode: null,
+      masterPlywoodBrand: 'Apple Ply 16mm BWP',
+      optimizePlywoodUsage: 'true',
+      updatedAt: new Date().toISOString(),
+      plywoodTypes: [] as string[],
+      laminateCodes: [] as string[]
+    };
+
     try {
-      let [settings] = await db.select().from(masterSettingsMemory).limit(1);
-      if (!settings) {
-        const [inserted] = await db.insert(masterSettingsMemory).values({}).returning();
-        settings = inserted;
+      // PATCH 15: Check cache first
+      const cached = getCache(CACHE_KEYS.MASTER_SETTINGS);
+      if (cached) {
+        return res.json(ok(cached));
       }
-      res.json(settings);
-    } catch (error) {
+
+      const result = await safeQuery(
+        () => db.select().from(masterSettingsMemory).limit(1),
+        []
+      );
+
+      let settings = Array.isArray(result) && result.length > 0 ? result[0] : null;
+
+      // Auto-create if missing (first-time install)
+      if (!settings) {
+        try {
+          const [inserted] = await db.insert(masterSettingsMemory).values({}).returning();
+          settings = inserted;
+        } catch (insertErr) {
+          console.error("Error auto-creating master settings:", insertErr);
+          return res.json(ok(defaultSettings));
+        }
+      }
+
+      // PATCH 9 + 12 + 13 + 14: Normalize ALL fields and validate with Zod
+      const settingsAny = settings as any;
+      const normalizedSettings = {
+        id: normNumber(settings?.id),
+        sheetWidth: normString(settings?.sheetWidth) || '1210',
+        sheetHeight: normString(settings?.sheetHeight) || '2420',
+        kerf: normString(settings?.kerf) || '5',
+        masterLaminateCode: settings?.masterLaminateCode ? normString(settings.masterLaminateCode) : null,
+        masterPlywoodBrand: normString(settings?.masterPlywoodBrand) || 'Apple Ply 16mm BWP',
+        optimizePlywoodUsage: normString(settings?.optimizePlywoodUsage) || 'true',
+        updatedAt: normDateISO(settings?.updatedAt),
+        plywoodTypes: (Array.isArray(settingsAny?.plywoodTypes) ? settingsAny.plywoodTypes : []).map((v: any) => normString(v)),
+        laminateCodes: (Array.isArray(settingsAny?.laminateCodes) ? settingsAny.laminateCodes : []).map((v: any) => normString(v))
+      };
+
+      // PATCH 12 + 13: Validate response and wrap with ok()
+      const validated = safeValidate(MasterSettingsResponseSchema, normalizedSettings, defaultSettings as any);
+
+      // PATCH 15: Store in cache
+      setCache(CACHE_KEYS.MASTER_SETTINGS, validated);
+
+      res.json(ok(validated));
+    } catch (error: any) {
       console.error("Error fetching Master Settings:", error);
-      res.status(500).json({ error: "Failed to fetch Master Settings" });
+      res.status(500).json(err("Failed to load master settings", error?.message));
     }
   });
 
@@ -337,10 +436,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const validation = masterSettingsUpdateSchema.safeParse(req.body ?? {});
       if (!validation.success) {
-        return res.status(400).json({
-          error: "Invalid request data",
-          details: validation.error.issues
-        });
+        return res.status(400).json(err("Invalid request data", validation.error.issues));
       }
 
       const { masterLaminateCode, masterPlywoodBrand, sheetWidth, sheetHeight, kerf, optimizePlywoodUsage } = validation.data;
@@ -369,7 +465,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           })
           .where(eq(masterSettingsMemory.id, existing.id))
           .returning();
-        return res.json(updated);
+
+        // PATCH 15: Invalidate cache on mutation
+        clearCache(CACHE_KEYS.MASTER_SETTINGS);
+        clearCache(CACHE_KEYS.MASTER_SETTINGS_MEMORY);
+
+        return res.json(ok(updated));
       }
 
       const [inserted] = await db.insert(masterSettingsMemory)
@@ -383,23 +484,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
         .returning();
 
-      return res.status(201).json(inserted);
-    } catch (error) {
+      // PATCH 15: Invalidate cache on mutation
+      clearCache(CACHE_KEYS.MASTER_SETTINGS);
+      clearCache(CACHE_KEYS.MASTER_SETTINGS_MEMORY);
+
+      return res.json(ok(inserted));
+    } catch (error: any) {
       console.error("Error saving Master Settings:", error);
-      res.status(500).json({ error: "Failed to save Master Settings" });
+      res.status(500).json(err("Failed to save Master Settings", error?.message));
     }
   });
 
   // Godown Memory routes
 
   // Get all godown names
-  app.get("/api/godown-memory", async (req, res) => {
+  app.get("/api/godown-memory", async (_req, res) => {
     try {
-      const godowns = await db.select().from(godownMemory).orderBy(desc(godownMemory.createdAt));
-      res.json(godowns);
+      const godowns = await safeQuery(
+        () => db.select().from(godownMemory).orderBy(desc(godownMemory.createdAt)),
+        []
+      );
+      res.json(Array.isArray(godowns) ? godowns : []);
     } catch (error) {
       console.error("Error fetching godown memory:", error);
-      res.status(500).json({ error: "Failed to fetch godowns" });
+      res.json([]);
     }
   });
 
@@ -414,7 +522,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Check if exists
       const existing = await db.select().from(godownMemory).where(eq(godownMemory.name, name));
-      if (existing.length > 0) {
+      if (existingCheck.rows && existingCheck.rows.length > 0) {
         // Already exists, return it
         return res.json(existing[0]);
       }
@@ -434,11 +542,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Godown plywood brands (history + autocomplete)
   app.get("/api/godown/plywood", async (_req, res) => {
     try {
-      const brands = await db.select().from(plywoodBrandMemory).orderBy(desc(plywoodBrandMemory.createdAt));
-      res.json(brands);
-    } catch (error) {
-      console.error("Error fetching plywood godown brands:", error);
-      res.status(500).json({ error: "Failed to fetch plywood brands" });
+      // PATCH 15: Check cache first
+      const cached = getCache(CACHE_KEYS.GODOWN_PLYWOOD);
+      if (cached) {
+        return res.json(ok(cached));
+      }
+
+      const rows = await safeQuery(
+        () => db.select().from(plywoodBrandMemory).orderBy(desc(plywoodBrandMemory.createdAt)),
+        []
+      );
+
+      // PATCH 9 + 12 + 13 + 14: Normalize ALL fields and validate with Zod
+      const safe = (Array.isArray(rows) ? rows : []).map((r: any) => ({
+        id: normNumber(r.id),
+        brand: normString(r.brand),
+        createdAt: normDateISO(r.createdAt)
+      }));
+
+      // PATCH 12 + 13: Validate response and wrap with ok()
+      const validated = safeValidateArray(PlywoodListSchema, safe);
+
+      // PATCH 15: Store in cache
+      setCache(CACHE_KEYS.GODOWN_PLYWOOD, validated);
+
+      res.json(ok(validated));
+    } catch (error: any) {
+      console.error("Error GET /api/godown/plywood:", error);
+      res.status(500).json(err("Failed to load plywood godown", error?.message));
     }
   });
 
@@ -446,7 +577,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const brandRaw = (req.body?.brand as string | undefined)?.trim() ?? "";
       if (!brandRaw) {
-        return res.status(400).json({ error: "Brand is required" });
+        return res.status(400).json(err("Brand is required"));
       }
 
       const brandLower = brandRaw.toLowerCase();
@@ -454,23 +585,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .from(plywoodBrandMemory)
         .where(sql`lower(${plywoodBrandMemory.brand}) = ${brandLower}`);
 
-      if (existing.length > 0) {
-        return res.json(existing[0]);
+      if (existingCheck.rows && existingCheck.rows.length > 0) {
+        return res.json(ok(existing[0]));
       }
 
       const validation = insertPlywoodBrandMemorySchema.safeParse({ brand: brandRaw });
       if (!validation.success) {
-        return res.status(400).json({ error: "Invalid data", details: validation.error });
+        return res.status(400).json(err("Invalid data", validation.error));
       }
 
       const [inserted] = await db.insert(plywoodBrandMemory)
         .values({ brand: brandRaw })
         .returning();
 
-      res.status(201).json(inserted);
-    } catch (error) {
+      // PATCH 15: Invalidate cache on mutation
+      clearCache(CACHE_KEYS.GODOWN_PLYWOOD);
+
+      res.json(ok(inserted));
+    } catch (error: any) {
       console.error("Error saving plywood brand to godown:", error);
-      res.status(500).json({ error: "Failed to save plywood brand" });
+      res.status(500).json(err("Failed to save plywood brand", error?.message));
     }
   });
 
@@ -479,13 +613,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ✅ CENTRAL LAMINATE CODE GODOWN (Warehouse) Routes
 
   // Get all laminate codes from central godown
-  app.get("/api/laminate-code-godown", async (req, res) => {
+  app.get("/api/laminate-code-godown", async (_req, res) => {
     try {
-      const codes = await db.select().from(laminateCodeGodown).orderBy(laminateCodeGodown.code);
-      res.json(codes);
-    } catch (error) {
-      console.error("Error fetching laminate code godown:", error);
-      res.status(500).json({ error: "Failed to fetch laminate codes" });
+      // PATCH 15: Check cache first
+      const cached = getCache(CACHE_KEYS.GODOWN_LAMINATE);
+      if (cached) {
+        return res.json(ok(cached));
+      }
+
+      // Use raw pg pool for Supabase compatibility
+      const result = await safeDbQuery(
+        `SELECT id, code, name, inner_code, supplier, thickness, description, wood_grains_enabled, created_at, updated_at
+         FROM laminate_code_godown
+         ORDER BY code`
+      );
+      const rows = result.rows || [];
+
+      // PATCH 9 + 12 + 13 + 14: Normalize ALL fields and validate with Zod
+      const safe = (Array.isArray(rows) ? rows : []).map((r: any) => ({
+        id: normNumber(r.id),
+        code: normString(r.code),
+        name: normString(r.name),
+        innerCode: r.inner_code ? normString(r.inner_code) : null,
+        supplier: r.supplier ? normString(r.supplier) : null,
+        thickness: r.thickness ? normString(r.thickness) : null,
+        description: r.description ? normString(r.description) : null,
+        woodGrainsEnabled: normString(r.wood_grains_enabled) || 'false',
+        createdAt: normDateISO(r.created_at),
+        updatedAt: normDateISO(r.updated_at)
+      }));
+
+      // PATCH 12 + 13: Validate response and wrap with ok()
+      const validated = safeValidateArray(LaminateListSchema, safe);
+
+      // PATCH 15: Store in cache
+      setCache(CACHE_KEYS.GODOWN_LAMINATE, validated);
+
+      res.json(ok(validated));
+    } catch (error: any) {
+      console.error("Error GET /api/laminate-code-godown:", error);
+      res.status(500).json(err("Failed to load laminate godown", error?.message));
     }
   });
 
@@ -493,14 +660,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/laminate-code-godown/:code", async (req, res) => {
     try {
       const { code } = req.params;
-      const result = await db.select().from(laminateCodeGodown).where(eq(laminateCodeGodown.code, code));
-      if (result.length === 0) {
-        return res.status(404).json({ error: "Laminate code not found" });
+      // Use raw pg pool for Supabase compatibility
+      const result = await safeDbQuery(
+        `SELECT id, code, name, inner_code, supplier, thickness, description, wood_grains_enabled, created_at, updated_at
+         FROM laminate_code_godown
+         WHERE code = $1
+         LIMIT 1`,
+        [code]
+      );
+      if (!result.rows || result.rows.length === 0) {
+        return res.status(404).json(err("Laminate code not found"));
       }
-      res.json(result[0]);
-    } catch (error) {
+      const r = result.rows[0];
+      res.json(ok({
+        id: r.id,
+        code: r.code,
+        name: r.name,
+        innerCode: r.inner_code,
+        supplier: r.supplier,
+        thickness: r.thickness,
+        description: r.description,
+        woodGrainsEnabled: r.wood_grains_enabled,
+        createdAt: r.created_at,
+        updatedAt: r.updated_at
+      }));
+    } catch (error: any) {
       console.error("Error fetching laminate code:", error);
-      res.status(500).json({ error: "Failed to fetch laminate code" });
+      res.status(500).json(err("Failed to fetch laminate code", error?.message));
     }
   });
 
@@ -509,30 +695,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const validation = insertLaminateCodeGodownSchema.safeParse(req.body);
       if (!validation.success) {
-        return res.status(400).json({ error: "Invalid data", details: validation.error });
+        return res.status(400).json(err("Invalid data", validation.error));
       }
 
       const { code, name, innerCode, supplier, thickness, description, woodGrainsEnabled } = validation.data;
+      const woodGrainsValue = normBoolean(woodGrainsEnabled) ? 'true' : 'false';
 
-      // Check if code already exists
-      const existing = await db.select().from(laminateCodeGodown).where(eq(laminateCodeGodown.code, code));
-      if (existing.length > 0) {
-        return res.status(409).json({ error: "Laminate code already exists in godown" });
+      // Check if code already exists (using raw pg pool for Supabase compatibility)
+      const existingCheck = await safeDbQuery('SELECT id FROM laminate_code_godown WHERE code = $1 LIMIT 1', [code]);
+      if (existingCheck.rows && existingCheck.rows.length > 0) {
+        return res.status(409).json(err("Laminate code already exists in godown"));
       }
 
-      const [newCode] = await db.insert(laminateCodeGodown).values({
-        code,
-        name,
-        innerCode: innerCode || null,
-        supplier: supplier || null,
-        thickness: thickness || null,
-        description: description || null,
-        woodGrainsEnabled: String(woodGrainsEnabled || 'false')
-      }).returning();
-      res.status(201).json(newCode);
-    } catch (error) {
+      // Use raw pg pool for Supabase compatibility
+      const insertResult = await safeDbQuery(
+        `INSERT INTO laminate_code_godown (code, name, inner_code, supplier, thickness, description, wood_grains_enabled)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         RETURNING id, code, name, inner_code, supplier, thickness, description, wood_grains_enabled, created_at, updated_at`,
+        [code, name, innerCode || null, supplier || null, thickness || null, description || null, woodGrainsValue]
+      );
+
+      const newCode = insertResult.rows?.[0] ? {
+        id: insertResult.rows[0].id,
+        code: insertResult.rows[0].code,
+        name: insertResult.rows[0].name,
+        innerCode: insertResult.rows[0].inner_code,
+        supplier: insertResult.rows[0].supplier,
+        thickness: insertResult.rows[0].thickness,
+        description: insertResult.rows[0].description,
+        woodGrainsEnabled: insertResult.rows[0].wood_grains_enabled,
+        createdAt: insertResult.rows[0].created_at,
+        updatedAt: insertResult.rows[0].updated_at
+      } : null;
+
+      // Insert/update wood grains preference using raw pg pool
+      await safeDbQuery(
+        `INSERT INTO laminate_wood_grains_preference (laminate_code, wood_grains_enabled)
+         VALUES ($1, $2)
+         ON CONFLICT (laminate_code) DO UPDATE SET wood_grains_enabled = $2, updated_at = now()`,
+        [code, woodGrainsValue]
+      );
+
+      // PATCH 15: Invalidate cache on mutation
+      clearCache(CACHE_KEYS.GODOWN_LAMINATE);
+      clearCache(CACHE_KEYS.WOOD_GRAINS);
+
+      res.json(ok(newCode));
+    } catch (error: any) {
       console.error("Error saving laminate code to godown:", error);
-      res.status(500).json({ error: "Failed to save laminate code" });
+      res.status(500).json(err("Failed to save laminate code", error?.message));
     }
   });
 
@@ -541,6 +752,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { code } = req.params;
       const { name, innerCode, supplier, thickness, description, woodGrainsEnabled } = req.body;
+      const hasWoodGrainsUpdate = woodGrainsEnabled !== undefined;
+      const woodGrainsValue = normBoolean(woodGrainsEnabled) ? 'true' : 'false';
 
       const [updated] = await db.update(laminateCodeGodown)
         .set({
@@ -549,20 +762,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
           supplier: supplier || null,
           thickness: thickness || null,
           description: description || null,
-          woodGrainsEnabled: woodGrainsEnabled !== undefined ? String(woodGrainsEnabled) : undefined,
+          woodGrainsEnabled: hasWoodGrainsUpdate ? woodGrainsValue : undefined,
           updatedAt: sql`now()`
         })
         .where(eq(laminateCodeGodown.code, code))
         .returning();
 
       if (!updated) {
-        return res.status(404).json({ error: "Laminate code not found in godown" });
+        return res.status(404).json(err("Laminate code not found in godown"));
       }
 
-      res.json(updated);
-    } catch (error) {
+      if (hasWoodGrainsUpdate) {
+        await db.insert(laminateWoodGrainsPreference)
+          .values({
+            laminateCode: code,
+            woodGrainsEnabled: woodGrainsValue
+          })
+          .onConflictDoUpdate({
+            target: laminateWoodGrainsPreference.laminateCode,
+            set: {
+              woodGrainsEnabled: woodGrainsValue,
+              updatedAt: sql`now()`
+            }
+          });
+      }
+
+      // PATCH 15: Invalidate cache on mutation
+      clearCache(CACHE_KEYS.GODOWN_LAMINATE);
+      clearCache(CACHE_KEYS.WOOD_GRAINS);
+
+      res.json(ok(updated));
+    } catch (error: any) {
       console.error("Error updating laminate code:", error);
-      res.status(500).json({ error: "Failed to update laminate code" });
+      res.status(500).json(err("Failed to update laminate code", error?.message));
     }
   });
 
@@ -573,37 +805,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const deleted = await db.delete(laminateCodeGodown).where(eq(laminateCodeGodown.code, code)).returning();
 
       if (deleted.length === 0) {
-        return res.status(404).json({ error: "Laminate code not found in godown" });
+        return res.status(404).json(err("Laminate code not found in godown"));
       }
 
-      res.json({ message: "Laminate code deleted from godown successfully" });
-    } catch (error) {
+      await db.delete(laminateWoodGrainsPreference)
+        .where(eq(laminateWoodGrainsPreference.laminateCode, code));
+
+      // PATCH 15: Invalidate cache on mutation
+      clearCache(CACHE_KEYS.GODOWN_LAMINATE);
+      clearCache(CACHE_KEYS.WOOD_GRAINS);
+
+      res.json(ok({ message: "Laminate code deleted from godown successfully" }));
+    } catch (error: any) {
       console.error("Error deleting laminate code:", error);
-      res.status(500).json({ error: "Failed to delete laminate code" });
+      res.status(500).json(err("Failed to delete laminate code", error?.message));
     }
   });
 
   // Wood grains preference routes
 
   // Get all wood grains preferences from WOOD GRAINS PREFERENCE TABLE
-  app.get("/api/wood-grains-preferences", async (req, res) => {
+  app.get("/api/wood-grains-preferences", async (_req, res) => {
     try {
-      const preferences = await db.select()
-        .from(laminateWoodGrainsPreference);
+      // PATCH 15: Check cache first
+      const cached = getCache(CACHE_KEYS.WOOD_GRAINS);
+      if (cached) {
+        return res.json(ok(cached));
+      }
 
-      // ✅ FIX: Read from actual preferences table and convert to boolean
-      const normalizedPreferences = preferences.map(pref => ({
-        id: pref.id,
-        laminateCode: pref.laminateCode,
-        woodGrainsEnabled: pref.woodGrainsEnabled === 'true', // Convert string to boolean
-        createdAt: pref.createdAt,
-        updatedAt: pref.updatedAt
+      const prefRows = await safeQuery(
+        () => db.select().from(laminateWoodGrainsPreference),
+        []
+      );
+      const godownRows = await safeQuery(
+        () => db.select().from(laminateCodeGodown),
+        []
+      );
+
+      const byCode = new Map<string, boolean>();
+      (Array.isArray(prefRows) ? prefRows : []).forEach((r: any) => {
+        byCode.set(normString(r.laminateCode), normBoolean(r.woodGrainsEnabled));
+      });
+      (Array.isArray(godownRows) ? godownRows : []).forEach((r: any) => {
+        byCode.set(normString(r.code), normBoolean(r.woodGrainsEnabled));
+      });
+
+      const safeRows = Array.from(byCode.entries()).map(([laminateCode, hasWoodGrains]) => ({
+        laminateCode,
+        hasWoodGrains
       }));
 
-      res.json(normalizedPreferences);
+      // PATCH 12 + 13: Validate response and wrap with ok()
+      const validated = safeValidateArray(WoodGrainsListSchema, safeRows);
+
+      // PATCH 15: Store in cache
+      setCache(CACHE_KEYS.WOOD_GRAINS, validated);
+
+      res.json(ok(validated));
     } catch (error: any) {
-      console.error("Error fetching all wood grains preferences:", error);
-      res.status(500).json({ error: "Failed to fetch wood grains preferences" });
+      console.error("Error GET /api/wood-grains-preferences:", error);
+      res.status(500).json(err("Failed to load wood grains preferences", error?.message));
     }
   });
 
@@ -611,18 +872,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/wood-grains-preference/:code", async (req, res) => {
     try {
       const { code } = req.params;
+      const [godown] = await db.select()
+        .from(laminateCodeGodown)
+        .where(eq(laminateCodeGodown.code, code))
+        .limit(1);
+
+      if (godown) {
+        return res.json(ok({ woodGrainsEnabled: godown.woodGrainsEnabled === 'true' }));
+      }
+
       const preference = await db.select()
         .from(laminateWoodGrainsPreference)
         .where(eq(laminateWoodGrainsPreference.laminateCode, code));
 
       if (preference.length === 0) {
-        return res.json({ woodGrainsEnabled: false });
+        return res.json(ok({ woodGrainsEnabled: false }));
       }
 
-      res.json({ woodGrainsEnabled: preference[0].woodGrainsEnabled === 'true' });
-    } catch (error) {
+      res.json(ok({ woodGrainsEnabled: preference[0]?.woodGrainsEnabled === 'true' }));
+    } catch (error: any) {
       console.error("Error fetching wood grains preference:", error);
-      res.status(500).json({ error: "Failed to fetch wood grains preference" });
+      res.status(500).json(err("Failed to fetch wood grains preference", error?.message));
     }
   });
 
@@ -630,9 +900,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/wood-grains-preference", async (req, res) => {
     try {
       const { laminateCode, woodGrainsEnabled } = req.body;
+      const woodGrainsValue = normBoolean(woodGrainsEnabled) ? 'true' : 'false';
 
       if (!laminateCode) {
-        return res.status(400).json({ error: "Laminate code is required" });
+        return res.status(400).json(err("Laminate code is required"));
       }
 
       // Check if preference already exists
@@ -640,43 +911,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .from(laminateWoodGrainsPreference)
         .where(eq(laminateWoodGrainsPreference.laminateCode, laminateCode));
 
-      if (existing.length > 0) {
+      if (existingCheck.rows && existingCheck.rows.length > 0) {
         // Update existing preference
         const [updated] = await db.update(laminateWoodGrainsPreference)
           .set({
-            woodGrainsEnabled: woodGrainsEnabled ? 'true' : 'false',
+            woodGrainsEnabled: woodGrainsValue,
             updatedAt: sql`now()`
           })
           .where(eq(laminateWoodGrainsPreference.laminateCode, laminateCode))
           .returning();
-        // ✅ FIX: Return normalized boolean response
-        return res.json({
+
+        // PATCH 15: Invalidate cache on mutation
+        clearCache(CACHE_KEYS.WOOD_GRAINS);
+        clearCache(CACHE_KEYS.GODOWN_LAMINATE);
+
+        // PATCH 13: Return normalized boolean response wrapped with ok()
+        await db.update(laminateCodeGodown)
+          .set({
+            woodGrainsEnabled: woodGrainsValue,
+            updatedAt: sql`now()`
+          })
+          .where(eq(laminateCodeGodown.code, laminateCode));
+
+        return res.json(ok({
           id: updated.id,
           laminateCode: updated.laminateCode,
           woodGrainsEnabled: updated.woodGrainsEnabled === 'true',
           createdAt: updated.createdAt,
           updatedAt: updated.updatedAt
-        });
+        }));
       } else {
         // Insert new preference
         const [newPreference] = await db.insert(laminateWoodGrainsPreference)
           .values({
             laminateCode,
-            woodGrainsEnabled: woodGrainsEnabled ? 'true' : 'false'
+            woodGrainsEnabled: woodGrainsValue
           })
           .returning();
-        // ✅ FIX: Return normalized boolean response
-        return res.status(201).json({
+
+        await db.update(laminateCodeGodown)
+          .set({
+            woodGrainsEnabled: woodGrainsValue,
+            updatedAt: sql`now()`
+          })
+          .where(eq(laminateCodeGodown.code, laminateCode));
+
+        // PATCH 15: Invalidate cache on mutation
+        clearCache(CACHE_KEYS.WOOD_GRAINS);
+        clearCache(CACHE_KEYS.GODOWN_LAMINATE);
+
+        // PATCH 13: Return normalized boolean response wrapped with ok()
+        return res.json(ok({
           id: newPreference.id,
           laminateCode: newPreference.laminateCode,
           woodGrainsEnabled: newPreference.woodGrainsEnabled === 'true',
           createdAt: newPreference.createdAt,
           updatedAt: newPreference.updatedAt
-        });
+        }));
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving wood grains preference:", error);
-      res.status(500).json({ error: "Failed to save wood grains preference" });
+      res.status(500).json(err("Failed to save wood grains preference", error?.message));
     }
   });
 
@@ -691,6 +986,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       .replace(/\s+/g, '-')
       .replace(/-+/g, '-')
       .replace(/^-+|-+$/g, '');
+  }
+
+  function sanitizeFilename(filename: string): string {
+    return path.basename(filename).replace(/[^\w.-]/g, "_");
   }
 
   // Schema for saving client files
@@ -718,10 +1017,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { pdf, materialList } = validation.data;
       const clientSlug = slugifyClientName(req.params.clientSlug);
+      const pdfFilename = sanitizeFilename(pdf.filename);
+      const materialListFilename = sanitizeFilename(materialList.filename);
 
       // Validate slug
       if (!clientSlug || clientSlug.length === 0) {
         return res.status(400).json({ error: "Invalid client name" });
+      }
+      if (!pdfFilename || !materialListFilename) {
+        return res.status(400).json({ error: "Invalid filename" });
       }
 
       // Validate file sizes (max 10MB each)
@@ -738,7 +1042,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Save PDF
       const pdfPath = await objectStorageService.saveClientFile({
         clientSlug,
-        filename: pdf.filename,
+        filename: pdfFilename,
         content: Buffer.from(pdf.base64, 'base64'),
         mimeType: pdf.mimeType,
       });
@@ -746,7 +1050,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Save material list
       const materialListPath = await objectStorageService.saveClientFile({
         clientSlug,
-        filename: materialList.filename,
+        filename: materialListFilename,
         content: Buffer.from(materialList.base64, 'base64'),
         mimeType: materialList.mimeType,
       });
@@ -773,6 +1077,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "No file content provided" });
       }
 
+      // PATCH 50: Check if dwg2dxf binary exists before using it
+      let dwg2dxfPath: string;
+      try {
+        // Try to find dwg2dxf in PATH
+        const { execSync } = await import("child_process");
+        dwg2dxfPath = execSync("which dwg2dxf 2>/dev/null || where dwg2dxf 2>nul", { encoding: "utf-8" }).trim();
+        if (!dwg2dxfPath) {
+          throw new Error("Command not found");
+        }
+      } catch {
+        return res.status(501).json({
+          error: "DWG conversion is not available on this server. The dwg2dxf tool is not installed."
+        });
+      }
+
       // Create temp directory
       const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "dwg-convert-"));
       const inputPath = path.join(tempDir, "input.dwg");
@@ -782,8 +1101,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Write DWG file as binary buffer
         fs.writeFileSync(inputPath, fileContent);
 
-        // Convert using dwg2dxf
-        execSync(`dwg2dxf "${inputPath}" "${outputPath}"`, { stdio: "pipe" });
+        // PATCH 50: Use execFileSync for safety (no shell injection possible)
+        const { execFileSync } = await import("child_process");
+        execFileSync("dwg2dxf", [inputPath, outputPath], {
+          stdio: "pipe",
+          timeout: 30000 // 30 second timeout
+        });
 
         // Read converted DXF
         if (!fs.existsSync(outputPath)) {
@@ -802,6 +1125,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     } catch (error) {
       console.error("DWG conversion error:", error);
+      // Don't leak error details to client
       res.status(500).json({ error: "Failed to convert DWG file. Ensure it's a valid AutoCAD drawing." });
     }
   });
@@ -811,13 +1135,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const clientSlug = slugifyClientName(req.params.clientSlug);
       const { filename } = req.params;
+      const safeFilename = sanitizeFilename(filename);
 
-      if (!clientSlug || !filename) {
+      if (!clientSlug || !safeFilename) {
         return res.status(400).json({ error: "Invalid client slug or filename" });
       }
 
       const objectStorageService = new ObjectStorageService();
-      const file = await objectStorageService.getClientFile(clientSlug, filename);
+      const file = await objectStorageService.getClientFile(clientSlug, safeFilename);
 
       await objectStorageService.downloadObject(file, res);
     } catch (error) {
@@ -826,6 +1151,135 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("Error retrieving client file:", error);
       res.status(500).json({ error: "Failed to retrieve client file" });
+    }
+  });
+
+  // ==========================================
+  // LAMINATE CATALOGUE PDF ROUTES
+  // ==========================================
+
+  // Schema for uploading catalogue
+  const uploadCatalogueSchema = z.object({
+    filename: z.string().min(1),
+    mimeType: z.string().refine(val => val === 'application/pdf', { message: 'Only PDF files allowed' }),
+    base64: z.string().min(1),
+  });
+
+  // Upload laminate catalogue PDF
+  app.post("/api/laminate-catalogue", async (req, res) => {
+    try {
+      const validation = uploadCatalogueSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json(err("Invalid data", validation.error.issues));
+      }
+
+      const { filename, mimeType, base64 } = validation.data;
+      const safeFilename = `laminate-catalogue-${Date.now()}.pdf`;
+
+      // Validate file size (max 50MB for catalogues)
+      const maxSize = 50 * 1024 * 1024;
+      const fileSize = Buffer.byteLength(base64, 'base64');
+
+      if (fileSize > maxSize) {
+        return res.status(413).json(err("File size exceeds 50MB limit"));
+      }
+
+      const objectStorageService = new ObjectStorageService();
+
+      // Save to catalogues folder
+      const filePath = await objectStorageService.saveClientFile({
+        clientSlug: 'catalogues',
+        filename: safeFilename,
+        content: Buffer.from(base64, 'base64'),
+        mimeType,
+      });
+
+      // Store metadata in localStorage key for persistence
+      // In production, this would be stored in database
+      const catalogueInfo = {
+        filename: safeFilename,
+        originalName: filename,
+        uploadedAt: new Date().toISOString(),
+        path: filePath,
+        size: fileSize,
+      };
+
+      res.json(ok(catalogueInfo));
+    } catch (error: any) {
+      console.error("Error uploading catalogue:", error);
+      res.status(500).json(err("Failed to upload catalogue", error?.message));
+    }
+  });
+
+  // Get laminate catalogue PDF
+  app.get("/api/laminate-catalogue/:filename", async (req, res) => {
+    try {
+      const { filename } = req.params;
+      const safeFilename = sanitizeFilename(filename);
+
+      if (!safeFilename) {
+        return res.status(400).json(err("Invalid filename"));
+      }
+
+      const objectStorageService = new ObjectStorageService();
+      const file = await objectStorageService.getClientFile('catalogues', safeFilename);
+
+      await objectStorageService.downloadObject(file, res);
+    } catch (error) {
+      if (error instanceof ObjectNotFoundError) {
+        return res.status(404).json(err("Catalogue not found"));
+      }
+      console.error("Error retrieving catalogue:", error);
+      res.status(500).json(err("Failed to retrieve catalogue"));
+    }
+  });
+
+  // List all catalogues
+  app.get("/api/laminate-catalogues", async (_req, res) => {
+    try {
+      const objectStorageService = new ObjectStorageService();
+      const cataloguesDir = path.join(process.cwd(), 'storage', 'catalogues');
+
+      // Check if directory exists
+      if (!fs.existsSync(cataloguesDir)) {
+        return res.json(ok([]));
+      }
+
+      const files = fs.readdirSync(cataloguesDir)
+        .filter(f => f.endsWith('.pdf'))
+        .map(f => {
+          const stats = fs.statSync(path.join(cataloguesDir, f));
+          return {
+            filename: f,
+            size: stats.size,
+            uploadedAt: stats.mtime.toISOString(),
+          };
+        })
+        .sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime());
+
+      res.json(ok(files));
+    } catch (error: any) {
+      console.error("Error listing catalogues:", error);
+      res.status(500).json(err("Failed to list catalogues", error?.message));
+    }
+  });
+
+  // Delete catalogue
+  app.delete("/api/laminate-catalogue/:filename", async (req, res) => {
+    try {
+      const { filename } = req.params;
+      const safeFilename = sanitizeFilename(filename);
+      const filePath = path.join(process.cwd(), 'storage', 'catalogues', safeFilename);
+
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json(err("Catalogue not found"));
+      }
+
+      fs.unlinkSync(filePath);
+      res.json(ok({ message: "Catalogue deleted successfully" }));
+    } catch (error: any) {
+      console.error("Error deleting catalogue:", error);
+      res.status(500).json(err("Failed to delete catalogue", error?.message));
     }
   });
 

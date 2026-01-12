@@ -38,6 +38,9 @@ export default function ShelfConfigPanel({
   laminateCodes,
   onChange,
 }: ShelfConfigPanelProps) {
+  // PATCH 34: Safe array fallback to prevent .map() crashes
+  const safeLaminateCodes = Array.isArray(laminateCodes) ? laminateCodes : [];
+
   return (
     <div className="space-y-4 border rounded-md p-4 bg-gray-50">
       <Label className="font-semibold">Shelf Configuration</Label>
@@ -69,7 +72,7 @@ export default function ShelfConfigPanel({
                   <SelectValue placeholder="Select laminate" />
                 </SelectTrigger>
                 <SelectContent>
-                  {laminateCodes.map((l) => (
+                  {safeLaminateCodes.map((l) => (
                     <SelectItem key={l.id} value={l.code}>
                       {l.code}
                     </SelectItem>
@@ -88,7 +91,7 @@ export default function ShelfConfigPanel({
                   <SelectValue placeholder="Select inner laminate" />
                 </SelectTrigger>
                 <SelectContent>
-                  {laminateCodes.map((l) => (
+                  {safeLaminateCodes.map((l) => (
                     <SelectItem key={l.id} value={l.code}>
                       {l.code}
                     </SelectItem>

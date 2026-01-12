@@ -1,15 +1,18 @@
 /**
  * PlywoodSelectorPanel
  *
- * Wraps PlywoodSelector with label and master settings integration.
- * Extracted from home.tsx for reuse across:
+ * Wraps PlywoodCombobox with label and master settings integration.
+ * Uses the new SaaS-level combobox component.
+ *
+ * Used in:
  * - Master Settings Card
  * - Cabinet Form
  * - Quotation Module
  */
 
 import { Label } from "@/components/ui/label";
-import { PlywoodSelector } from "@/components/master-settings/PlywoodSelector";
+import { PlywoodCombobox } from "@/components/master-settings/PlywoodCombobox";
+import { Package } from "lucide-react";
 
 export interface PlywoodSelectorPanelProps {
   value: string;
@@ -17,6 +20,9 @@ export interface PlywoodSelectorPanelProps {
   onSave?: (value: string) => void;
   label?: string;
   showLabel?: boolean;
+  showIcon?: boolean;
+  disabled?: boolean;
+  placeholder?: string;
 }
 
 /**
@@ -27,7 +33,10 @@ export function PlywoodSelectorPanel({
   onChange,
   onSave,
   label = "Plywood Brand",
-  showLabel = true
+  showLabel = true,
+  showIcon = false,
+  disabled = false,
+  placeholder,
 }: PlywoodSelectorPanelProps) {
   const handleChange = (newValue: string) => {
     const trimmed = newValue.trim();
@@ -38,11 +47,16 @@ export function PlywoodSelectorPanel({
   return (
     <div className="space-y-2">
       {showLabel && (
-        <Label className="text-sm font-medium">{label}</Label>
+        <Label className="text-sm font-medium flex items-center gap-1.5">
+          {showIcon && <Package className="h-3.5 w-3.5 text-amber-600" />}
+          {label}
+        </Label>
       )}
-      <PlywoodSelector
+      <PlywoodCombobox
         value={value}
         onChange={handleChange}
+        disabled={disabled}
+        placeholder={placeholder}
       />
     </div>
   );

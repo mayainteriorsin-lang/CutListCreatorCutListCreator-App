@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useMaterialStore } from "@/features/materialStore";
+// PATCH 27: Use split godown slice instead of combined materialStore
+import { useGodownStore } from "@/features/material";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useCreatePlywoodBrand, usePlywoodBrands } from "@/hooks/usePlywoodGodown";
@@ -15,19 +16,23 @@ export function PlywoodSelector({ value, onChange, onCreate }: PlywoodSelectorPr
   const { data: brands = [] } = usePlywoodBrands();
   const createBrand = useCreatePlywoodBrand();
   const queryClient = useQueryClient();
-  const removePlywood = useMaterialStore((state) => state.removePlywood);
-  const fetchMaterials = useMaterialStore((state) => state.fetchMaterials);
+  // PATCH 27: Use godown slice
+  const removePlywood = useGodownStore((state) => state.removePlywood);
+  const fetchMaterials = useGodownStore((state) => state.fetch);
 
   const [plywoodInput, setPlywoodInput] = useState(value || "");
   const [selectedPlywood, setSelectedPlywood] = useState<string | null>(value || null);
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // PATCH 17: Safe array handling
   const plywoodOptions = useMemo(() => {
     const seen = new Set<string>();
     const deduped: string[] = [];
 
-    brands.forEach((entry) => {
+    // PATCH 17: Ensure brands is always an array
+    const safeBrands = Array.isArray(brands) ? brands : [];
+    safeBrands.forEach((entry) => {
       const brand = (entry.brand || "").trim();
       const key = brand.toLowerCase();
       if (!brand || seen.has(key)) return;
@@ -237,3 +242,5 @@ export function PlywoodSelector({ value, onChange, onCreate }: PlywoodSelectorPr
     </div>
   );
 }
+
+export default PlywoodSelector;

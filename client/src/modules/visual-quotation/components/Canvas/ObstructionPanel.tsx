@@ -1,13 +1,19 @@
 import React, { useMemo, useState } from "react";
+import { AlertTriangle, Plus, X, Lock } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useVisualQuotationStore, ObstructionType } from "../../store/visualQuotationStore";
-
-/**
- * ObstructionPanel
- * -----------------
- * Adds site constraints as rectangles (px) on the canvas.
- * For now, user enters rectangle values manually (fast).
- * Next step: draw obstructions directly on canvas (click-drag).
- */
 
 const TYPE_OPTIONS: { type: ObstructionType; label: string }[] = [
   { type: "BEAM", label: "Beam Drop" },
@@ -42,220 +48,170 @@ const ObstructionPanel: React.FC = () => {
   };
 
   return (
-    <div style={styles.card}>
-      <div style={styles.header}>
-        <div>
-          <div style={styles.title}>Site Conditions</div>
-          <div style={styles.sub}>Mark beams, windows, switchboards, door swing, etc.</div>
+    <Card className="border-slate-200 shadow-sm">
+      <CardContent className="p-4 space-y-4">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-amber-500" />
+            <span className="text-sm font-semibold text-slate-700">Site Conditions</span>
+          </div>
+          {room.obstructions.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearObstructions}
+              disabled={locked}
+              className="h-7 text-xs text-slate-500"
+            >
+              Clear All
+            </Button>
+          )}
         </div>
 
-        <div style={styles.actions}>
-          <button
-            type="button"
-            disabled={locked || room.obstructions.length === 0}
-            style={locked ? styles.btnDisabled : styles.btnGhost}
-            onClick={clearObstructions}
-          >
-            Clear All
-          </button>
-        </div>
-      </div>
+        <p className="text-xs text-slate-500">
+          Mark beams, windows, switchboards, door swing areas, etc.
+        </p>
 
-      <div style={styles.form}>
-        <label style={styles.label}>
-          Type
-          <select
-            style={styles.input}
-            value={type}
-            disabled={locked}
-            onChange={(e) => {
-              const t = e.target.value as ObstructionType;
-              setType(t);
-              const found = TYPE_OPTIONS.find((o) => o.type === t);
-              setLabel(found?.label || "Other");
-            }}
-          >
-            {TYPE_OPTIONS.map((o) => (
-              <option key={o.type} value={o.type}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label style={styles.label}>
-          Label
-          <input
-            style={styles.input}
-            value={label}
-            disabled={locked}
-            onChange={(e) => setLabel(e.target.value)}
-          />
-        </label>
-
-        <div style={styles.xywh}>
-          <label style={styles.label}>
-            X(px)
-            <input style={styles.input} type="number" disabled={locked} value={x} onChange={(e) => setX(Number(e.target.value))} />
-          </label>
-          <label style={styles.label}>
-            Y(px)
-            <input style={styles.input} type="number" disabled={locked} value={y} onChange={(e) => setY(Number(e.target.value))} />
-          </label>
-          <label style={styles.label}>
-            W(px)
-            <input style={styles.input} type="number" disabled={locked} value={w} onChange={(e) => setW(Number(e.target.value))} />
-          </label>
-          <label style={styles.label}>
-            H(px)
-            <input style={styles.input} type="number" disabled={locked} value={h} onChange={(e) => setH(Number(e.target.value))} />
-          </label>
-        </div>
-
-        <button
-          type="button"
-          disabled={locked || !canAdd}
-          style={locked || !canAdd ? styles.btnDisabled : styles.btnPrimary}
-          onClick={onAdd}
-        >
-          + Add Constraint
-        </button>
-      </div>
-
-      <div style={styles.list}>
-        {room.obstructions.length === 0 ? (
-          <div style={styles.empty}>No constraints added yet.</div>
-        ) : (
-          room.obstructions.map((o) => (
-            <div key={o.id} style={styles.row}>
-              <div style={styles.rowLeft}>
-                <div style={styles.rowTitle}>
-                  {o.label} <span style={styles.pill}>{o.type}</span>
-                </div>
-                <div style={styles.rowMeta}>
-                  x:{o.rect.x} y:{o.rect.y} w:{o.rect.w} h:{o.rect.h}
-                </div>
-              </div>
-              <button
-                type="button"
+        {/* Form */}
+        <div className="space-y-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-[10px] text-slate-500 uppercase tracking-wide">Type</Label>
+              <Select
+                value={type}
+                onValueChange={(v) => {
+                  const t = v as ObstructionType;
+                  setType(t);
+                  const found = TYPE_OPTIONS.find((o) => o.type === t);
+                  setLabel(found?.label || "Other");
+                }}
                 disabled={locked}
-                style={locked ? styles.iconDisabled : styles.iconBtn}
-                onClick={() => removeObstruction(o.id)}
-                title={locked ? "Approved quotes are locked" : "Remove"}
               >
-                Remove
-              </button>
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {TYPE_OPTIONS.map((o) => (
+                    <SelectItem key={o.type} value={o.type}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          ))
+            <div className="space-y-1.5">
+              <Label className="text-[10px] text-slate-500 uppercase tracking-wide">Label</Label>
+              <Input
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
+                disabled={locked}
+                className="h-9"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-4 gap-2">
+            <div className="space-y-1">
+              <Label className="text-[10px] text-slate-500">X (px)</Label>
+              <Input
+                type="number"
+                value={x}
+                onChange={(e) => setX(Number(e.target.value))}
+                disabled={locked}
+                className="h-8 text-xs"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] text-slate-500">Y (px)</Label>
+              <Input
+                type="number"
+                value={y}
+                onChange={(e) => setY(Number(e.target.value))}
+                disabled={locked}
+                className="h-8 text-xs"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] text-slate-500">W (px)</Label>
+              <Input
+                type="number"
+                value={w}
+                onChange={(e) => setW(Number(e.target.value))}
+                disabled={locked}
+                className="h-8 text-xs"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] text-slate-500">H (px)</Label>
+              <Input
+                type="number"
+                value={h}
+                onChange={(e) => setH(Number(e.target.value))}
+                disabled={locked}
+                className="h-8 text-xs"
+              />
+            </div>
+          </div>
+
+          <Button
+            size="sm"
+            onClick={onAdd}
+            disabled={locked || !canAdd}
+            className="w-full"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Constraint
+          </Button>
+        </div>
+
+        {/* Obstructions List */}
+        {room.obstructions.length === 0 ? (
+          <p className="text-xs text-slate-400 text-center py-2">
+            No constraints added yet.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {room.obstructions.map((o) => (
+              <div
+                key={o.id}
+                className="flex items-center justify-between p-2 rounded-lg border border-slate-200 bg-white"
+              >
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-slate-700">{o.label}</span>
+                    <Badge variant="outline" className="text-[9px]">{o.type}</Badge>
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    x:{o.rect.x} y:{o.rect.y} w:{o.rect.w} h:{o.rect.h}
+                  </p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => removeObstruction(o.id)}
+                  disabled={locked}
+                  className="h-7 w-7 p-0 text-red-500 hover:text-red-600 hover:bg-red-50"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
         )}
-      </div>
 
-      <div style={styles.note}>
-        Next step: you will draw these directly on canvas using click-drag rectangles.
-      </div>
-
-      {locked && (
-        <div style={styles.hint}>Approved quotes cannot be edited. Duplicate to make changes.</div>
-      )}
-    </div>
+        {/* Locked Warning */}
+        {locked && (
+          <Alert className="bg-amber-50 border-amber-200">
+            <Lock className="h-4 w-4 text-amber-600" />
+            <AlertDescription className="text-xs text-amber-800">
+              Approved quotes cannot be edited.
+            </AlertDescription>
+          </Alert>
+        )}
+      </CardContent>
+    </Card>
   );
 };
 
 export default ObstructionPanel;
-
-const styles: { [k: string]: React.CSSProperties } = {
-  card: { background: "#fff", padding: 16, borderRadius: 8, border: "1px solid #e5e7eb" },
-  header: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 },
-  title: { fontSize: 14, fontWeight: 800 },
-  sub: { marginTop: 2, fontSize: 12, color: "#6b7280" },
-  actions: { display: "flex", gap: 8 },
-  btnGhost: {
-    padding: "8px 10px",
-    borderRadius: 10,
-    border: "1px solid #d1d5db",
-    background: "#fff",
-    cursor: "pointer",
-    fontWeight: 700,
-    minHeight: 36,
-  },
-  btnPrimary: {
-    padding: "9px 12px",
-    minHeight: 36,
-    borderRadius: 10,
-    border: "1px solid #2563eb",
-    background: "#2563eb",
-    color: "#fff",
-    cursor: "pointer",
-    fontWeight: 800,
-    width: "fit-content",
-  },
-  btnDisabled: {
-    padding: "9px 12px",
-    minHeight: 36,
-    borderRadius: 10,
-    border: "1px solid #d1d5db",
-    background: "#e5e7eb",
-    color: "#6b7280",
-    cursor: "not-allowed",
-    fontWeight: 800,
-    width: "fit-content",
-  },
-  form: { marginTop: 12, display: "flex", flexDirection: "column", gap: 10 },
-  label: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 6,
-    fontSize: 12,
-    color: "#374151",
-    fontWeight: 600,
-  },
-  input: { padding: "8px 10px", borderRadius: 10, border: "1px solid #d1d5db", outline: "none" },
-  xywh: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 },
-  list: { marginTop: 12, display: "flex", flexDirection: "column", gap: 8 },
-  empty: { fontSize: 12, color: "#6b7280" },
-  row: {
-    border: "1px solid #e5e7eb",
-    borderRadius: 10,
-    padding: 10,
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: 10,
-  },
-  rowLeft: { display: "flex", flexDirection: "column", gap: 2 },
-  rowTitle: { fontSize: 12, fontWeight: 800, color: "#111827" },
-  rowMeta: { fontSize: 12, color: "#6b7280" },
-  pill: {
-    marginLeft: 6,
-    fontSize: 11,
-    padding: "2px 6px",
-    borderRadius: 999,
-    border: "1px solid #e5e7eb",
-    color: "#374151",
-    background: "#f9fafb",
-  },
-  iconBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 8,
-    border: "1px solid #ef4444",
-    background: "#fff",
-    color: "#ef4444",
-    cursor: "pointer",
-    fontWeight: 900,
-    lineHeight: "28px",
-  },
-  iconDisabled: {
-    width: 30,
-    height: 30,
-    borderRadius: 8,
-    border: "1px solid #d1d5db",
-    background: "#f3f4f6",
-    color: "#9ca3af",
-    cursor: "not-allowed",
-    fontWeight: 900,
-    lineHeight: "28px",
-  },
-  note: { marginTop: 10, fontSize: 12, color: "#6b7280", lineHeight: 1.4 },
-  hint: { marginTop: 8, fontSize: 12, color: "#6b7280" },
-};

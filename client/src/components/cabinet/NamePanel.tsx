@@ -1,26 +1,20 @@
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 
-/**
- * NamePanel
- *
- * Reusable UI block for:
- *  - Client Name
- *  - Room Name
- *  - Cabinet Name
- *
- * Props:
- *  - clientName
- *  - roomName
- *  - cabinetName
- *  - onChange(field, value)
- */
+// PATCH 18: Strict prop typing
+export interface NamePanelProps {
+  clientName?: string;
+  roomName?: string;
+  cabinetName?: string;
+  onChange: (field: "clientName" | "roomName" | "cabinetName", value: string) => void;
+}
+
 export default function NamePanel({
   clientName,
   roomName,
   cabinetName,
   onChange,
-}: any) {
+}: NamePanelProps) {
 
   return (
     <div className="space-y-4 border rounded-md p-4 bg-gray-50">

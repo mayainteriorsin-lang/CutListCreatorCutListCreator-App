@@ -2,23 +2,22 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectContent, SelectValue, SelectItem } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 
-/**
- * DoorHandleConfigPanel
- *
- * Props:
- *  - handleType
- *  - handlePosition
- *  - handleSize
- *  - handleOffset
- *  - onChange(field, value)
- */
+// PATCH 18: Strict prop typing
+export interface DoorHandleConfigPanelProps {
+  handleType?: string;
+  handlePosition?: string;
+  handleSize?: number;
+  handleOffset?: number;
+  onChange: (field: "handleType" | "handlePosition" | "handleSize" | "handleOffset", value: string | number) => void;
+}
+
 export default function DoorHandleConfigPanel({
   handleType,
   handlePosition,
   handleSize,
   handleOffset,
   onChange,
-}: any) {
+}: DoorHandleConfigPanelProps) {
   return (
     <div className="border rounded-md p-4 bg-gray-50 space-y-4">
 

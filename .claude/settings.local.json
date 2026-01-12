@@ -12,7 +12,25 @@
       "Bash(timeout /t 3)",
       "Bash(ls:*)",
       "Bash(npm run dev:*)",
-      "Bash(npx eslint:*)"
+      "Bash(npx eslint:*)",
+      "Bash(ss:*)",
+      "Bash(mkdir:*)",
+      "Bash(npm run dev:server:*)",
+      "Bash(npm run check:*)",
+      "Bash(npx vite build:*)",
+      "Bash(git checkout:*)",
+      "Bash(timeout 15 npm run dev:*)",
+      "Bash(timeout 10 npm run dev:*)",
+      "Bash(npm install:*)",
+      "Bash(npm ls:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(wc:*)",
+      "Bash(netstat:*)",
+      "Bash(taskkill:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push)",
+      "Bash(git revert:*)"
     ]
   }
 }

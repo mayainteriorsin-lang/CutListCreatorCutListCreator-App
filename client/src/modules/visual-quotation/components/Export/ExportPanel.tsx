@@ -1,4 +1,7 @@
 import React from "react";
+import { FileText, FileSpreadsheet, Info } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { useVisualQuotationStore } from "../../store/visualQuotationStore";
 
 const ExportPanel: React.FC = () => {
@@ -13,36 +16,40 @@ const ExportPanel: React.FC = () => {
   };
 
   return (
-    <div style={styles.card}>
-      <div style={styles.title}>Share</div>
-      <div style={styles.row}>
-        <button style={styles.btn} onClick={exportPdf}>
-          Download PDF
-        </button>
-        <button style={styles.btn} onClick={exportExcel}>
-          Download Excel
-        </button>
-      </div>
-      {status !== "APPROVED" && (
-        <div style={styles.note}>Tip: Approve quote before sharing.</div>
-      )}
-    </div>
+    <Card className="border-slate-200 shadow-sm">
+      <CardContent className="p-4 space-y-3">
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={exportPdf}
+            className="flex-1"
+          >
+            <FileText className="h-4 w-4 mr-2" />
+            PDF
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={exportExcel}
+            className="flex-1"
+          >
+            <FileSpreadsheet className="h-4 w-4 mr-2" />
+            Excel
+          </Button>
+        </div>
+
+        {status !== "APPROVED" && (
+          <div className="flex items-start gap-2 p-2 rounded-lg bg-blue-50 border border-blue-100">
+            <Info className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
+            <p className="text-[11px] text-blue-700">
+              Approve the quote before sharing with customer.
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 };
 
 export default ExportPanel;
-
-const styles: { [k: string]: React.CSSProperties } = {
-  card: { background: "#fff", padding: 16, borderRadius: 8, border: "1px solid #e5e7eb" },
-  title: { fontSize: 14, fontWeight: 800, marginBottom: 8 },
-  row: { display: "flex", gap: 8 },
-  btn: {
-    padding: "8px 12px",
-    borderRadius: 10,
-    border: "1px solid #d1d5db",
-    background: "#f9fafb",
-    cursor: "pointer",
-    fontWeight: 700,
-  },
-  note: { marginTop: 8, fontSize: 12, color: "#6b7280" },
-};

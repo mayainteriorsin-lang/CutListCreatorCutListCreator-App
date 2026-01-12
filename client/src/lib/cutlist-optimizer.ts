@@ -366,12 +366,12 @@ export function optimizeCutlist({
     }
   });
 
-  // 📊 LOG ALL EXPANDED INSTANCES
+  // PATCH 50: Removed verbose console logging for production performance
+  // Debug info available via browser DevTools if needed
   const rotCount = expanded.filter((e: any) => e.rotate).length;
-  console.groupCollapsed(`🆔 OPTIMIZER EXPANDED INSTANCES (Total: ${expanded.length}) — ${rotCount} can rotate`);
-  console.log(`🔄 Rotation: ${rotCount} pieces can rotate, ${expanded.length - rotCount} locked (grain)`);
-  console.table(expandLog);
-  console.groupEnd();
+  if (process.env.NODE_ENV === 'development') {
+    console.debug(`[OPTIMIZER] ${expanded.length} panels, ${rotCount} can rotate`);
+  }
 
   const base = expanded.slice().sort((a, b) => {
     const d = area(b) - area(a);
@@ -476,34 +476,22 @@ export function optimizeCutlist({
   const totalOutputPanels = totalPlacedPanels + totalUnplacedPanels;
   const panelsLost = totalInputPanels - totalOutputPanels;
 
-  console.group('📊 PANEL COUNT VALIDATION (MaxRects)');
-  console.log(`Input panels: ${totalInputPanels}`);
-  const placedPercent = totalInputPanels > 0 ? ((totalPlacedPanels / totalInputPanels) * 100).toFixed(1) : '0.0';
-  console.log(`Placed panels: ${totalPlacedPanels} (${placedPercent}%)`);
-  console.log(`Unplaced panels: ${totalUnplacedPanels}`);
-  console.log(`Total output: ${totalOutputPanels}`);
+  // PATCH 50: Gate panel validation logging behind development mode
+  const isDev = process.env.NODE_ENV === 'development';
+
+  if (isDev) {
+    console.debug(`[OPTIMIZER] Input: ${totalInputPanels}, Placed: ${totalPlacedPanels}, Unplaced: ${totalUnplacedPanels}`);
+  }
 
   if (panelsLost !== 0) {
-    console.error(`❌ CRITICAL ERROR: ${Math.abs(panelsLost)} panels ${panelsLost > 0 ? 'LOST' : 'DUPLICATED'} during optimization!`);
-    console.error('Input parts:', parts.map(p => `${p.id} (qty: ${p.qty})`));
-    console.error('Placed IDs:', best.panels.flatMap((b: any) => b.placed.map((p: any) => p.id)));
-    console.error('Unplaced IDs:', best.leftover.map((p: any) => p.id));
+    // Always log critical errors
+    console.error(`[OPTIMIZER] CRITICAL: ${Math.abs(panelsLost)} panels ${panelsLost > 0 ? 'LOST' : 'DUPLICATED'}`);
     throw new Error(`Panel count mismatch: ${panelsLost} panels ${panelsLost > 0 ? 'lost' : 'duplicated'}`);
-  } else {
-    console.log('✅ All panels accounted for - no panels lost!');
   }
-  console.groupEnd();
 
-  // Detailed placement summary
-  if (totalUnplacedPanels > 0) {
-    console.warn(`⚠️ WARNING: ${totalUnplacedPanels} panels could not be placed (oversized or constraint issues)`);
-    console.table(best.leftover.map((p: any) => ({
-      id: p.id,
-      width: p.w,
-      height: p.h,
-      rotate: p.rotate ? 'allowed' : 'locked',
-      reason: (p.w > W && p.h > H) || (!p.rotate && (p.w > W || p.h > H)) ? 'Too large' : 'Unknown'
-    })));
+  // Log unplaced panels warning only in development
+  if (totalUnplacedPanels > 0 && isDev) {
+    console.warn(`[OPTIMIZER] ${totalUnplacedPanels} panels could not be placed`);
   }
 
   return {

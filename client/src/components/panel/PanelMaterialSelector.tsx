@@ -3,20 +3,25 @@ import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@
 import GrainToggle from "@/components/panel/GrainToggle";
 import GaddiToggle from "@/components/panel/GaddiToggle";
 
-/**
- * PanelMaterialSelector
- *
- * Props:
- *  - label
- *  - laminateCode
- *  - innerLaminateCode
- *  - grainDirection
- *  - gaddi
- *  - laminateCodes
- *  - onChange(field, value)
- *  - showGrain (optional)
- *  - showGaddi (optional)
- */
+// PATCH 18: Strict prop typing
+export interface PanelMaterialSelectorProps {
+  label: string;
+  laminateCode?: string;
+  innerLaminateCode?: string;
+  grainDirection?: boolean;
+  gaddi?: boolean;
+
+  laminateCodes: string[];
+
+  onChange: (
+    field: "laminateCode" | "innerLaminateCode" | "grainDirection" | "gaddi",
+    value: string | boolean
+  ) => void;
+
+  showGrain?: boolean;
+  showGaddi?: boolean;
+}
+
 export default function PanelMaterialSelector({
   label,
   laminateCode,
@@ -27,7 +32,10 @@ export default function PanelMaterialSelector({
   onChange,
   showGrain = false,
   showGaddi = false,
-}: any) {
+}: PanelMaterialSelectorProps) {
+
+  // PATCH 17: Safe array fallback to prevent undefined.map() crashes
+  const safeLaminateCodes = Array.isArray(laminateCodes) ? laminateCodes : [];
 
   return (
     <div className="space-y-2 border rounded-md p-3 bg-gray-50">
@@ -45,11 +53,18 @@ export default function PanelMaterialSelector({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {laminateCodes.map((code: string) => (
-              <SelectItem key={code} value={code}>
-                {code}
-              </SelectItem>
-            ))}
+            {/* PATCH 37: Empty state */}
+            {safeLaminateCodes.length === 0 ? (
+              <div className="px-3 py-2 text-xs text-slate-500">
+                No laminate codes available
+              </div>
+            ) : (
+              safeLaminateCodes.map((code: string) => (
+                <SelectItem key={code} value={code}>
+                  {code}
+                </SelectItem>
+              ))
+            )}
           </SelectContent>
         </Select>
       </div>
@@ -65,11 +80,18 @@ export default function PanelMaterialSelector({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {laminateCodes.map((code: string) => (
-              <SelectItem key={code} value={code}>
-                {code}
-              </SelectItem>
-            ))}
+            {/* PATCH 37: Empty state */}
+            {safeLaminateCodes.length === 0 ? (
+              <div className="px-3 py-2 text-xs text-slate-500">
+                No laminate codes available
+              </div>
+            ) : (
+              safeLaminateCodes.map((code: string) => (
+                <SelectItem key={code} value={code}>
+                  {code}
+                </SelectItem>
+              ))
+            )}
           </SelectContent>
         </Select>
       </div>

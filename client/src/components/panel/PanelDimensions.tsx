@@ -1,17 +1,16 @@
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 
-/**
- * PanelDimensions
- *
- * Reusable 2-field input (Height, Width)
- * Used across:
- * - CabinetForm
- * - ManualPanelDialog
- * - CenterPost
- * - Shelves
- * - Quick shutter mode
- */
+// PATCH 18: Strict prop typing
+export interface PanelDimensionsProps {
+  height?: number;
+  width?: number;
+  onHeightChange: (value: number) => void;
+  onWidthChange: (value: number) => void;
+  heightLabel?: string;
+  widthLabel?: string;
+}
+
 export default function PanelDimensions({
   height,
   width,
@@ -19,7 +18,7 @@ export default function PanelDimensions({
   onWidthChange,
   heightLabel = "Height (mm)",
   widthLabel = "Width (mm)",
-}: any) {
+}: PanelDimensionsProps) {
 
   return (
     <div className="grid grid-cols-2 gap-3">

@@ -2,11 +2,71 @@ import { preparePartsForOptimizer } from "./preparePartsForOptimizer";
 import { multiPassOptimize } from "./multiPassOptimize";
 import { computeDisplayDims } from "./computeDisplayDims";
 import { optimizeCutlist } from "@/lib/cutlist-optimizer";
-import {
+// PATCH 48: Performance monitoring
+import { perfStart, perfEnd } from "@/lib/perf";
+// PATCH 49: Production-safe logger
+import { logger } from "@/lib/system/logger";
+import type {
   OptimizerEngineParams,
   OptimizerEngineResult,
   BrandResult,
-} from "@/types/cutlist";
+} from "@shared/schema";
+
+// PATCH 31: Optimizer Result Cache
+// Prevents re-running optimizer when inputs are identical
+const optimizerCache = new Map<string, OptimizerEngineResult>();
+
+// Stable JSON stringify that sorts keys for consistent hashing
+const stableStringify = (obj: unknown): string => {
+  if (obj === null || obj === undefined) return String(obj);
+  if (typeof obj !== 'object') return JSON.stringify(obj);
+  if (Array.isArray(obj)) {
+    return '[' + obj.map(stableStringify).join(',') + ']';
+  }
+  const keys = Object.keys(obj as Record<string, unknown>).sort();
+  return '{' + keys.map(k => `"${k}":${stableStringify((obj as Record<string, unknown>)[k])}`).join(',') + '}';
+};
+
+// Build a cache key from optimizer params (only the parts that affect output)
+const buildOptimizerCacheKey = (params: OptimizerEngineParams): string => {
+  const {
+    cabinets,
+    manualPanels,
+    sheetWidth,
+    sheetHeight,
+    kerf,
+  } = params;
+
+  // Only include fields that affect optimizer output
+  const keyData = {
+    cabinets: cabinets?.map(c => ({
+      id: c.id,
+      height: c.height,
+      width: c.width,
+      depth: c.depth,
+      plywoodType: c.plywoodType,
+      shutters: c.shutters,
+      // Include all laminate codes
+      topPanelLaminateCode: c.topPanelLaminateCode,
+      bottomPanelLaminateCode: c.bottomPanelLaminateCode,
+      leftPanelLaminateCode: c.leftPanelLaminateCode,
+      rightPanelLaminateCode: c.rightPanelLaminateCode,
+      backPanelLaminateCode: c.backPanelLaminateCode,
+    })) ?? [],
+    manualPanels: manualPanels?.map(mp => ({
+      id: mp.id,
+      width: mp.width,
+      height: mp.height,
+      quantity: mp.quantity,
+      targetSheet: mp.targetSheet,
+    })) ?? [],
+    sheetWidth,
+    sheetHeight,
+    kerf,
+  };
+
+  return stableStringify(keyData);
+};
 
 // Normalize strings for grouping (removes whitespace and case inconsistencies)
 // This ensures items with the same text group together despite spacing/case differences
@@ -18,7 +78,35 @@ function normalizeForGrouping(text: string): string {
     .replace(/\s+/g, ' ');          // Collapse multiple spaces to single space
 }
 
-export async function runOptimizerEngine({
+// PATCH 31: Main entry point with caching
+export async function runOptimizerEngine(
+  params: OptimizerEngineParams
+): Promise<OptimizerEngineResult> {
+  const cacheKey = buildOptimizerCacheKey(params);
+
+  // Return cached result if available
+  if (optimizerCache.has(cacheKey)) {
+    logger.log('[OPTIMIZER] Cache hit - returning cached result');
+    return optimizerCache.get(cacheKey)!;
+  }
+
+  logger.log('[OPTIMIZER] Cache miss - running optimizer');
+  const result = await runOptimizerInternal(params);
+
+  // Cache the result
+  optimizerCache.set(cacheKey, result);
+
+  // Keep cache size bounded (max 10 entries)
+  if (optimizerCache.size > 10) {
+    const firstKey = optimizerCache.keys().next().value;
+    if (firstKey) optimizerCache.delete(firstKey);
+  }
+
+  return result;
+}
+
+// PATCH 31 + 32: Internal optimizer logic (exported for worker use)
+export async function runOptimizerInternal({
   cabinets,
   manualPanels,
   sheetWidth,
@@ -27,8 +115,12 @@ export async function runOptimizerEngine({
   woodGrainsPreferences,
   generatePanels,
 }: OptimizerEngineParams): Promise<OptimizerEngineResult> {
+  // PATCH 48: Track optimizer performance
+  perfStart("optimizer:total", { cabinets: cabinets?.length ?? 0 });
+
   try {
     if (!cabinets || cabinets.length === 0) {
+      perfEnd("optimizer:total");
       return { brandResults: [], error: null };
     }
 
@@ -186,12 +278,15 @@ export async function runOptimizerEngine({
       if (combinedResult?.panels && combinedResult.panels.length === 1) {
         combinedResult.panels[0]._sheetId = targetSheetId;
         targetBrandResult.result.panels[targetSheetIndex] = combinedResult.panels[0];
-        placedManualPanelIds.add(mp.id);
+        if (mp.id) placedManualPanelIds.add(mp.id);
       }
     });
 
+    // PATCH 48: End performance tracking
+    perfEnd("optimizer:total");
     return { brandResults, error: null };
   } catch (error) {
+    perfEnd("optimizer:total");
     return { brandResults: [], error: error as Error };
   }
 }

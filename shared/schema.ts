@@ -5,21 +5,44 @@ import { sql } from "drizzle-orm";
 
 // ✅ CENTRAL LAMINATE CODE GODOWN (Warehouse) - Single source of truth for all laminate codes
 
+// PATCH 18: Extracted magic numbers
+export const DEFAULT_WIDTHS = {
+  Single: 300,
+  Double: 600,
+  Triple: 900,
+  Four: 1200,
+  Five: 1500,
+  Six: 1800,
+  Seven: 2100,
+  Eight: 2400,
+  Nine: 2700,
+  Ten: 3000,
+  Custom: 450
+} as const;
+
+export const DEFAULT_REDUCTIONS = {
+  Width: 36,
+  BackPanelWidth: 20,
+  BackPanelHeight: 20,
+  CenterPostHeight: 50,
+  CenterPostDepth: 50
+} as const;
+
 export const shutterTypes = ['Glass Panel', 'Mesh Panel'] as const;
 export type ShutterType = string; // Now accepts any laminate code
 
 export const cabinetTypes = [
-  { value: 'single', label: '1 Shutter', doors: 1, defaultWidth: 300 },
-  { value: 'double', label: '2 Shutter', doors: 2, defaultWidth: 600 },
-  { value: 'triple', label: '3 Shutter', doors: 3, defaultWidth: 900 },
-  { value: 'four', label: '4 Shutter', doors: 4, defaultWidth: 1200 },
-  { value: 'five', label: '5 Shutter', doors: 5, defaultWidth: 1500 },
-  { value: 'six', label: '6 Shutter', doors: 6, defaultWidth: 1800 },
-  { value: 'seven', label: '7 Shutter', doors: 7, defaultWidth: 2100 },
-  { value: 'eight', label: '8 Shutter', doors: 8, defaultWidth: 2400 },
-  { value: 'nine', label: '9 Shutter', doors: 9, defaultWidth: 2700 },
-  { value: 'ten', label: '10 Shutter', doors: 10, defaultWidth: 3000 },
-  { value: 'custom', label: 'Custom', doors: 0, defaultWidth: 450 }
+  { value: 'single', label: '1 Shutter', doors: 1, defaultWidth: DEFAULT_WIDTHS.Single },
+  { value: 'double', label: '2 Shutter', doors: 2, defaultWidth: DEFAULT_WIDTHS.Double },
+  { value: 'triple', label: '3 Shutter', doors: 3, defaultWidth: DEFAULT_WIDTHS.Triple },
+  { value: 'four', label: '4 Shutter', doors: 4, defaultWidth: DEFAULT_WIDTHS.Four },
+  { value: 'five', label: '5 Shutter', doors: 5, defaultWidth: DEFAULT_WIDTHS.Five },
+  { value: 'six', label: '6 Shutter', doors: 6, defaultWidth: DEFAULT_WIDTHS.Six },
+  { value: 'seven', label: '7 Shutter', doors: 7, defaultWidth: DEFAULT_WIDTHS.Seven },
+  { value: 'eight', label: '8 Shutter', doors: 8, defaultWidth: DEFAULT_WIDTHS.Eight },
+  { value: 'nine', label: '9 Shutter', doors: 9, defaultWidth: DEFAULT_WIDTHS.Nine },
+  { value: 'ten', label: '10 Shutter', doors: 10, defaultWidth: DEFAULT_WIDTHS.Ten },
+  { value: 'custom', label: 'Custom', doors: 0, defaultWidth: DEFAULT_WIDTHS.Custom }
 ] as const;
 
 export type CabinetType = typeof cabinetTypes[number]['value'];
@@ -325,3 +348,95 @@ export const laminateInnerFieldMap = {
   centerPost: 'centerPostInnerLaminateCode',
   shelves: 'shelvesInnerLaminateCode',
 } as const;
+
+// ============================================================
+// PATCH 11: Shared Type Contract Between Backend & Frontend
+// ============================================================
+
+// Cut Panel for Optimizer
+export interface CutPanel {
+  id: string;
+  name?: string;
+  height: number;
+  width: number;
+  gaddi?: boolean;
+  grainDirection?: boolean;
+  plywoodType?: string;
+  laminateCode?: string;
+  innerLaminateCode?: string;
+  quantity?: number;
+}
+
+// Placed Panel (after optimization)
+export interface PlacedPanel extends CutPanel {
+  x: number;
+  y: number;
+  w?: number;
+  h?: number;
+  rotated?: boolean;
+}
+
+// Sheet result returned by optimizer
+export interface Sheet {
+  _sheetId: string;
+  width: number;
+  height: number;
+  placed: PlacedPanel[];
+  usedArea?: number;
+  wasteArea?: number;
+}
+
+// Optimizer brand block
+export interface BrandResult {
+  brand: string;
+  laminateCode: string;
+  laminateDisplay: string;
+  isBackPanel?: boolean;
+  result: {
+    panels: Sheet[];
+  };
+}
+
+// Material summary types
+export interface MaterialSummaryItem {
+  brand: string;
+  laminateDisplay: string;
+  count: number;
+}
+
+export interface LaminateSummary {
+  [laminateCode: string]: number;
+}
+
+export interface MaterialSummary {
+  [key: string]: MaterialSummaryItem;
+}
+
+// Wood grains preference map
+export interface WoodGrainsMap {
+  [laminateCode: string]: boolean;
+}
+
+// Manual panel with target sheet info (for placing on specific sheets)
+export interface ManualPanel extends Panel {
+  targetSheet?: {
+    sheetId: string;
+    key?: string;
+  };
+}
+
+// Optimizer Engine types
+export interface OptimizerEngineParams {
+  cabinets: Cabinet[];
+  manualPanels: ManualPanel[];
+  sheetWidth: number;
+  sheetHeight: number;
+  kerf: number;
+  woodGrainsPreferences: WoodGrainsMap;
+  generatePanels: (cabinet: Cabinet) => Panel[];
+}
+
+export interface OptimizerEngineResult {
+  brandResults: BrandResult[];
+  error: Error | null;
+}

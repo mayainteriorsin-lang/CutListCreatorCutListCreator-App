@@ -8,12 +8,24 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
 
+// PATCH 18: Strict prop typing
+export interface PendingMaterialAction {
+  missingPanels: string[];
+}
+
+export interface MaterialValidationDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  pendingMaterialAction: PendingMaterialAction | null;
+  setPendingMaterialAction: (action: PendingMaterialAction | null) => void;
+}
+
 export default function MaterialValidationDialog({
   open,
   onOpenChange,
   pendingMaterialAction,
   setPendingMaterialAction,
-}: any) {
+}: MaterialValidationDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent className="max-w-2xl">
@@ -27,7 +39,7 @@ export default function MaterialValidationDialog({
               Cannot add cabinet or shutter without laminate codes on:
             </p>
 
-            {pendingMaterialAction?.missingPanels?.length > 0 && (
+            {pendingMaterialAction && pendingMaterialAction.missingPanels.length > 0 && (
               <div className="bg-red-50 border border-red-200 rounded-md p-3 mt-2">
                 <ul className="space-y-2 text-sm">
                   {pendingMaterialAction.missingPanels.map((msg: string, i: number) => (

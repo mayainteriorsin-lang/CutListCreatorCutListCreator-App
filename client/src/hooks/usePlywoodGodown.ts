@@ -6,9 +6,18 @@ export function usePlywoodBrands() {
   return useQuery<PlywoodBrandMemory[]>({
     queryKey: ["godown", "plywood"],
     queryFn: async () => {
-      const res = await apiRequest("GET", "/api/godown/plywood");
-      return res.json();
+      try {
+        const res = await apiRequest("GET", "/api/godown/plywood");
+        const json = await res.json();
+        const data = json?.data ?? json;
+        return Array.isArray(data) ? data : [];
+      } catch (error) {
+        console.warn("usePlywoodBrands fetch failed:", error);
+        return [];
+      }
     },
+    staleTime: 30000, // Cache for 30 seconds
+    retry: 2,
   });
 }
 
@@ -18,7 +27,8 @@ export function useCreatePlywoodBrand() {
   return useMutation({
     mutationFn: async (payload: { brand: string }) => {
       const res = await apiRequest("POST", "/api/godown/plywood", payload);
-      return res.json() as Promise<PlywoodBrandMemory>;
+      const json = await res.json();
+      return (json?.data ?? json) as PlywoodBrandMemory;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["godown", "plywood"] });

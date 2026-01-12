@@ -1,9 +1,14 @@
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import DesignCenter from "@/components/ui/DesignCenter";
 
+// PATCH 18: Strict prop typing
+export interface DesignCenterSectionProps {
+  handleDesignCenterExport: (data: any) => void;
+}
+
 export default function DesignCenterSection({
   handleDesignCenterExport,
-}: any) {
+}: DesignCenterSectionProps) {
   return (
     <Card className="bg-white border-gray-200 shadow-md mt-8" data-design-center-section>
       <CardHeader>

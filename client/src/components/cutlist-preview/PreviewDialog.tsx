@@ -6,8 +6,15 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 
-import { generateCutlistPDF } from "@/lib/pdf/PDFEngine";
-import React, { useMemo } from "react";
+// PATCH 29: Use export orchestrator instead of direct PDF engine call
+import { exportCutlistPDF, generatePDFFilename } from "@/lib/pdf";
+import React, { useMemo, useCallback } from "react";
+// PATCH 37: Loading + Empty states
+import { LoadingBlock, EmptyBlock } from "@/components/system/StatusBlocks";
+// PATCH 47: Feature flags
+import { useFeature } from "@/lib/system/useFeature";
+// PATCH 39: Centralized error toasting
+import { toastError } from "@/lib/errors/toastError";
 import { buildCutlistSummaries } from "@/lib/cutlist-summary/SummaryEngine";
 import { computePageCounts, getVisibleSheets } from "@/lib/preview/PreviewHelpers";
 import { filterDeletedPanels } from "@/lib/preview/SheetFilters";
@@ -30,10 +37,25 @@ export default function PreviewDialog({
   liveMaterialSummary,
   colourFrameEnabled,
   colourFrameForm,
-  manualPanels
+  manualPanels,
+  loadingPreview = false, // PATCH 37: Loading state prop
 }: any) {
 
+  // PATCH 47: Feature flag for virtualized preview (prepared for future use)
+  const useVirtual = useFeature("virtualizedPreview");
+
   if (!open) return null;
+
+  // PATCH 37: Show loading state
+  if (loadingPreview) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <LoadingBlock label="Preparing cutting preview…" />
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   const {
     materialSummary,
@@ -58,57 +80,89 @@ export default function PreviewDialog({
     [brandResults, deletedPreviewSheets]
   );
 
-  function renderSheet(sheet: any, title: string, brand: string, laminateDisplay: string, isBackPanel: boolean, sheetId: string, pageNumber: number) {
+  // PATCH 30: Memoize renderSheet function to prevent repeated heavy renders
+  const renderSheet = useCallback(
+    (
+      sheet: any,
+      title: string,
+      brand: string,
+      laminateDisplay: string,
+      isBackPanel: boolean,
+      sheetId: string,
+      pageNumber: number
+    ) => {
+      return (
+        <div
+          key={sheetId}
+          style={{ width: "100%", border: "1px solid #000", padding: "12px", minHeight: "600px" }}
+        >
+          <div className="flex justify-between items-center mb-2 border-b pb-1">
+            <div className="font-bold">{title}</div>
+            <div className="text-sm">Page {pageNumber}</div>
+          </div>
+
+          <div className="text-sm mb-1">
+            <span className="font-semibold">Brand:</span> {brand}
+          </div>
+          <div className="text-sm mb-2">
+            <span className="font-semibold">Laminate:</span> {laminateDisplay}
+          </div>
+
+          {/* Panels */}
+          <div className="grid grid-cols-2 gap-2 mt-2">
+            {sheet.placed?.map((p: any, idx: number) => (
+              <div key={idx} className="border p-2 rounded bg-gray-50 text-xs">
+                <div className="font-semibold">{p.type}</div>
+                <div>{p.w} × {p.h} mm</div>
+                <div className="mt-1 text-gray-600">ID: {p.id}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    },
+    []
+  );
+
+  // PATCH 30: Memoize sheet pages to prevent recomputation on every state change
+  const allSheetPages = useMemo(() => {
+    if (!visibleSheets || visibleSheets.length === 0) return [];
+
+    return visibleSheets.map((entry: any) => {
+      const title = entry.isBackPanel
+        ? `Back Panel Sheet - ${entry.brand}`
+        : `Sheet - ${entry.brand}`;
+      const sheetForRender = filterDeletedPanels(entry.sheet, deletedPreviewPanels);
+
+      return (
+        <div key={entry.sheetId} style={{ pageBreakAfter: "always" }}>
+          {renderSheet(
+            sheetForRender,
+            title,
+            entry.brand,
+            entry.laminateDisplay,
+            entry.isBackPanel,
+            entry.sheetId,
+            pageMap[entry.sheetId]
+          )}
+        </div>
+      );
+    });
+  }, [visibleSheets, deletedPreviewPanels, pageMap, renderSheet]);
+
+  // PATCH 37: Show empty state when no sheets to preview
+  if (!allSheetPages || allSheetPages.length === 0) {
     return (
-      <div
-        key={sheetId}
-        style={{ width: "100%", border: "1px solid #000", padding: "12px", minHeight: "600px" }}
-      >
-        <div className="flex justify-between items-center mb-2 border-b pb-1">
-          <div className="font-bold">{title}</div>
-          <div className="text-sm">Page {pageNumber}</div>
-        </div>
-
-        <div className="text-sm mb-1">
-          <span className="font-semibold">Brand:</span> {brand}
-        </div>
-        <div className="text-sm mb-2">
-          <span className="font-semibold">Laminate:</span> {laminateDisplay}
-        </div>
-
-        {/* Panels */}
-        <div className="grid grid-cols-2 gap-2 mt-2">
-          {sheet.placed?.map((p: any, idx: number) => (
-            <div key={idx} className="border p-2 rounded bg-gray-50 text-xs">
-              <div className="font-semibold">{p.type}</div>
-              <div>{p.w} × {p.h} mm</div>
-              <div className="mt-1 text-gray-600">ID: {p.id}</div>
-            </div>
-          ))}
-        </div>
-      </div>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <EmptyBlock
+            title="No sheets to preview"
+            description="Add cabinets and generate a cutlist to see preview pages."
+          />
+        </DialogContent>
+      </Dialog>
     );
   }
-
-  // Build all sheets
-  const allSheetPages: React.ReactNode[] = visibleSheets.map((entry: any) => {
-    const title = entry.isBackPanel ? `Back Panel Sheet - ${entry.brand}` : `Sheet - ${entry.brand}`;
-    const sheetForRender = filterDeletedPanels(entry.sheet, deletedPreviewPanels);
-
-    return (
-      <div key={entry.sheetId} style={{ pageBreakAfter: "always" }}>
-        {renderSheet(
-          sheetForRender,
-          title,
-          entry.brand,
-          entry.laminateDisplay,
-          entry.isBackPanel,
-          entry.sheetId,
-          pageMap[entry.sheetId]
-        )}
-      </div>
-    );
-  });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -166,7 +220,7 @@ export default function PreviewDialog({
 
         </div>
 
-        {/* Export PDF */}
+        {/* Export PDF - PATCH 29: Use export orchestrator */}
         <div className="pt-4 flex justify-center">
           <Button
             disabled={!woodGrainsReady}
@@ -181,28 +235,24 @@ export default function PreviewDialog({
               }
 
               try {
-                const pdf = generateCutlistPDF({
+                // PATCH 29: Use export orchestrator for single entry point
+                exportCutlistPDF({
                   brandResults,
                   sheet: { w: sheetWidth, h: sheetHeight, kerf },
-                  filename: `cutting-list-${Date.now()}.pdf`,
-                  orientationPreference: pdfOrientation,
                   cabinets,
                   materialSummary: liveMaterialSummary,
-                  deletedSheets: deletedPreviewSheets
+                  deletedSheets: deletedPreviewSheets,
+                  orientation: pdfOrientation,
+                  filename: generatePDFFilename(clientName),
                 });
-
-                pdf.save(`cutting-list-${Date.now()}.pdf`);
 
                 toast({
                   title: "PDF Generated",
                   description: "Two-column vector PDF created successfully."
                 });
               } catch (err: any) {
-                toast({
-                  variant: "destructive",
-                  title: "Export Failed",
-                  description: err?.message || "Unknown error"
-                });
+                // PATCH 39: Use centralized error toast
+                toastError(err);
               }
             }}
           >

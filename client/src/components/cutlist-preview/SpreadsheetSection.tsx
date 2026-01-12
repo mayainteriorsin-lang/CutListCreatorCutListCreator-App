@@ -1,13 +1,23 @@
+import { RefObject } from "react";
+import { UseFormReturn } from "react-hook-form";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
 import Spreadsheet from "@/components/Spreadsheet";
+
+// PATCH 18: Strict prop typing
+export interface SpreadsheetSectionProps {
+  form: UseFormReturn<any>;
+  panelsLinked: boolean;
+  syncCabinetConfigFrontLaminate: (code: string, isUserSelection: boolean) => void;
+  cabinetSectionRef: RefObject<HTMLDivElement>;
+}
 
 export default function SpreadsheetSection({
   form,
   panelsLinked,
   syncCabinetConfigFrontLaminate,
   cabinetSectionRef,
-}: any) {
+}: SpreadsheetSectionProps) {
   return (
     <Card className="bg-white border-gray-200 shadow-md mt-8" data-spreadsheet-section>
       <CardHeader>

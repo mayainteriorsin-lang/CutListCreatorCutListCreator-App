@@ -147,6 +147,12 @@ export function getFormDefaultValues(
     rightPanelGrainDirection: false,
     backPanelGrainDirection: false,
     shutterGrainDirection: false,
+
+    // PATCH 20: Gaddi fields - default to true (enabled)
+    topPanelGaddi: true,
+    bottomPanelGaddi: true,
+    leftPanelGaddi: true,
+    rightPanelGaddi: true,
     shutterGaddi: false
   };
 }
@@ -222,7 +228,13 @@ export function getFormResetValues(
     leftPanelGrainDirection: hasTopWoodGrain,
     rightPanelGrainDirection: hasTopWoodGrain,
     backPanelGrainDirection: hasBackWoodGrain,
-    shutterGrainDirection: false
+    shutterGrainDirection: false,
+
+    // PATCH 20: Gaddi fields - default to true (enabled)
+    topPanelGaddi: true,
+    bottomPanelGaddi: true,
+    leftPanelGaddi: true,
+    rightPanelGaddi: true
   };
 }
 
@@ -288,6 +300,12 @@ export function getCabinetResetDefaults(
     rightPanelGrainDirection: false,
     backPanelGrainDirection: false,
     shutterGrainDirection: false,
+
+    // PATCH 20: Gaddi fields - default to true (enabled)
+    topPanelGaddi: true,
+    bottomPanelGaddi: true,
+    leftPanelGaddi: true,
+    rightPanelGaddi: true,
     shutterGaddi: false
   };
 }
@@ -363,6 +381,12 @@ export function getQuickCabinetDefaults(
     rightPanelGrainDirection: false,
     backPanelGrainDirection: false,
     shutterGrainDirection: false,
+
+    // PATCH 20: Gaddi fields - default to true (enabled)
+    topPanelGaddi: true,
+    bottomPanelGaddi: true,
+    leftPanelGaddi: true,
+    rightPanelGaddi: true,
     shutterGaddi: false
   };
 }

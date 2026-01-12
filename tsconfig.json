@@ -17,6 +17,8 @@
     "noEmit": true,
     "module": "ESNext",
     "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": false,
     "lib": [
       "esnext",
       "dom",

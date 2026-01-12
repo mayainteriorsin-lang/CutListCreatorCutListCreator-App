@@ -1,8 +1,10 @@
 /**
  * LaminateSelectorPanel
  *
- * Wraps LaminateSelector with label, wood grain toggle, and master settings integration.
- * Extracted from home.tsx for reuse across:
+ * Wraps LaminateCombobox with label, wood grain toggle, and master settings integration.
+ * Uses the new SaaS-level combobox component.
+ *
+ * Used in:
  * - Master Settings Card
  * - Cabinet Form
  * - Quotation Module
@@ -10,9 +12,11 @@
 
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { LaminateSelector } from "@/components/master-settings/LaminateSelector";
+import { LaminateCombobox } from "@/components/master-settings/LaminateCombobox";
 import { toast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { toastError } from "@/lib/errors/toastError";
+import { Palette } from "lucide-react";
 
 export interface LaminateSelectorPanelProps {
   value: string;
@@ -20,10 +24,13 @@ export interface LaminateSelectorPanelProps {
   onSave?: (value: string) => void;
   label?: string;
   showLabel?: boolean;
+  showIcon?: boolean;
   showWoodGrainToggle?: boolean;
   woodGrainsPreferences?: Record<string, boolean>;
   onWoodGrainChange?: (laminateCode: string, enabled: boolean) => void;
   helpText?: string;
+  disabled?: boolean;
+  placeholder?: string;
 }
 
 /**
@@ -35,10 +42,13 @@ export function LaminateSelectorPanel({
   onSave,
   label = "Laminate",
   showLabel = true,
+  showIcon = false,
   showWoodGrainToggle = false,
   woodGrainsPreferences = {},
   onWoodGrainChange,
-  helpText
+  helpText,
+  disabled = false,
+  placeholder,
 }: LaminateSelectorPanelProps) {
   const hasWoodGrain = value ? woodGrainsPreferences[value] === true : false;
 
@@ -56,24 +66,20 @@ export function LaminateSelectorPanel({
       onWoodGrainChange?.(value, newValue);
 
       // Persist to backend
-      await apiRequest('POST', '/api/wood-grains-preference', {
+      await apiRequest("POST", "/api/wood-grains-preference", {
         laminateCode: value,
-        woodGrainsEnabled: newValue
+        woodGrainsEnabled: newValue,
       });
 
       toast({
         title: newValue ? "Wood Grain Enabled" : "Wood Grain Disabled",
-        description: `${value} ${newValue ? 'now uses' : 'no longer uses'} wood grain memory`,
+        description: `${value} ${newValue ? "now uses" : "no longer uses"} wood grain memory`,
       });
     } catch (error) {
-      console.error('Error toggling wood grains:', error);
+      console.error("Error toggling wood grains:", error);
       // Revert on error
       onWoodGrainChange?.(value, !newValue);
-      toast({
-        title: "Error",
-        description: "Failed to update wood grain preference",
-        variant: "destructive"
-      });
+      toastError(error);
     }
   };
 
@@ -81,7 +87,10 @@ export function LaminateSelectorPanel({
     <div className="space-y-2">
       {showLabel && (
         <div className="flex items-center justify-between">
-          <Label className="text-sm font-medium">{label}</Label>
+          <Label className="text-sm font-medium flex items-center gap-1.5">
+            {showIcon && <Palette className="h-3.5 w-3.5 text-indigo-600" />}
+            {label}
+          </Label>
           {showWoodGrainToggle && (
             <div className="flex items-center gap-2">
               <Checkbox
@@ -92,7 +101,7 @@ export function LaminateSelectorPanel({
               />
               <Label
                 htmlFor="wood-grain-quick-toggle"
-                className={`text-xs cursor-pointer ${!value ? 'text-slate-300' : 'text-slate-600'}`}
+                className={`text-xs cursor-pointer ${!value ? "text-slate-300" : "text-slate-600"}`}
               >
                 Has Wood Grain
               </Label>
@@ -100,19 +109,15 @@ export function LaminateSelectorPanel({
           )}
         </div>
       )}
-      <div className="flex gap-2 items-start">
-        <div className="flex-1 space-y-2">
-          <LaminateSelector
-            value={value}
-            onChange={handleChange}
-            className={hasWoodGrain ? "text-amber-700 font-bold" : ""}
-          />
-        </div>
-      </div>
+      <LaminateCombobox
+        value={value}
+        onChange={handleChange}
+        woodGrainsPreferences={woodGrainsPreferences}
+        disabled={disabled}
+        placeholder={placeholder}
+      />
       {helpText && (
-        <p className="text-[10px] text-slate-500 italic">
-          {helpText}
-        </p>
+        <p className="text-[10px] text-slate-500 italic">{helpText}</p>
       )}
     </div>
   );

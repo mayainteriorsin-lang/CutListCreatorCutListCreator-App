@@ -26,6 +26,9 @@ export default function ManualPanelDialog({
   setSelectedSheetContext,
   setManualPanels,
 }: any) {
+  // PATCH 34: Safe array fallbacks to prevent .map() crashes
+  const safeLaminateCodes = Array.isArray(laminateCodes) ? laminateCodes : [];
+  const safePlywoodBrands = Array.isArray(globalPlywoodBrandMemory) ? globalPlywoodBrandMemory : [];
 
   if (!open) return null;
 
@@ -104,7 +107,7 @@ export default function ManualPanelDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {globalPlywoodBrandMemory.map((b: any, idx: number) => (
+                {safePlywoodBrands.map((b: any, idx: number) => (
                   <SelectItem key={idx} value={b}>
                     {b}
                   </SelectItem>
@@ -129,7 +132,7 @@ export default function ManualPanelDialog({
                 <SelectValue placeholder="Select laminate code (optional)" />
               </SelectTrigger>
               <SelectContent>
-                {laminateCodes.map((code: any) => (
+                {safeLaminateCodes.map((code: any) => (
                   <SelectItem key={code.id} value={code.code}>
                     {code.code}
                   </SelectItem>

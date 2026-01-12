@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { calculatePricing } from "../engine/pricingEngine";
-import { logActivity, upsertQuoteSummary, updateLeadStatus } from "@/modules/crm/storage";
+import { logActivity, upsertQuoteSummary, updateLeadStatus, getLeadById, getQuoteById } from "@/modules/crm/storage";
 
 /**
  * Visual Quotation Store (Single Source of Truth)
@@ -22,7 +22,24 @@ export type RoomInputType = "PHOTO" | "MANUAL" | "PLAN";
 
 export type WallId = "LEFT" | "RIGHT" | "CENTER" | "FULL";
 
-export type UnitType = "wardrobe" | "kitchen" | "tv_unit" | "dresser" | "other";
+// Default unit types - custom types can be added by user
+export type UnitType = string;
+
+export const DEFAULT_UNIT_TYPES = [
+  "wardrobe",
+  "kitchen",
+  "tv_unit",
+  "dresser",
+  "study_table",
+  "shoe_rack",
+  "book_shelf",
+  "crockery_unit",
+  "pooja_unit",
+  "vanity",
+  "bar_unit",
+  "display_unit",
+  "other",
+] as const;
 
 export type ObstructionType =
   | "BEAM"
@@ -35,6 +52,14 @@ export type ObstructionType =
 
 export type Confidence = "HIGH" | "MEDIUM" | "LOW";
 export type ViewMode = "CUSTOMER" | "PRODUCTION";
+export type CanvasViewMode = "front" | "top" | "isometric" | "perspective" | "3d";
+
+export interface ProductionSettings {
+  roundingMm: number;
+  widthReductionMm: number;
+  heightReductionMm: number;
+  includeLoft: boolean;
+}
 
 export const SIDE_GAP_MM = 3;
 export const SHUTTER_GAP_MM = 2;
@@ -250,6 +275,49 @@ export interface AuditEntry {
   details?: string;
 }
 
+/** Drawn unit on canvas - represents a single furniture piece drawn on the room photo */
+export interface DrawnUnit {
+  id: string;
+  unitType: UnitType;
+  box: WardrobeBox;
+  loftBox?: LoftBox;
+  shutterCount: number;
+  shutterDividerXs: number[];
+  loftEnabled: boolean;
+  loftHeightRatio: number;
+  loftShutterCount: number;
+  loftDividerXs: number[];
+  // Horizontal splitup (rows)
+  horizontalDividerYs: number[];
+  // Real-world dimensions for shutter/wardrobe
+  widthMm: number;
+  heightMm: number;
+  depthMm: number;
+  // Separate loft dimensions (user enters separately)
+  loftWidthMm: number;
+  loftHeightMm: number;
+  sectionCount: number; // number of horizontal rows
+}
+
+/** Room/Area in quotation - each room has its own canvas and units */
+export interface QuotationRoom {
+  id: string;
+  name: string; // e.g., "Master Bedroom - Wardrobe", "Kitchen"
+  unitType: UnitType; // wardrobe, kitchen, tv_unit, etc.
+  roomPhoto?: RoomPhoto;
+  drawnUnits: DrawnUnit[];
+  activeUnitIndex: number;
+  // Canvas state for this room
+  wardrobeBox?: WardrobeBox;
+  loftBox?: LoftBox;
+  shutterCount: number;
+  shutterDividerXs: number[];
+  loftEnabled: boolean;
+  loftHeightRatio: number;
+  loftShutterCount: number;
+  loftDividerXs: number[];
+}
+
 export interface VisualQuotationState {
   /* CRM context */
   leadId: string | null;
@@ -263,6 +331,7 @@ export interface VisualQuotationState {
   meta: QuoteMeta;
   roomType: string;
   unitType: UnitType;
+  customUnitTypes: string[]; // User-defined unit types that persist
 
   /* Room input */
   room: {
@@ -289,6 +358,8 @@ export interface VisualQuotationState {
   gapsScaled: boolean;
   loftEnabled: boolean;
   loftHeightRatio: number;
+  loftShutterCount: number;
+  loftDividerXs: number[];
 
   /* Wardrobe layout suggestions */
   wardrobeLayout?: WardrobeLayout;
@@ -309,9 +380,22 @@ export interface VisualQuotationState {
 
   /* Canvas drawing */
   drawMode: boolean;
+  editMode: "shutter" | "carcass";
+
+  /* Sqft rate for pricing */
+  sqftRate: number;
 
   /* Units / design objects */
   units: WardrobeUnit[];
+
+  /* Multi-unit canvas drawing */
+  drawnUnits: DrawnUnit[];
+  activeUnitIndex: number;
+  activeEditPart: "shutter" | "loft"; // Which part is being edited
+
+  /* Multi-room quotation - each room has its own canvas */
+  quotationRooms: QuotationRoom[];
+  activeRoomIndex: number;
 
   /* Profit protection */
   pricingControl: {
@@ -328,6 +412,12 @@ export interface VisualQuotationState {
 
   /* UI */
   viewMode: ViewMode;
+  canvasViewMode: CanvasViewMode;
+  viewIntensity: number; // 0-100, controls how intense the 3D effect is
+  productionSettings: ProductionSettings;
+
+  /* Production canvas snapshots - map of roomIndex to base64 image */
+  productionCanvasSnapshots: Map<number, string>;
 
   backgroundImage: HTMLImageElement | null;
   locked: boolean;
@@ -346,10 +436,15 @@ export interface VisualQuotationState {
   setClientField: (key: keyof ClientInfo, value: string) => void;
   setMetaField: (key: keyof QuoteMeta, value: string) => void;
   setViewMode: (mode: ViewMode) => void;
+  setCanvasViewMode: (mode: CanvasViewMode) => void;
+  setViewIntensity: (value: number) => void;
+  setProductionSettings: (patch: Partial<ProductionSettings>) => void;
+  setProductionCanvasSnapshots: (snapshots: Map<number, string>) => void;
   setBackgroundImage: (img: HTMLImageElement | null) => void;
   setLocked: (value: boolean) => void;
   setRoomType: (value: string) => void;
   setUnitType: (value: UnitType) => void;
+  addCustomUnitType: (value: string) => void;
 
   // Room input
   setRoomInputType: (type: RoomInputType) => void;
@@ -381,11 +476,15 @@ export interface VisualQuotationState {
   setWardrobeBox: (box: WardrobeBox) => void;
   clearWardrobeBox: () => void;
   setDrawMode: (active: boolean) => void;
+  setEditMode: (mode: "shutter" | "carcass") => void;
+  setSqftRate: (rate: number | ((prev: number) => number)) => void;
+  setActiveEditPart: (part: "shutter" | "loft") => void;
   setWardrobeLayout: (layout: WardrobeLayout) => void;
   setShutterCount: (count: number) => void;
   setShutterDividerX: (index: number, x: number) => void;
   setLoftEnabled: (enabled: boolean) => void;
   setLoftBox: (box: LoftBox | undefined) => void;
+  setLoftShutterCount: (count: number) => void;
   ensureLoftBoxForWardrobe: () => void;
   startCornerResize: () => void;
   stopCornerResize: () => void;
@@ -431,6 +530,20 @@ export interface VisualQuotationState {
 
   // Reset
   resetAll: () => void;
+
+  // Multi-unit canvas actions
+  saveCurrentUnitAndAddNew: () => void;
+  setActiveUnitIndex: (index: number) => void;
+  deleteDrawnUnit: (index: number) => void;
+  updateActiveDrawnUnit: (patch: Partial<DrawnUnit>) => void;
+
+  // Multi-room quotation actions
+  addQuotationRoom: (unitType: UnitType, name?: string) => void;
+  setActiveRoomIndex: (index: number) => void;
+  deleteQuotationRoom: (index: number) => void;
+  updateQuotationRoom: (index: number, patch: Partial<QuotationRoom>) => void;
+  saveCurrentRoomState: () => void;
+  loadRoomState: (index: number) => void;
 }
 
 /* --------------------------- Utilities --------------------------- */
@@ -490,27 +603,21 @@ export function createFallbackWardrobeBox(photoWidth: number, photoHeight: numbe
 function buildShutterDividers(
   box: WardrobeBox,
   count: number,
-  pxToMm: number
+  _pxToMm?: number
 ): { dividers: number[]; gapsScaled: boolean } {
-  const clamped = Math.min(Math.max(Math.round(count), 2), 4);
-  const gapsScaled = pxToMm > 0;
-  if (box.width <= 0) return { dividers: [], gapsScaled };
+  // Allow unlimited shutters (minimum 1)
+  const clamped = Math.max(Math.round(count), 1);
+  if (box.width <= 0 || clamped <= 1) return { dividers: [], gapsScaled: false };
 
-  const mmToPx = (mm: number) => (gapsScaled ? mm / pxToMm : mm);
-  const sideGapPx = mmToPx(SIDE_GAP_MM);
-  const shutterGapPx = mmToPx(SHUTTER_GAP_MM);
+  // Simple equal pixel spacing - divide wardrobe into equal parts
+  const shutterWidth = box.width / clamped;
 
-  const totalGapPx = sideGapPx * 2 + shutterGapPx * (clamped - 1);
-  const availableWidth = Math.max(box.width - totalGapPx, 0);
-  const shutterWidth = clamped > 0 ? availableWidth / clamped : 0;
-  const maxX = box.x + box.width;
-
+  // Create dividers at equal intervals
   const dividers = Array.from({ length: clamped - 1 }, (_, i) => {
-    const raw = box.x + sideGapPx + shutterWidth * (i + 1) + shutterGapPx * i;
-    return Math.min(Math.max(raw, box.x), maxX);
+    return box.x + shutterWidth * (i + 1);
   });
 
-  return { dividers, gapsScaled };
+  return { dividers, gapsScaled: false };
 }
 
 /* ------------------------- Initial State ------------------------- */
@@ -521,6 +628,10 @@ const initialState = (): Omit<
   | "setClientField"
   | "setMetaField"
   | "setViewMode"
+  | "setCanvasViewMode"
+  | "setViewIntensity"
+  | "setProductionSettings"
+  | "setProductionCanvasSnapshots"
   | "setBackgroundImage"
   | "setLocked"
   | "setRoomInputType"
@@ -529,6 +640,7 @@ const initialState = (): Omit<
   | "setSelectedWall"
   | "setRoomType"
   | "setUnitType"
+  | "addCustomUnitType"
   | "setScaleByReference"
   | "setScaleConfidence"
   | "addObstruction"
@@ -543,11 +655,15 @@ const initialState = (): Omit<
   | "setWardrobeBox"
   | "clearWardrobeBox"
   | "setDrawMode"
+  | "setEditMode"
+  | "setSqftRate"
+  | "setActiveEditPart"
   | "setWardrobeLayout"
   | "setShutterCount"
   | "setShutterDividerX"
   | "setLoftEnabled"
   | "setLoftBox"
+  | "setLoftShutterCount"
   | "ensureLoftBoxForWardrobe"
   | "startCornerResize"
   | "stopCornerResize"
@@ -584,6 +700,16 @@ const initialState = (): Omit<
   | "resetDraft"
   | "addAudit"
   | "resetAll"
+  | "saveCurrentUnitAndAddNew"
+  | "setActiveUnitIndex"
+  | "deleteDrawnUnit"
+  | "updateActiveDrawnUnit"
+  | "addQuotationRoom"
+  | "setActiveRoomIndex"
+  | "deleteQuotationRoom"
+  | "updateQuotationRoom"
+  | "saveCurrentRoomState"
+  | "loadRoomState"
 > => ({
   leadId: null,
   quoteId: null,
@@ -599,6 +725,7 @@ const initialState = (): Omit<
   },
   roomType: "Bedroom – Wardrobe",
   unitType: "wardrobe",
+  customUnitTypes: [], // User-added unit types persisted in localStorage
 
   room: {
     inputType: "PHOTO",
@@ -628,6 +755,8 @@ const initialState = (): Omit<
   gapsScaled: false,
   loftEnabled: false,
   loftHeightRatio: 0.17,
+  loftShutterCount: 2,
+  loftDividerXs: [],
   wardrobeLayout: undefined,
   wardrobeSpec: undefined,
   aiSuggestion: undefined,
@@ -638,8 +767,18 @@ const initialState = (): Omit<
   scaleLine: undefined,
   scaleDrawMode: false,
   drawMode: false,
+  editMode: "shutter",
+  sqftRate: 150,
 
   units: [],
+
+  drawnUnits: [],
+  activeUnitIndex: 0,
+  activeEditPart: "shutter",
+
+  // Multi-room quotation
+  quotationRooms: [],
+  activeRoomIndex: 0,
 
   pricingControl: {
     marginPct: 20,
@@ -653,6 +792,16 @@ const initialState = (): Omit<
   approvedSnapshot: undefined,
 
   viewMode: "CUSTOMER",
+  canvasViewMode: "front",
+  viewIntensity: 50, // Default 50% intensity
+  productionSettings: {
+    roundingMm: 1,
+    widthReductionMm: 0,
+    heightReductionMm: 0,
+    includeLoft: true,
+  },
+
+  productionCanvasSnapshots: new Map(),
 
   backgroundImage: null,
   locked: false,
@@ -674,6 +823,46 @@ export const useVisualQuotationStore = create<VisualQuotationState>()(
         const nextLeadId = leadId ?? null;
         const nextQuoteId = quoteId ?? null;
         if (!nextLeadId || !nextQuoteId) return;
+
+        // Pre-populate client info from CRM lead
+        const lead = getLeadById(nextLeadId);
+        if (lead) {
+          const currentClient = get().client;
+          // Only populate if client info is empty (don't overwrite existing data)
+          if (!currentClient.name && !currentClient.phone) {
+            set(() => ({
+              client: {
+                name: lead.name || "",
+                phone: lead.mobile || "",
+                location: lead.location || "",
+              },
+            }));
+            get().addAudit("Client populated from CRM", `leadId=${nextLeadId}`);
+          }
+        }
+
+        // Restore quote data if it exists
+        const existingQuote = getQuoteById(nextQuoteId);
+        if (existingQuote?.data) {
+          try {
+            const savedState = JSON.parse(existingQuote.data);
+            // Restore key state from saved quote
+            if (savedState) {
+              set((s) => ({
+                status: existingQuote.status || s.status,
+                version: savedState.version || s.version,
+                client: savedState.client || s.client,
+                meta: savedState.meta || s.meta,
+                units: savedState.units || s.units,
+                pricingControl: savedState.pricingControl || s.pricingControl,
+                approvedSnapshot: savedState.approvedSnapshot,
+              }));
+              get().addAudit("Quote restored from CRM", `quoteId=${nextQuoteId}`);
+            }
+          } catch {
+            // Ignore parse errors - just use default state
+          }
+        }
 
         const pricing = calculatePricing(get().units || []);
         upsertQuoteSummary({
@@ -872,9 +1061,17 @@ export const useVisualQuotationStore = create<VisualQuotationState>()(
       setDrawMode: (active) => {
         if (get().status === "APPROVED") return;
         set((s) => ({ drawMode: active, scaleDrawMode: active ? false : s.scaleDrawMode }));
-        if (active) {
-          get().addAudit("Wardrobe draw mode", "activated");
-        }
+      },
+      setEditMode: (mode) => {
+        set(() => ({ editMode: mode }));
+      },
+      setSqftRate: (rate) => {
+        set((s) => ({
+          sqftRate: typeof rate === "function" ? rate(s.sqftRate) : rate,
+        }));
+      },
+      setActiveEditPart: (part) => {
+        set(() => ({ activeEditPart: part }));
       },
 
       setWardrobeLayout: (layout) => {
@@ -886,7 +1083,8 @@ export const useVisualQuotationStore = create<VisualQuotationState>()(
 
       setShutterCount: (count) => {
         if (get().status === "APPROVED") return;
-        const clamped = Math.min(Math.max(Math.round(count), 2), 4);
+        // Allow unlimited shutters (minimum 1)
+        const clamped = Math.max(Math.round(count), 1);
         set((s) => {
           const ratio = s.scale?.ratio ?? s.room.scale.pxToMm ?? 0;
           const next = s.wardrobeBox
@@ -914,7 +1112,31 @@ export const useVisualQuotationStore = create<VisualQuotationState>()(
 
       setLoftEnabled: (enabled) => {
         if (get().status === "APPROVED") return;
-        set(() => ({ loftEnabled: enabled }));
+        const { wardrobeBox, loftShutterCount } = get();
+
+        if (enabled && wardrobeBox) {
+          // Create loft box above wardrobe
+          const defaultHeight = wardrobeBox.height * 0.25;
+          const newLoft: LoftBox = {
+            x: wardrobeBox.x,
+            width: wardrobeBox.width,
+            y: wardrobeBox.y - defaultHeight,
+            height: defaultHeight,
+            rotation: 0,
+            dragEdge: null,
+            isDragging: false,
+            locked: false,
+          };
+          // Calculate initial loft dividers
+          const dividers = loftShutterCount <= 1 ? [] : Array.from({ length: loftShutterCount - 1 }, (_, i) => {
+            return newLoft.x + (newLoft.width / loftShutterCount) * (i + 1);
+          });
+          // Switch to loft edit mode when enabling loft
+          set(() => ({ loftEnabled: true, loftBox: newLoft, loftDividerXs: dividers, activeEditPart: "loft" }));
+        } else {
+          // Remove loft box when disabled, switch back to shutter
+          set(() => ({ loftEnabled: false, loftBox: undefined, loftDividerXs: [], activeEditPart: "shutter" }));
+        }
         get().addAudit("Loft toggled", enabled ? "on" : "off");
       },
 
@@ -923,6 +1145,21 @@ export const useVisualQuotationStore = create<VisualQuotationState>()(
           ...state,
           loftBox: box,
         })),
+
+      setLoftShutterCount: (count: number) => {
+        if (get().status === "APPROVED") return;
+        // Allow unlimited shutters (minimum 1)
+        const clamped = Math.max(Math.round(count), 1);
+        set((s) => {
+          if (!s.loftBox) return { loftShutterCount: clamped, loftDividerXs: [] };
+          // Calculate loft dividers using same logic as wardrobe
+          const dividers = clamped <= 1 ? [] : Array.from({ length: clamped - 1 }, (_, i) => {
+            return s.loftBox!.x + (s.loftBox!.width / clamped) * (i + 1);
+          });
+          return { loftShutterCount: clamped, loftDividerXs: dividers };
+        });
+        get().addAudit("Loft shutter count set", String(clamped));
+      },
 
       ensureLoftBoxForWardrobe: () =>
         set((state) => {
@@ -1441,8 +1678,12 @@ export const useVisualQuotationStore = create<VisualQuotationState>()(
           const boundaries = [startX, ...sortedXs, endX];
           customShutterWidthsMm = [];
           for (let i = 0; i < boundaries.length - 1; i++) {
-            const diffPx = boundaries[i + 1] - boundaries[i];
-            customShutterWidthsMm.push(Math.round(diffPx * pxToMm));
+            const curr = boundaries[i];
+            const next = boundaries[i + 1];
+            if (curr !== undefined && next !== undefined) {
+              const diffPx = next - curr;
+              customShutterWidthsMm.push(Math.round(diffPx * pxToMm));
+            }
           }
         }
 
@@ -1452,7 +1693,7 @@ export const useVisualQuotationStore = create<VisualQuotationState>()(
           widthMm: u.widthMm ?? 1800,
           heightMm: u.heightMm ?? 2400,
           depthMm: u.depthMm ?? 600,
-          loftEnabled: u.loftEnabled ?? true,
+          loftEnabled: u.loftEnabled ?? false,
           loftHeightMm: u.loftHeightMm ?? 450,
           sectionCount: u.sectionCount ?? 3,
           finish: {
@@ -1616,9 +1857,404 @@ export const useVisualQuotationStore = create<VisualQuotationState>()(
         }));
       },
 
+      /* --------- Multi-unit canvas ---------- */
+      saveCurrentUnitAndAddNew: () => {
+        const state = get();
+        if (state.status === "APPROVED") return;
+        if (!state.wardrobeBox) return;
+
+        // Create a new drawn unit from current state
+        const sectionCount = state.units[0]?.sectionCount || 1;
+        // Calculate horizontal divider Y positions based on sectionCount
+        const boxHeight = state.wardrobeBox.height;
+        const boxY = state.wardrobeBox.y;
+        const horizontalDividerYs = sectionCount > 1
+          ? Array.from({ length: sectionCount - 1 }, (_, i) => boxY + (boxHeight / sectionCount) * (i + 1))
+          : [];
+
+        const newUnit: DrawnUnit = {
+          id: `unit-${Date.now()}`,
+          unitType: state.unitType,
+          box: { ...state.wardrobeBox },
+          loftBox: state.loftBox ? { ...state.loftBox } : undefined,
+          shutterCount: state.shutterCount,
+          shutterDividerXs: [...state.shutterDividerXs],
+          loftEnabled: state.loftEnabled,
+          loftHeightRatio: state.loftHeightRatio,
+          loftShutterCount: state.loftShutterCount,
+          loftDividerXs: [...state.loftDividerXs],
+          horizontalDividerYs,
+          // Start with blank dimensions - user will enter them
+          widthMm: 0,
+          heightMm: 0,
+          depthMm: 0,
+          // Separate loft dimensions - user enters separately
+          loftWidthMm: 0,
+          loftHeightMm: 0,
+          sectionCount,
+        };
+
+        // Add to drawnUnits array and reset current drawing state
+        set((s) => ({
+          drawnUnits: [...s.drawnUnits, newUnit],
+          activeUnitIndex: s.drawnUnits.length, // Point to the newly saved unit (index of new item)
+          wardrobeBox: undefined,
+          loftBox: undefined,
+          shutterCount: 3,
+          shutterDividerXs: [],
+          loftEnabled: false,
+          loftDividerXs: [],
+          drawMode: false, // Don't auto-enter draw mode - user must click "Add Another"
+          unitType: "wardrobe", // Reset to default
+        }));
+
+        get().addAudit("Unit saved", `Added ${newUnit.unitType} unit`);
+      },
+
+      setActiveUnitIndex: (index) => {
+        const state = get();
+        if (index < 0 || index >= state.drawnUnits.length) return;
+
+        const unit = state.drawnUnits[index];
+        if (!unit) return;
+
+        // Load the selected unit's data into current editing state
+        set(() => ({
+          activeUnitIndex: index,
+          wardrobeBox: { ...unit.box },
+          loftBox: unit.loftBox ? { ...unit.loftBox } : undefined,
+          shutterCount: unit.shutterCount,
+          shutterDividerXs: [...unit.shutterDividerXs],
+          loftEnabled: unit.loftEnabled,
+          loftHeightRatio: unit.loftHeightRatio,
+          loftShutterCount: unit.loftShutterCount,
+          loftDividerXs: [...unit.loftDividerXs],
+          unitType: unit.unitType,
+        }));
+      },
+
+      deleteDrawnUnit: (index) => {
+        const state = get();
+        if (state.status === "APPROVED") return;
+        if (index < 0 || index >= state.drawnUnits.length) return;
+
+        const newUnits = state.drawnUnits.filter((_, i) => i !== index);
+        const newActiveIndex = Math.min(state.activeUnitIndex, Math.max(0, newUnits.length - 1));
+
+        set(() => ({
+          drawnUnits: newUnits,
+          activeUnitIndex: newActiveIndex,
+        }));
+
+        // If we deleted the last unit, clear current state
+        if (newUnits.length === 0) {
+          set(() => ({
+            wardrobeBox: undefined,
+            loftBox: undefined,
+          }));
+        } else if (newUnits[newActiveIndex]) {
+          // Load the new active unit
+          const unit = newUnits[newActiveIndex];
+          set(() => ({
+            wardrobeBox: { ...unit.box },
+            loftBox: unit.loftBox ? { ...unit.loftBox } : undefined,
+            shutterCount: unit.shutterCount,
+            shutterDividerXs: [...unit.shutterDividerXs],
+            loftEnabled: unit.loftEnabled,
+            unitType: unit.unitType,
+          }));
+        }
+
+        get().addAudit("Unit deleted", `Removed unit at index ${index}`);
+      },
+
+      updateActiveDrawnUnit: (patch) => {
+        const state = get();
+        if (state.status === "APPROVED") return;
+        if (state.drawnUnits.length === 0) return;
+
+        set((s) => {
+          const activeUnit = s.drawnUnits[s.activeUnitIndex];
+          if (!activeUnit) return {};
+
+          // If shutter count changed, recalculate dividers
+          let newDividers = patch.shutterDividerXs;
+          if (patch.shutterCount !== undefined && patch.shutterCount !== activeUnit.shutterCount) {
+            const box = activeUnit.box;
+            const count = patch.shutterCount;
+            if (count > 1 && box.width > 0) {
+              const shutterWidth = box.width / count;
+              newDividers = Array.from({ length: count - 1 }, (_, i) => box.x + shutterWidth * (i + 1));
+            } else {
+              newDividers = [];
+            }
+          }
+
+          // If loftEnabled changed, create or remove loft box
+          let newLoftBox = patch.loftBox;
+          let newLoftDividers = patch.loftDividerXs;
+          let newLoftShutterCount: number | undefined;
+          if (patch.loftEnabled !== undefined && patch.loftEnabled !== activeUnit.loftEnabled) {
+            if (patch.loftEnabled) {
+              // Create loft box above the wardrobe
+              const box = activeUnit.box;
+              const defaultHeight = box.height * 0.25;
+              newLoftBox = {
+                x: box.x,
+                width: box.width,
+                y: box.y - defaultHeight,
+                height: defaultHeight,
+                rotation: 0,
+                dragEdge: null,
+                isDragging: false,
+                locked: false,
+              };
+              // Match loft shutter count to wardrobe shutter count on first enable
+              const loftCount = activeUnit.shutterCount || 3;
+              newLoftShutterCount = loftCount;
+              newLoftDividers = loftCount <= 1 ? [] : Array.from({ length: loftCount - 1 }, (_, i) => {
+                return newLoftBox!.x + (newLoftBox!.width / loftCount) * (i + 1);
+              });
+            } else {
+              // Remove loft box
+              newLoftBox = undefined;
+              newLoftDividers = [];
+            }
+          }
+
+          // If loftShutterCount changed, recalculate loft dividers
+          if (patch.loftShutterCount !== undefined && patch.loftShutterCount !== activeUnit.loftShutterCount) {
+            const loftBox = newLoftBox !== undefined ? newLoftBox : activeUnit.loftBox;
+            if (loftBox && activeUnit.loftEnabled) {
+              const count = patch.loftShutterCount;
+              if (count > 1 && loftBox.width > 0) {
+                newLoftDividers = Array.from({ length: count - 1 }, (_, i) => loftBox.x + (loftBox.width / count) * (i + 1));
+              } else {
+                newLoftDividers = [];
+              }
+            }
+          }
+
+          const updatedUnit = {
+            ...activeUnit,
+            ...patch,
+            ...(newDividers !== undefined ? { shutterDividerXs: newDividers } : {}),
+            ...(newLoftBox !== undefined ? { loftBox: newLoftBox } : {}),
+            ...(newLoftDividers !== undefined ? { loftDividerXs: newLoftDividers } : {}),
+            ...(newLoftShutterCount !== undefined ? { loftShutterCount: newLoftShutterCount } : {}),
+          };
+
+          return {
+            drawnUnits: s.drawnUnits.map((unit, i) =>
+              i === s.activeUnitIndex ? updatedUnit : unit
+            ),
+            // Also update the current state dividers so canvas reflects change
+            ...(newDividers !== undefined ? { shutterDividerXs: newDividers, shutterCount: patch.shutterCount } : {}),
+            ...(patch.loftEnabled !== undefined ? { loftEnabled: patch.loftEnabled } : {}),
+            ...(patch.loftShutterCount !== undefined ? { loftShutterCount: patch.loftShutterCount } : {}),
+            ...(newLoftShutterCount !== undefined ? { loftShutterCount: newLoftShutterCount } : {}),
+            ...(newLoftBox !== undefined ? { loftBox: newLoftBox } : {}),
+            ...(newLoftDividers !== undefined ? { loftDividerXs: newLoftDividers } : {}),
+          };
+        });
+      },
+
+      /* --------- Multi-room quotation ---------- */
+      addQuotationRoom: (unitType, name) => {
+        const state = get();
+        if (state.status === "APPROVED") return;
+
+        // Save current room state first if we have rooms
+        if (state.quotationRooms.length > 0) {
+          get().saveCurrentRoomState();
+        }
+
+        // Generate room name if not provided
+        const unitLabels: Record<UnitType, string> = {
+          wardrobe: "Wardrobe",
+          kitchen: "Kitchen",
+          tv_unit: "TV Unit",
+          dresser: "Dresser",
+          other: "Other",
+        };
+        const roomName = name || `${unitLabels[unitType]} ${state.quotationRooms.filter(r => r.unitType === unitType).length + 1}`;
+
+        const newRoom: QuotationRoom = {
+          id: uid("ROOM"),
+          name: roomName,
+          unitType,
+          roomPhoto: undefined,
+          drawnUnits: [],
+          activeUnitIndex: 0,
+          wardrobeBox: undefined,
+          loftBox: undefined,
+          shutterCount: 3,
+          shutterDividerXs: [],
+          loftEnabled: false,
+          loftHeightRatio: 0.17,
+          loftShutterCount: 2,
+          loftDividerXs: [],
+        };
+
+        const newRooms = [...state.quotationRooms, newRoom];
+        const newIndex = newRooms.length - 1;
+
+        // Set state to new room (fresh canvas)
+        set(() => ({
+          quotationRooms: newRooms,
+          activeRoomIndex: newIndex,
+          unitType,
+          // Reset canvas for new room
+          roomPhoto: undefined,
+          wardrobeBox: undefined,
+          loftBox: undefined,
+          drawnUnits: [],
+          activeUnitIndex: 0,
+          shutterCount: 3,
+          shutterDividerXs: [],
+          loftEnabled: false,
+          loftHeightRatio: 0.17,
+          loftShutterCount: 2,
+          loftDividerXs: [],
+          drawMode: false,
+        }));
+
+        get().addAudit("Room added", `${roomName} (${unitType})`);
+      },
+
+      setActiveRoomIndex: (index) => {
+        const state = get();
+        if (index < 0 || index >= state.quotationRooms.length) return;
+        if (index === state.activeRoomIndex) return;
+
+        // Save current room state before switching
+        get().saveCurrentRoomState();
+
+        // Load the target room
+        get().loadRoomState(index);
+      },
+
+      deleteQuotationRoom: (index) => {
+        const state = get();
+        if (state.status === "APPROVED") return;
+        if (index < 0 || index >= state.quotationRooms.length) return;
+
+        const deletedRoom = state.quotationRooms[index];
+        const newRooms = state.quotationRooms.filter((_, i) => i !== index);
+
+        if (newRooms.length === 0) {
+          // No rooms left - reset to initial state
+          set(() => ({
+            quotationRooms: [],
+            activeRoomIndex: 0,
+            roomPhoto: undefined,
+            wardrobeBox: undefined,
+            loftBox: undefined,
+            drawnUnits: [],
+            activeUnitIndex: 0,
+            unitType: "wardrobe",
+          }));
+        } else {
+          // Adjust active index
+          const newActiveIndex = Math.min(state.activeRoomIndex, newRooms.length - 1);
+          set(() => ({
+            quotationRooms: newRooms,
+            activeRoomIndex: newActiveIndex,
+          }));
+          // Load the new active room
+          get().loadRoomState(newActiveIndex);
+        }
+
+        get().addAudit("Room deleted", deletedRoom?.name || `Room ${index + 1}`);
+      },
+
+      updateQuotationRoom: (index, patch) => {
+        const state = get();
+        if (state.status === "APPROVED") return;
+        if (index < 0 || index >= state.quotationRooms.length) return;
+
+        set((s) => ({
+          quotationRooms: s.quotationRooms.map((room, i) =>
+            i === index ? { ...room, ...patch } : room
+          ),
+        }));
+      },
+
+      saveCurrentRoomState: () => {
+        const state = get();
+        if (state.quotationRooms.length === 0) return;
+        if (state.activeRoomIndex < 0 || state.activeRoomIndex >= state.quotationRooms.length) return;
+
+        const currentRoom = state.quotationRooms[state.activeRoomIndex];
+        if (!currentRoom) return;
+
+        const updatedRoom: QuotationRoom = {
+          ...currentRoom,
+          roomPhoto: state.roomPhoto,
+          drawnUnits: [...state.drawnUnits],
+          activeUnitIndex: state.activeUnitIndex,
+          wardrobeBox: state.wardrobeBox,
+          loftBox: state.loftBox,
+          shutterCount: state.shutterCount,
+          shutterDividerXs: [...state.shutterDividerXs],
+          loftEnabled: state.loftEnabled,
+          loftHeightRatio: state.loftHeightRatio,
+          loftShutterCount: state.loftShutterCount,
+          loftDividerXs: [...state.loftDividerXs],
+        };
+
+        set((s) => ({
+          quotationRooms: s.quotationRooms.map((room, i) =>
+            i === s.activeRoomIndex ? updatedRoom : room
+          ),
+        }));
+      },
+
+      loadRoomState: (index) => {
+        const state = get();
+        if (index < 0 || index >= state.quotationRooms.length) return;
+
+        const room = state.quotationRooms[index];
+        if (!room) return;
+
+        set(() => ({
+          activeRoomIndex: index,
+          unitType: room.unitType,
+          roomPhoto: room.roomPhoto,
+          drawnUnits: [...room.drawnUnits],
+          activeUnitIndex: room.activeUnitIndex,
+          wardrobeBox: room.wardrobeBox,
+          loftBox: room.loftBox,
+          shutterCount: room.shutterCount,
+          shutterDividerXs: [...room.shutterDividerXs],
+          loftEnabled: room.loftEnabled,
+          loftHeightRatio: room.loftHeightRatio,
+          loftShutterCount: room.loftShutterCount,
+          loftDividerXs: [...room.loftDividerXs],
+        }));
+      },
+
       setViewMode: (mode) => {
         set(() => ({ viewMode: mode }));
         get().addAudit("View mode changed", mode);
+      },
+
+      setCanvasViewMode: (mode) => {
+        set(() => ({ canvasViewMode: mode }));
+      },
+
+      setViewIntensity: (value) => {
+        set(() => ({ viewIntensity: Math.max(0, Math.min(100, value)) }));
+      },
+
+      setProductionSettings: (patch) => {
+        set((s) => ({
+          productionSettings: { ...s.productionSettings, ...patch },
+        }));
+      },
+
+      setProductionCanvasSnapshots: (snapshots) => {
+        set(() => ({ productionCanvasSnapshots: snapshots }));
       },
 
       setBackgroundImage: (img) => {
@@ -1640,6 +2276,18 @@ export const useVisualQuotationStore = create<VisualQuotationState>()(
         set(() => ({ unitType: value }));
         get().addAudit("Unit type set", value);
       },
+
+      addCustomUnitType: (value) => {
+        const trimmed = value.trim().toLowerCase().replace(/\s+/g, "_");
+        if (!trimmed) return;
+        // Don't add if it's a default type or already exists
+        const defaults = ["wardrobe", "kitchen", "tv_unit", "dresser", "other"];
+        if (defaults.includes(trimmed)) return;
+        const existing = get().customUnitTypes;
+        if (existing.includes(trimmed)) return;
+        set(() => ({ customUnitTypes: [...existing, trimmed] }));
+        get().addAudit("Custom unit type added", trimmed);
+      },
     }),
     {
       name: "visual-quotation-store-v1",
@@ -1652,6 +2300,10 @@ export const useVisualQuotationStore = create<VisualQuotationState>()(
           ...rest,
           shutterDividerXs:
             shutterDividerXs ?? shutterDividers ?? currentState.shutterDividerXs,
+          // Always default loft to off for new units/sessions
+          loftEnabled: false,
+          loftBox: undefined,
+          loftDividerXs: [],
         };
       },
       partialize: (state) => ({
@@ -1667,6 +2319,7 @@ export const useVisualQuotationStore = create<VisualQuotationState>()(
         audit: state.audit,
         approvedSnapshot: state.approvedSnapshot,
         viewMode: state.viewMode,
+        productionSettings: state.productionSettings,
         roomType: state.roomType,
         unitType: state.unitType,
         wardrobeBox: state.wardrobeBox,
@@ -1686,6 +2339,11 @@ export const useVisualQuotationStore = create<VisualQuotationState>()(
         aiPaidSuggestion: state.aiPaidSuggestion,
         aiInteriorSuggestion: state.aiInteriorSuggestion,
         aiWardrobeLayoutSuggestion: state.aiWardrobeLayoutSuggestion,
+        // Multi-room quotation
+        quotationRooms: state.quotationRooms,
+        activeRoomIndex: state.activeRoomIndex,
+        drawnUnits: state.drawnUnits,
+        activeUnitIndex: state.activeUnitIndex,
       }),
     }
   )

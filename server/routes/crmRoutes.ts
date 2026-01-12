@@ -4,6 +4,7 @@ import { desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db";
 import { activities, leads, quotes } from "../db/crmSchema";
+import { ok, err } from "../lib/apiEnvelope"; // PATCH 17: Standardized error parsing
 
 const crmRouter = Router();
 
@@ -85,7 +86,7 @@ crmRouter.post("/leads", async (req, res) => {
   try {
     const validation = leadSchema.safeParse(req.body ?? {});
     if (!validation.success) {
-      return res.status(400).json({ error: "Invalid lead payload", details: validation.error });
+      return res.status(400).json(err("Invalid lead payload", validation.error));
     }
 
     const payload = validation.data;
@@ -106,7 +107,8 @@ crmRouter.post("/leads", async (req, res) => {
         .where(eq(leads.id, existing.id))
         .returning();
 
-      return res.json(toLead(updated));
+      if (!updated) throw new Error("Failed to update lead");
+      return res.json(ok(toLead(updated)));
     }
 
     const id = payload.id || randomUUID();
@@ -125,20 +127,31 @@ crmRouter.post("/leads", async (req, res) => {
       })
       .returning();
 
-    return res.status(201).json(toLead(inserted));
+    if (!inserted) throw new Error("Failed to insert lead");
+    return res.status(201).json(ok(toLead(inserted)));
   } catch (error) {
     console.error("POST /api/crm/leads error:", error);
-    return res.status(500).json({ error: "Failed to upsert lead" });
+    return res.status(500).json(err("Failed to upsert lead"));
   }
 });
 
-crmRouter.get("/leads", async (_req, res) => {
+crmRouter.get("/leads", async (req, res) => {
   try {
-    const result = await db.select().from(leads).orderBy(desc(leads.updatedAt));
-    res.json(result.map(toLead));
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 50;
+    const offset = (page - 1) * limit;
+
+    const result = await db
+      .select()
+      .from(leads)
+      .orderBy(desc(leads.updatedAt))
+      .limit(limit)
+      .offset(offset);
+
+    res.json(ok(result.map(toLead)));
   } catch (error) {
     console.error("GET /api/crm/leads error:", error);
-    res.status(500).json({ error: "Failed to fetch leads" });
+    res.status(500).json(err("Failed to fetch leads"));
   }
 });
 
@@ -146,13 +159,13 @@ crmRouter.patch("/leads/:id/status", async (req, res) => {
   try {
     const validation = statusSchema.safeParse(req.body ?? {});
     if (!validation.success) {
-      return res.status(400).json({ error: "Invalid status payload", details: validation.error });
+      return res.status(400).json(err("Invalid status payload", validation.error));
     }
 
     const { id } = req.params;
     const [existing] = await db.select().from(leads).where(eq(leads.id, id)).limit(1);
     if (!existing) {
-      return res.status(404).json({ error: "Lead not found" });
+      return res.status(404).json(err("Lead not found"));
     }
 
     const [updated] = await db
@@ -161,10 +174,11 @@ crmRouter.patch("/leads/:id/status", async (req, res) => {
       .where(eq(leads.id, id))
       .returning();
 
-    res.json(toLead(updated));
+    if (!updated) throw new Error("Failed to update status");
+    res.json(ok(toLead(updated)));
   } catch (error) {
     console.error("PATCH /api/crm/leads/:id/status error:", error);
-    res.status(500).json({ error: "Failed to update lead status" });
+    res.status(500).json(err("Failed to update lead status"));
   }
 });
 
@@ -172,7 +186,7 @@ crmRouter.post("/activities", async (req, res) => {
   try {
     const validation = activitySchema.safeParse(req.body ?? {});
     if (!validation.success) {
-      return res.status(400).json({ error: "Invalid activity payload", details: validation.error });
+      return res.status(400).json(err("Invalid activity payload", validation.error));
     }
 
     const payload = validation.data;
@@ -188,10 +202,11 @@ crmRouter.post("/activities", async (req, res) => {
       })
       .returning();
 
-    res.status(201).json(toActivity(inserted));
+    if (!inserted) throw new Error("Failed to insert activity");
+    res.status(201).json(ok(toActivity(inserted)));
   } catch (error) {
     console.error("POST /api/crm/activities error:", error);
-    res.status(500).json({ error: "Failed to log activity" });
+    res.status(500).json(err("Failed to log activity"));
   }
 });
 
@@ -204,10 +219,10 @@ crmRouter.get("/activities/:leadId", async (req, res) => {
       .where(eq(activities.leadId, leadId))
       .orderBy(desc(activities.createdAt));
 
-    res.json(rows.map(toActivity));
+    res.json(ok(rows.map(toActivity)));
   } catch (error) {
     console.error("GET /api/crm/activities/:leadId error:", error);
-    res.status(500).json({ error: "Failed to fetch activities" });
+    res.status(500).json(err("Failed to fetch activities"));
   }
 });
 
@@ -215,7 +230,7 @@ crmRouter.post("/quotes", async (req, res) => {
   try {
     const validation = quoteSchema.safeParse(req.body ?? {});
     if (!validation.success) {
-      return res.status(400).json({ error: "Invalid quote payload", details: validation.error });
+      return res.status(400).json(err("Invalid quote payload", validation.error));
     }
 
     const payload = validation.data;
@@ -237,7 +252,8 @@ crmRouter.post("/quotes", async (req, res) => {
         .where(eq(quotes.quoteId, quoteId))
         .returning();
 
-      return res.json(toQuote(updated));
+      if (!updated) throw new Error("Failed to update quote");
+      return res.json(ok(toQuote(updated)));
     }
 
     const [inserted] = await db
@@ -252,10 +268,11 @@ crmRouter.post("/quotes", async (req, res) => {
       })
       .returning();
 
-    res.status(201).json(toQuote(inserted));
+    if (!inserted) throw new Error("Failed to insert quote");
+    res.status(201).json(ok(toQuote(inserted)));
   } catch (error) {
     console.error("POST /api/crm/quotes error:", error);
-    res.status(500).json({ error: "Failed to upsert quote" });
+    res.status(500).json(err("Failed to upsert quote"));
   }
 });
 
@@ -270,15 +287,14 @@ crmRouter.get("/quotes/by-lead/:leadId", async (req, res) => {
       .limit(1);
 
     if (!latest) {
-      return res.status(404).json({ error: "Quote not found" });
+      return res.status(404).json(err("Quote not found"));
     }
 
-    res.json(toQuote(latest));
+    res.json(ok(toQuote(latest)));
   } catch (error) {
     console.error("GET /api/crm/quotes/by-lead/:leadId error:", error);
-    res.status(500).json({ error: "Failed to fetch quote" });
+    res.status(500).json(err("Failed to fetch quote"));
   }
 });
 
 export { crmRouter };
-

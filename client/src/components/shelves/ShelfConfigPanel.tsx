@@ -3,24 +3,22 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { LaminateSelectorPanel } from "@/components/selectors";
 
-/**
- * ShelfConfigPanel
- *
- * Reusable UI for shelves configuration.
- *
- * Props:
- *  - shelvesEnabled
- *  - shelvesQuantity
- *  - shelvesLaminateCode
- *  - onChange(field, value)
- */
+// PATCH 18: Strict prop typing
+export interface ShelfConfigPanelProps {
+  shelvesEnabled?: boolean;
+  shelvesQuantity?: number;
+  shelvesLaminateCode?: string;
+  laminateCodes?: string[];
+  onChange: (field: string, value: string | number | boolean) => void;
+}
+
 export default function ShelfConfigPanel({
   shelvesEnabled,
   shelvesQuantity,
   shelvesLaminateCode,
   laminateCodes,
   onChange,
-}: any) {
+}: ShelfConfigPanelProps) {
 
   return (
     <div className="space-y-4 border rounded-md p-4 bg-gray-50">
@@ -54,8 +52,8 @@ export default function ShelfConfigPanel({
 
           {/* Laminate Code */}
           <LaminateSelectorPanel
-            value={shelvesLaminateCode}
-            onChange={(v) => onChange("shelvesLaminateCode", v)}
+            value={shelvesLaminateCode || ""}
+            onChange={(v: string) => onChange("shelvesLaminateCode", v)}
             label="Shelf Laminate Code"
           />
         </div>

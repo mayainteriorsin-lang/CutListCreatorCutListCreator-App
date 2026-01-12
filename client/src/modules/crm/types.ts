@@ -57,3 +57,19 @@ export interface QuoteSummary {
   data?: string;
   updatedAt: string;
 }
+
+export type AppointmentStatus = "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELLED";
+
+export interface Appointment {
+  id: string;
+  leadId: string;
+  status: AppointmentStatus;
+  scheduledAt: string;
+  secondaryMobile?: string;
+  latitude?: number;
+  longitude?: number;
+  locationNote?: string;
+  customerNote?: string;
+  createdAt: string;
+  updatedAt: string;
+}

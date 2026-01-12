@@ -4,20 +4,17 @@ import { Switch } from "@/components/ui/switch";
 import LaminateSelectorPanel from "@/components/selectors/LaminateSelectorPanel";
 import PanelDimensions from "@/components/panel/PanelDimensions";
 
-/**
- * CenterPostConfigPanel
- *
- * Reusable UI panel for managing center post configuration.
- *
- * Props:
- *  - centerPostEnabled
- *  - centerPostQuantity
- *  - centerPostHeight
- *  - centerPostDepth
- *  - centerPostLaminateCode
- *  - laminateCodes
- *  - onChange(field, value)
- */
+// PATCH 18: Strict prop typing
+export interface CenterPostConfigPanelProps {
+  centerPostEnabled?: boolean;
+  centerPostQuantity?: number;
+  centerPostHeight?: number;
+  centerPostDepth?: number;
+  centerPostLaminateCode?: string;
+  laminateCodes: string[];
+  onChange: (field: string, value: string | number | boolean) => void;
+}
+
 export default function CenterPostConfigPanel({
   centerPostEnabled,
   centerPostQuantity,
@@ -26,7 +23,7 @@ export default function CenterPostConfigPanel({
   centerPostLaminateCode,
   laminateCodes,
   onChange,
-}: any) {
+}: CenterPostConfigPanelProps) {
 
   return (
     <div className="space-y-4 border rounded-md p-4 bg-gray-50">
@@ -70,10 +67,9 @@ export default function CenterPostConfigPanel({
 
           {/* Laminate */}
           <LaminateSelectorPanel
-            value={centerPostLaminateCode}
-            laminateCodes={laminateCodes}
+            value={centerPostLaminateCode || ""}
             label="Center Post Laminate"
-            onChange={(v) => onChange("centerPostLaminateCode", v)}
+            onChange={(v: string) => onChange("centerPostLaminateCode", v)}
           />
         </div>
       )}

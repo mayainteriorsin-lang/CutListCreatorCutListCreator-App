@@ -6,20 +6,20 @@ import LaminateSelectorPanel from "@/components/selectors/LaminateSelectorPanel"
 import GrainToggle from "@/components/panel/GrainToggle";
 import GaddiToggle from "@/components/panel/GaddiToggle";
 
-/**
- * QuickShutterPanel
- *
- * Props:
- *  - quickModeEnabled
- *  - quickShutterCount
- *  - quickWidthReduction
- *  - quickLaminateCode
- *  - quickInnerLaminateCode
- *  - quickGrainDirection
- *  - quickGaddi
- *  - onChange(field, value)
- *  - onGenerate()  (auto shutter width generator)
- */
+// PATCH 18: Strict prop typing
+export interface QuickShutterPanelProps {
+  quickModeEnabled?: boolean;
+  quickShutterCount?: number;
+  quickWidthReduction?: number;
+  quickLaminateCode?: string;
+  quickInnerLaminateCode?: string;
+  quickGrainDirection?: boolean;
+  quickGaddi?: boolean;
+  laminateCodes?: string[];
+  onChange: (field: string, value: string | number | boolean) => void;
+  onGenerate: () => void;
+}
+
 export default function QuickShutterPanel({
   quickModeEnabled,
   quickShutterCount,
@@ -31,7 +31,7 @@ export default function QuickShutterPanel({
   laminateCodes,
   onChange,
   onGenerate,
-}: any) {
+}: QuickShutterPanelProps) {
 
   return (
     <div className="space-y-4 border rounded-md p-4 bg-blue-50">
@@ -86,17 +86,15 @@ export default function QuickShutterPanel({
 
           {/* Laminate */}
           <LaminateSelectorPanel
-            value={quickLaminateCode}
-            onChange={(v) => onChange("quickLaminateCode", v)}
-            laminateCodes={laminateCodes}
+            value={quickLaminateCode || ""}
+            onChange={(v: string) => onChange("quickLaminateCode", v)}
             label="Quick Shutter Laminate"
           />
 
           {/* Inner Laminate */}
           <LaminateSelectorPanel
-            value={quickInnerLaminateCode}
-            onChange={(v) => onChange("quickInnerLaminateCode", v)}
-            laminateCodes={laminateCodes}
+            value={quickInnerLaminateCode || ""}
+            onChange={(v: string) => onChange("quickInnerLaminateCode", v)}
             label="Quick Shutter Inner Laminate"
           />
 

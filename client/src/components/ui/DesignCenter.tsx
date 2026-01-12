@@ -1,6 +1,7 @@
 // client/src/components/ui/DesignCenter.tsx
 import React, { useRef, useState, useEffect } from "react";
 import { parseDXF } from "@/lib/dxf-parser";
+import { API_BASE } from "@/lib/queryClient";
 
 /**
  * Simple DesignCenter: Lines, Rectangles, Move, Grid, Dimensions
@@ -225,7 +226,7 @@ export default function DesignCenter({ onExportToCutlist }: DesignCenterProps = 
 
         if (isDWG) {
           // DWG: Convert to DXF first - send as binary directly
-          const response = await fetch("/api/convert-dwg-to-dxf", {
+          const response = await fetch(`${API_BASE}/api/convert-dwg-to-dxf`, {
             method: "POST",
             headers: { "Content-Type": "application/octet-stream" },
             body: event.target?.result as ArrayBuffer,

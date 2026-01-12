@@ -121,6 +121,15 @@
   }
 }
 
+/* Hide scrollbar utility for mobile horizontal scroll */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 @layer components {
   .slate-50 {
     background-color: var(--slate-50);

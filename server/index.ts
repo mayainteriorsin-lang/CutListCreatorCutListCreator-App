@@ -1,4 +1,4 @@
-﻿import "dotenv/config";
+import "dotenv/config";
 // FIX: Sanitize DATABASE_URL if it has quotes (env issue)
 if (process.env.DATABASE_URL && (process.env.DATABASE_URL.startsWith('"') || process.env.DATABASE_URL.startsWith("'"))) {
   process.env.DATABASE_URL = process.env.DATABASE_URL.replace(/^["']|["']$/g, '');
@@ -7,12 +7,44 @@ if (process.env.DATABASE_URL && (process.env.DATABASE_URL.startsWith('"') || pro
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { db } from "./db";
+import { createDBAdapter } from "./db/adapter";
+import { err } from "./lib/apiEnvelope";
+
+// PATCH 14: Create centralized DB adapter with retry logic
+export const DB = createDBAdapter(db);
 
 const app = express();
+app.set("trust proxy", 1);
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: false, limit: "50mb" }));
 // Raw binary for DWG uploads
 app.use("/api/convert-dwg-to-dxf", express.raw({ type: "application/octet-stream", limit: "50mb" }));
+
+// PATCH 50: Rate limiting to prevent abuse
+import rateLimit from "express-rate-limit";
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 1000, // Limit each IP to 1000 requests per windowMs
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { ok: false, error: "Too many requests, please try again later." }
+});
+// Apply rate limiting to all API routes
+app.use("/api", limiter);
+
+// PATCH 7: Safe JSON middleware - ensures no route sends undefined/null responses
+app.use((req, res, next) => {
+  const oldJson = res.json.bind(res);
+  res.json = function (data: any) {
+    if (data === undefined || data === null) {
+      console.warn("WARNING: Empty JSON response corrected:", req.path);
+      return oldJson({});
+    }
+    return oldJson(data);
+  };
+  next();
+});
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -34,7 +66,7 @@ app.use((req, res, next) => {
       }
 
       if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "â€¦";
+        logLine = logLine.slice(0, 79) + "...";
       }
 
       log(logLine);
@@ -63,12 +95,14 @@ app.get('/test', (req, res) => {
 (async () => {
   const server = await registerRoutes(app);
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
+  // PATCH 16: Global error handler - ALWAYS returns JSON with ok/error envelope
+  app.use((e: any, _req: Request, res: Response, _next: NextFunction) => {
+    const status = e.status || e.statusCode || 500;
+    const message = e?.message || "Internal Server Error";
+    const details = process.env.NODE_ENV === "development" ? (e?.stack || e) : undefined;
 
-    res.status(status).json({ message });
-    throw err;
+    console.error("[GLOBAL ERROR]", message, details);
+    res.status(status).json(err(message, details));
   });
 
   // importantly only setup vite in development and after

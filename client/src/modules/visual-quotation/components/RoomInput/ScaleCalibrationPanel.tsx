@@ -1,4 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { Ruler, Check, Trash2, PenLine } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { useVisualQuotationStore } from "../../store/visualQuotationStore";
 
 const ScaleCalibrationPanel: React.FC = () => {
@@ -40,129 +46,100 @@ const ScaleCalibrationPanel: React.FC = () => {
   };
 
   return (
-    <div style={styles.card}>
-      <div style={styles.header}>
-        <div>
-          <div style={styles.title}>Set Scale</div>
-          <div style={styles.sub}>Draw one line on the photo, enter real length (mm), apply.</div>
+    <Card className="border-slate-200 shadow-sm">
+      <CardContent className="p-4 space-y-4">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Ruler className="h-4 w-4 text-slate-500" />
+            <span className="text-sm font-semibold text-slate-700">Set Scale</span>
+          </div>
+          <Badge
+            variant={scale ? "default" : "secondary"}
+            className={scale ? "bg-green-100 text-green-700" : ""}
+          >
+            {scale ? `${scale.ratio.toFixed(3)} mm/px` : "Not set"}
+          </Badge>
         </div>
-        <div style={styles.badge}>{scale ? `${scale.ratio.toFixed(3)} mm/px` : "Not set"}</div>
-      </div>
 
-      <div style={styles.row}>
-        <button
-          type="button"
-          style={canDraw ? styles.primaryBtn : styles.disabledBtn}
-          onClick={startDraw}
-          disabled={!canDraw}
-        >
-          {scaleDrawMode ? "Drawing..." : "Draw Scale Line"}
-        </button>
-        <div style={styles.info}>
-          <div style={styles.label}>Line Pixels</div>
-          <div style={styles.value}>
-            {scaleLine ? `${scaleLine.lengthPx.toFixed(1)} px` : roomPhoto ? "Draw line" : "No photo"}
+        <p className="text-xs text-slate-500">
+          Draw a reference line on the photo, enter its real length, then apply.
+        </p>
+
+        {/* Draw Button & Line Info */}
+        <div className="flex gap-2">
+          <Button
+            variant={scaleDrawMode ? "default" : "outline"}
+            size="sm"
+            onClick={startDraw}
+            disabled={!canDraw}
+            className="flex-1"
+          >
+            <PenLine className="h-4 w-4 mr-2" />
+            {scaleDrawMode ? "Drawing..." : "Draw Line"}
+          </Button>
+          <div className="flex-1 p-2 rounded-lg bg-slate-50 border border-slate-200">
+            <p className="text-[10px] text-slate-500 uppercase tracking-wide">Line Length</p>
+            <p className="text-sm font-semibold text-slate-800">
+              {scaleLine ? `${scaleLine.lengthPx.toFixed(1)} px` : roomPhoto ? "Draw line" : "No photo"}
+            </p>
           </div>
         </div>
-      </div>
 
-      <div style={styles.row}>
-        <label style={styles.labelCol}>
-          Real Length (mm)
-          <input
-            style={styles.input}
-            type="number"
-            min={1}
-            value={refMm || ""}
-            onChange={(e) => setRefMm(Number(e.target.value))}
-            disabled={locked}
-            placeholder="e.g., 600"
-          />
-        </label>
-
-        <div style={styles.preview}>
-          <div style={styles.label}>Preview ratio</div>
-          <div style={styles.value}>{ratioPreview > 0 ? `${ratioPreview.toFixed(3)} mm/px` : "-"}</div>
+        {/* Reference Input & Preview */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label className="text-[10px] text-slate-500 uppercase tracking-wide">
+              Real Length (mm)
+            </Label>
+            <Input
+              type="number"
+              min={1}
+              value={refMm || ""}
+              onChange={(e) => setRefMm(Number(e.target.value))}
+              disabled={locked}
+              placeholder="e.g., 600"
+              className="h-9"
+            />
+          </div>
+          <div className="p-2 rounded-lg bg-slate-50 border border-dashed border-slate-200">
+            <p className="text-[10px] text-slate-500 uppercase tracking-wide">Preview Ratio</p>
+            <p className="text-sm font-semibold text-slate-800">
+              {ratioPreview > 0 ? `${ratioPreview.toFixed(3)} mm/px` : "-"}
+            </p>
+          </div>
         </div>
-      </div>
 
-      <div style={styles.row}>
-        <button
-          type="button"
-          style={canApply ? styles.primaryBtn : styles.disabledBtn}
-          onClick={applyScale}
-          disabled={!canApply}
-        >
-          Apply Scale
-        </button>
-        <button
-          type="button"
-          style={scale ? styles.outlineBtn : styles.disabledBtn}
-          onClick={() => clearScale()}
-          disabled={!scale || locked}
-        >
-          Clear Scale
-        </button>
-      </div>
+        {/* Action Buttons */}
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            onClick={applyScale}
+            disabled={!canApply}
+            className="flex-1"
+          >
+            <Check className="h-4 w-4 mr-2" />
+            Apply Scale
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => clearScale()}
+            disabled={!scale || locked}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
 
-      {locked && <div style={styles.hint}>Approved quotes cannot be edited.</div>}
-      {!roomPhoto && <div style={styles.hint}>Add a room photo to calibrate scale.</div>}
-    </div>
+        {/* Hints */}
+        {!roomPhoto && (
+          <p className="text-xs text-slate-400 text-center">
+            Add a room photo to calibrate scale.
+          </p>
+        )}
+      </CardContent>
+    </Card>
   );
 };
 
 export default ScaleCalibrationPanel;
-
-const styles: { [k: string]: React.CSSProperties } = {
-  card: { background: "#fff", padding: 16, borderRadius: 8, border: "1px solid #e5e7eb" },
-  header: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 },
-  title: { fontSize: 14, fontWeight: 800 },
-  sub: { marginTop: 2, fontSize: 12, color: "#6b7280", lineHeight: 1.4 },
-  badge: {
-    fontSize: 12,
-    padding: "4px 8px",
-    borderRadius: 12,
-    border: "1px solid #e5e7eb",
-    background: "#f9fafb",
-    color: "#374151",
-  },
-  row: { marginTop: 12, display: "flex", alignItems: "center", gap: 12 },
-  info: { flex: 1, background: "#f9fafb", borderRadius: 8, padding: "8px 10px", border: "1px solid #e5e7eb" },
-  label: { fontSize: 12, color: "#6b7280" },
-  value: { fontSize: 13, fontWeight: 700, color: "#111827", marginTop: 4 },
-  labelCol: { flex: 1, display: "flex", flexDirection: "column", gap: 6, fontSize: 12, fontWeight: 700, color: "#374151" },
-  input: { padding: "8px 10px", borderRadius: 8, border: "1px solid #d1d5db" },
-  preview: { flex: 1, background: "#f9fafb", borderRadius: 8, padding: "8px 10px", border: "1px dashed #e5e7eb" },
-  primaryBtn: {
-    padding: "9px 12px",
-    minHeight: 36,
-    borderRadius: 10,
-    border: "1px solid #2563eb",
-    background: "#2563eb",
-    color: "#fff",
-    fontWeight: 800,
-    cursor: "pointer",
-  },
-  outlineBtn: {
-    padding: "9px 12px",
-    minHeight: 36,
-    borderRadius: 10,
-    border: "1px solid #d1d5db",
-    background: "#fff",
-    color: "#374151",
-    fontWeight: 700,
-    cursor: "pointer",
-  },
-  disabledBtn: {
-    padding: "9px 12px",
-    minHeight: 36,
-    borderRadius: 10,
-    border: "1px solid #d1d5db",
-    background: "#e5e7eb",
-    color: "#9ca3af",
-    fontWeight: 800,
-    cursor: "not-allowed",
-  },
-  hint: { marginTop: 8, fontSize: 12, color: "#6b7280" },
-};
-

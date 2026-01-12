@@ -9,12 +9,28 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "@/hooks/use-toast";
+// PATCH 28: Use preview store for delete state
+import { usePreviewStore } from "@/features/preview";
+
+// PATCH 18 + 28: Strict prop typing with preview store
+export interface PanelToDelete {
+  sheetId: string;
+  panelId: string;
+}
+
+export interface PanelDeleteDialogProps {
+  panelToDelete: PanelToDelete | null;
+  setPanelToDelete: (panel: PanelToDelete | null) => void;
+  // PATCH 28: Removed - now uses preview store directly
+  // setDeletedPreviewPanels: Dispatch<SetStateAction<Set<string>>>;
+}
 
 export default function PanelDeleteDialog({
   panelToDelete,
   setPanelToDelete,
-  setDeletedPreviewPanels,
-}: any) {
+}: PanelDeleteDialogProps) {
+  // PATCH 28: Use preview store for delete state
+  const deletePanel = usePreviewStore((s) => s.deletePanel);
   const open = !!panelToDelete;
 
   return (
@@ -36,11 +52,8 @@ export default function PanelDeleteDialog({
             className="bg-red-600 hover:bg-red-700"
             onClick={() => {
               if (panelToDelete) {
-                const uniqueId = `${panelToDelete.sheetId}-${panelToDelete.panelId}`;
-
-                setDeletedPreviewPanels((prev: any) => {
-                  return new Set([...Array.from(prev), uniqueId]);
-                });
+                // PATCH 28: Use preview store deletePanel action
+                deletePanel(panelToDelete.sheetId, panelToDelete.panelId);
 
                 toast({
                   title: "Panel Deleted",

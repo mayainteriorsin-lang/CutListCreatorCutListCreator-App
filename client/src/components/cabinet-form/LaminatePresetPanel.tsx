@@ -1,20 +1,22 @@
-
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 
-/**
- * LaminatePresetPanel
- *
- * Props:
- *  - masterPlywood
- *  - masterLaminate
- *  - masterInnerLaminate
- *  - applyToAll
- *  - plywoodBrands
- *  - laminateCodes
- *  - onChange(field, value)
- */
+// PATCH 18: Strict prop typing
+export interface LaminateCode {
+  code: string;
+}
+
+export interface LaminatePresetPanelProps {
+  masterPlywood?: string;
+  masterLaminate?: string;
+  masterInnerLaminate?: string;
+  applyToAll?: boolean;
+  plywoodBrands: string[];
+  laminateCodes: LaminateCode[];
+  onChange: (field: string, value: string | boolean) => void;
+}
+
 export default function LaminatePresetPanel({
   masterPlywood,
   masterLaminate,
@@ -23,7 +25,11 @@ export default function LaminatePresetPanel({
   plywoodBrands,
   laminateCodes,
   onChange,
-}: any) {
+}: LaminatePresetPanelProps) {
+  // PATCH 34: Safe array fallbacks to prevent .map() crashes
+  const safePlywoodBrands = Array.isArray(plywoodBrands) ? plywoodBrands : [];
+  const safeLaminateCodes = Array.isArray(laminateCodes) ? laminateCodes : [];
+
   return (
     <div className="border rounded-md p-4 bg-gray-50 space-y-4">
 
@@ -38,9 +44,16 @@ export default function LaminatePresetPanel({
             <SelectValue placeholder="Select plywood" />
           </SelectTrigger>
           <SelectContent>
-            {plywoodBrands.map((p: string, i: number) => (
-              <SelectItem key={i} value={p}>{p}</SelectItem>
-            ))}
+            {/* PATCH 37: Empty state */}
+            {safePlywoodBrands.length === 0 ? (
+              <div className="px-3 py-2 text-xs text-slate-500">
+                No plywood brands available
+              </div>
+            ) : (
+              safePlywoodBrands.map((p: string, i: number) => (
+                <SelectItem key={i} value={p}>{p}</SelectItem>
+              ))
+            )}
           </SelectContent>
         </Select>
       </div>
@@ -56,9 +69,16 @@ export default function LaminatePresetPanel({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {laminateCodes.map((l: any) => (
-              <SelectItem key={l.code} value={l.code}>{l.code}</SelectItem>
-            ))}
+            {/* PATCH 37: Empty state */}
+            {safeLaminateCodes.length === 0 ? (
+              <div className="px-3 py-2 text-xs text-slate-500">
+                No laminate codes available
+              </div>
+            ) : (
+              safeLaminateCodes.map((l: LaminateCode) => (
+                <SelectItem key={l.code} value={l.code}>{l.code}</SelectItem>
+              ))
+            )}
           </SelectContent>
         </Select>
       </div>
@@ -74,9 +94,16 @@ export default function LaminatePresetPanel({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {laminateCodes.map((l: any) => (
-              <SelectItem key={l.code} value={l.code}>{l.code}</SelectItem>
-            ))}
+            {/* PATCH 37: Empty state */}
+            {safeLaminateCodes.length === 0 ? (
+              <div className="px-3 py-2 text-xs text-slate-500">
+                No laminate codes available
+              </div>
+            ) : (
+              safeLaminateCodes.map((l: LaminateCode) => (
+                <SelectItem key={l.code} value={l.code}>{l.code}</SelectItem>
+              ))
+            )}
           </SelectContent>
         </Select>
       </div>
