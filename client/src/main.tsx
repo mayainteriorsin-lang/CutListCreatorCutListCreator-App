@@ -1,13 +1,3 @@
-// TEMP FIX - prevents crash when syncCabinetConfigFrontLaminate is called globally
-// This provides a no-op fallback until proper React prop flow takes over
-declare global {
-  interface Window {
-    syncCabinetConfigFrontLaminate?: (code: string, isUserSelection: boolean) => void;
-  }
-}
-window.syncCabinetConfigFrontLaminate =
-  window.syncCabinetConfigFrontLaminate || function () {};
-
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
