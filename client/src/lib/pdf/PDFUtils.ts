@@ -3,7 +3,7 @@
  */
 
 // Version tracking - Update this to force cache refresh
-export const PDF_VERSION = "2025-12-31-FINAL";
+export const PDF_VERSION = "2026-01-12-v28";
 
 // Layout constants
 export const PDF_MARGIN = 10;

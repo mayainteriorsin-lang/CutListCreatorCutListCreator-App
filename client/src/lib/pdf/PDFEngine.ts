@@ -2,6 +2,7 @@ import { jsPDF } from "jspdf";
 import { toFiniteNumber } from "./PDFUtils";
 import { renderMaterialSummaryPage } from "./PDFSummary";
 import { drawSheetPage } from "./PDFSheets";
+import type { BrandResult } from "@shared/schema";
 
 /**
  * Main PDF generation orchestrator.
@@ -19,13 +20,7 @@ export function generateCutlistPDF({
   cabinets = [],
   materialSummary,
 }: {
-  brandResults?: Array<{
-    brand: string;
-    laminateCode: string;
-    laminateDisplay: string;
-    result: any;
-    isBackPanel: boolean;
-  }>;
+  brandResults?: BrandResult[];
   sheet: { w: number; h: number; kerf: number };
   plywoodTypes?: string[];
   laminateCodes?: string[];
@@ -51,8 +46,11 @@ export function generateCutlistPDF({
   const sheetH = Math.max(1, toFiniteNumber(sheet?.h, 2420));
   const sheetKerf = Math.max(0, toFiniteNumber(sheet?.kerf, 0));
 
+  // Always show summary page if we have any cutting sheets (brandResults)
+  const hasMaterialData = brandResults.length > 0;
+
   // Calculate total pages across all brand results, excluding deleted sheets
-  let totalPages = materialSummary ? 1 : 0;
+  let totalPages = hasMaterialData ? 1 : 0;
   brandResults.forEach((brandResult) => {
     const sheets = brandResult.result?.panels || [];
     sheets.forEach((s: any, idx: number) => {
@@ -66,8 +64,8 @@ export function generateCutlistPDF({
 
   let currentPage = 0;
 
-  // 1. Draw Material Summary page first (if summary is provided)
-  if (materialSummary) {
+  // 1. Draw Material Summary page first (if we have brandResults)
+  if (hasMaterialData) {
     currentPage++;
     renderMaterialSummaryPage({
       doc,
@@ -107,7 +105,7 @@ export function generateCutlistPDF({
         currentPage,
         totalPages,
         isFirstSheet,
-        hasMaterialSummary: !!materialSummary,
+        hasMaterialSummary: !!hasMaterialData,
       });
     });
   });
