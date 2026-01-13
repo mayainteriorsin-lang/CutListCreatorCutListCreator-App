@@ -31,6 +31,9 @@
       "Bash(git commit:*)",
       "Bash(git push)",
       "Bash(git revert:*)"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\hi\\workspace\\CutListCreator"
     ]
   }
 }
