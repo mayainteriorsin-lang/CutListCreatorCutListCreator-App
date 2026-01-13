@@ -5,6 +5,8 @@
  * Works offline, no backend required.
  */
 
+import { logger } from "@/lib/system/logger";
+
 const KEY = "cutlist-autosave-v1";
 
 export interface AutosavePayload {
@@ -21,7 +23,7 @@ export function saveAutosave(data: AutosavePayload): void {
   try {
     localStorage.setItem(KEY, JSON.stringify(data));
   } catch (e) {
-    console.warn("Autosave failed:", e);
+    logger.warn("Autosave failed:", e);
   }
 }
 

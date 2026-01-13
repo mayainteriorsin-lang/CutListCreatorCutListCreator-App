@@ -12,6 +12,7 @@ import {
   MasterSettingsMemorySchema,
 } from "@/lib/api/schemas";
 import { API_BASE } from "@/lib/queryClient";
+import { logger } from "@/lib/system/logger";
 
 interface PreferencesState {
   woodGrains: Record<string, boolean>;
@@ -31,7 +32,7 @@ export const usePreferencesStore = create<PreferencesState>((set, get) => ({
 
   async fetch(force = false) {
     if (!force && get().loaded) {
-      console.log("[PREFERENCES SLICE] already loaded, skipping fetch");
+      logger.log("[PREFERENCES SLICE] already loaded, skipping fetch");
       return;
     }
 

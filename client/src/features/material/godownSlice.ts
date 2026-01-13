@@ -12,6 +12,7 @@ import { API_BASE, apiRequest } from "@/lib/queryClient";
 import { normArray, normString, normNumber } from "@/lib/normalize";
 import { PlywoodBrandMemory, LaminateCodeGodown } from "@shared/schema";
 import { PlywoodListSchema as SharedPlywoodSchema, LaminateListSchema, safeValidateArray } from "@shared/schemas";
+import { logger } from "@/lib/system/logger";
 
 interface GodownState {
   plywoodOptions: PlywoodBrandMemory[];
@@ -35,7 +36,7 @@ export const useGodownStore = create<GodownState>((set, get) => ({
 
   async fetch(force = false) {
     if (!force && get().loaded) {
-      console.log("[GODOWN SLICE] already loaded, skipping fetch");
+      logger.log("[GODOWN SLICE] already loaded, skipping fetch");
       return;
     }
 
@@ -127,7 +128,7 @@ export const useGodownStore = create<GodownState>((set, get) => ({
       });
       await get().fetch(true); // Force refresh after mutation
     } catch (error) {
-      console.error("Error adding laminate:", error);
+      logger.error("Error adding laminate:", error);
       // PATCH 17: Safe array filter
       set((state) => ({
         laminateOptions: (state.laminateOptions ?? []).filter(
@@ -153,7 +154,7 @@ export const useGodownStore = create<GodownState>((set, get) => ({
       await apiRequest("POST", "/api/godown/plywood", { brand });
       await get().fetch(true); // Force refresh after mutation
     } catch (error) {
-      console.error("Error adding plywood brand:", error);
+      logger.error("Error adding plywood brand:", error);
       // PATCH 17: Safe array filter
       set((state) => ({
         plywoodOptions: (state.plywoodOptions ?? []).filter(
@@ -177,7 +178,7 @@ export const useGodownStore = create<GodownState>((set, get) => ({
         `/api/laminate-code-godown/${encodeURIComponent(code)}`
       );
     } catch (error) {
-      console.error("Error removing laminate:", error);
+      logger.error("Error removing laminate:", error);
       // Re-fetch to sync with server if delete failed
       get().fetch(true);
     }
@@ -197,7 +198,7 @@ export const useGodownStore = create<GodownState>((set, get) => ({
         `/api/plywood-brand-memory/${encodeURIComponent(brand)}`
       );
     } catch (error) {
-      console.error("Error removing plywood:", error);
+      logger.error("Error removing plywood:", error);
       get().fetch(true);
     }
   },

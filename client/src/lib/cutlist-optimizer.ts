@@ -1,3 +1,5 @@
+import { logger } from '@/lib/system/logger';
+
 function mulberry32(seed: number) {
   return function () {
     let t = seed += 0x6D2B79F5;
@@ -329,7 +331,7 @@ export function optimizeCutlist({
     return !fitsNormal && !fitsRotated;
   });
   if (oversized.length > 0) {
-    console.warn('⚠️ Some parts are larger than sheet in current orientation:', oversized.slice(0, 10));
+    logger.warn('⚠️ Some parts are larger than sheet in current orientation:', oversized.slice(0, 10));
   }
 
   // Expand each part into instances with axis-lock constraints
@@ -458,7 +460,7 @@ export function optimizeCutlist({
   try {
     validateNoOverlaps(best.panels, W, H);
   } catch (error) {
-    console.error("❌ Overlap validation FAILED:", error);
+    logger.error("❌ Overlap validation FAILED:", error);
     throw error; // Propagate error to stop PDF generation
   }
 
@@ -485,13 +487,13 @@ export function optimizeCutlist({
 
   if (panelsLost !== 0) {
     // Always log critical errors
-    console.error(`[OPTIMIZER] CRITICAL: ${Math.abs(panelsLost)} panels ${panelsLost > 0 ? 'LOST' : 'DUPLICATED'}`);
+    logger.error(`[OPTIMIZER] CRITICAL: ${Math.abs(panelsLost)} panels ${panelsLost > 0 ? 'LOST' : 'DUPLICATED'}`);
     throw new Error(`Panel count mismatch: ${panelsLost} panels ${panelsLost > 0 ? 'lost' : 'duplicated'}`);
   }
 
   // Log unplaced panels warning only in development
   if (totalUnplacedPanels > 0 && isDev) {
-    console.warn(`[OPTIMIZER] ${totalUnplacedPanels} panels could not be placed`);
+    logger.warn(`[OPTIMIZER] ${totalUnplacedPanels} panels could not be placed`);
   }
 
   return {

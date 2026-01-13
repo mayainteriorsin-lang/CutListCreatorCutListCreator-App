@@ -13,6 +13,8 @@
  * - Returns null-safe response with fallback support
  */
 
+import { logger } from '@/lib/system/logger';
+
 export interface FetchRetryOptions extends RequestInit {
   retries?: number;
   delayMs?: number;
@@ -48,7 +50,7 @@ export async function fetchRetry(
       const errorMessage = err instanceof Error ? err.message : String(err);
 
       if (logErrors) {
-        console.warn(
+        logger.warn(
           `[FETCH RETRY] Attempt ${attempt}/${retries} failed for ${url}:`,
           errorMessage
         );
@@ -82,7 +84,7 @@ export async function fetchRetryJson<T>(
     const json = await res.json();
     return json as T;
   } catch (err) {
-    console.error(`[FETCH RETRY JSON] Failed to fetch ${url}:`, err);
+    logger.error(`[FETCH RETRY JSON] Failed to fetch ${url}:`, err);
     return fallback;
   }
 }
@@ -105,14 +107,14 @@ export async function fetchRetryApi<T>(
       if (json.success && json.data !== undefined) {
         return json.data as T;
       }
-      console.warn('[FETCH RETRY API] API returned error:', json.error);
+      logger.warn('[FETCH RETRY API] API returned error:', json.error);
       return fallback;
     }
 
     // Handle legacy unwrapped format
     return json as T;
   } catch (err) {
-    console.error(`[FETCH RETRY API] Failed to fetch ${url}:`, err);
+    logger.error(`[FETCH RETRY API] Failed to fetch ${url}:`, err);
     return fallback;
   }
 }

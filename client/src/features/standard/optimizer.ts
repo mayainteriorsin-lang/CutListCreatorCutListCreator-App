@@ -9,6 +9,7 @@
 import { runOptimizer } from '../cutlist/core/optimizer-bridge';
 import { calculateEfficiency } from '../cutlist/core/efficiency';
 import type { OptimizerPart, Sheet, StrategyResult } from '../cutlist/core/types';
+import { logger } from '@/lib/system/logger';
 
 /**
  * Standard Multi-Pass Optimization
@@ -37,7 +38,7 @@ export async function optimizeStandardCutlist(
   sheetHeight: number = 2420,
   kerf: number = 5
 ): Promise<Sheet[]> {
-  console.group('🧬 GENETIC ALGORITHM OPTIMIZATION (IMPROVED)');
+  logger.log('🧬 GENETIC ALGORITHM OPTIMIZATION (IMPROVED)');
   const startTime = performance.now();
 
   // Prepare tasks: run both algorithms in parallel to compare
@@ -48,9 +49,9 @@ export async function optimizeStandardCutlist(
     { name: 'MaxRects-BAF', algorithm: 'maxrects' as const, time: 1000, strategy: 'BAF' },
   ];
 
-  console.log(`🚀 Launching ${tasks.length} optimization strategies...`);
-  console.log(`   Wood grain locked: ${parts.filter(p => !p.rotate).length} pieces`);
-  console.log(`   Rotation allowed: ${parts.filter(p => p.rotate).length} pieces`);
+  logger.log(`🚀 Launching ${tasks.length} optimization strategies...`);
+  logger.log(`   Wood grain locked: ${parts.filter(p => !p.rotate).length} pieces`);
+  logger.log(`   Rotation allowed: ${parts.filter(p => p.rotate).length} pieces`);
 
   const results = await Promise.all(
     tasks.map(async (task) => {
@@ -76,14 +77,14 @@ export async function optimizeStandardCutlist(
           error: null
         };
       } catch (err) {
-        console.error(`❌ Strategy ${task.name} failed:`, err);
+        logger.error(`❌ Strategy ${task.name} failed:`, err);
         return { name: task.name, result: [], efficiency: 0, sheetsUsed: Infinity, error: err };
       }
     })
   );
 
   const duration = (performance.now() - startTime).toFixed(0);
-  console.log(`🏁 All strategies finished in ${duration}ms`);
+  logger.log(`🏁 All strategies finished in ${duration}ms`);
 
   const strategies: StrategyResult[] = results
     .filter(r => !r.error)
@@ -106,14 +107,14 @@ export async function optimizeStandardCutlist(
 
   const winner = strategies[0];
   if (winner) {
-    console.log('🏆 WINNER:', winner.name);
-    console.log(`   Sheets: ${winner.sheetsUsed}, Efficiency: ${winner.efficiency.toFixed(2)}%`);
-    console.table(strategies);
+    logger.log('🏆 WINNER:', winner.name);
+    logger.log(`   Sheets: ${winner.sheetsUsed}, Efficiency: ${winner.efficiency.toFixed(2)}%`);
+    logger.log(strategies);
   } else {
-    console.error('❌ All optimization strategies failed.');
+    logger.error('❌ All optimization strategies failed.');
   }
 
-  console.groupEnd();
+  logger.logEnd();
 
   return winner ? winner.result : [];
 }

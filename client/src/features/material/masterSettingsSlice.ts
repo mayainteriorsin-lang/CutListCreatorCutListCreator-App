@@ -12,6 +12,7 @@ import { API_BASE, apiRequest } from "@/lib/queryClient";
 import { normString, normNumber, normArray } from "@/lib/normalize";
 import { MasterSettingsMemory } from "@shared/schema";
 import { MasterSettingsResponseSchema, safeValidate } from "@shared/schemas";
+import { logger } from "@/lib/system/logger";
 
 // PATCH 17: Default master settings object (never null)
 const DEFAULT_MASTER_SETTINGS: MasterSettingsMemory = {
@@ -42,7 +43,7 @@ export const useMasterSettingsStore = create<MasterSettingsState>((set, get) => 
 
   async fetch(force = false) {
     if (!force && get().loaded) {
-      console.log("[MASTER SETTINGS SLICE] already loaded, skipping fetch");
+      logger.log("[MASTER SETTINGS SLICE] already loaded, skipping fetch");
       return;
     }
 
@@ -147,7 +148,7 @@ export const useMasterSettingsStore = create<MasterSettingsState>((set, get) => 
       const saved = json?.data ?? json;
       set({ data: saved });
     } catch (error) {
-      console.error("Error saving master settings:", error);
+      logger.error("Error saving master settings:", error);
     }
   },
 }));

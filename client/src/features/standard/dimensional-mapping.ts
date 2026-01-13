@@ -19,6 +19,7 @@
  */
 
 import type { Panel, OptimizerPart } from '../cutlist/core/types';
+import { logger } from '@/lib/system/logger';
 
 // Panel type counters for unique ID generation
 const panelCounters: Record<string, number> = {
@@ -175,19 +176,9 @@ export function prepareStandardParts(panels: Panel[], woodGrainsPreferences: Rec
   });
 
   // Log what we prepared
-  console.group('📦 PANEL AXIS MAPPING - SIMPLE');
-  console.log(`Sheet: X=1210mm (horizontal), Y=2420mm (vertical)`);
-  console.log(`Total panels: ${parts.length}`);
-  console.table(
-    parts.map(p => ({
-      id: p.id,
-      type: p.panelType,
-      'X-axis': `${p.w}mm`,
-      'Y-axis': `${p.h}mm`,
-      rotate: '🔒 FALSE'
-    }))
-  );
-  console.groupEnd();
+  logger.log('📦 PANEL AXIS MAPPING - SIMPLE');
+  logger.log(`Sheet: X=1210mm (horizontal), Y=2420mm (vertical)`);
+  logger.log(`Total panels: ${parts.length}`);
 
   return parts;
 }

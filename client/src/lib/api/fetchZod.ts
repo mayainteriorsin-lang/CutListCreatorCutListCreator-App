@@ -6,6 +6,7 @@
  */
 
 import { z, ZodTypeAny } from "zod";
+import { logger } from "@/lib/system/logger";
 
 // Standard API envelope schema
 const ApiEnvelopeSchema = z.object({
@@ -63,7 +64,7 @@ export async function fetchZod<TSchema extends ZodTypeAny>(
 
   const parsed = schema.safeParse(envelope.data.data);
   if (!parsed.success) {
-    console.error("[fetchZod] Validation failed:", url, parsed.error.message);
+    logger.error("[fetchZod] Validation failed:", url, parsed.error.message);
     throw new ApiError(`API data validation failed: ${url}`, url, res.status, parsed.error);
   }
 
@@ -84,9 +85,9 @@ export async function safeFetchZod<TSchema extends ZodTypeAny>(
     return await fetchZod(url, schema, init);
   } catch (error) {
     if (error instanceof ApiError) {
-      console.warn(`[safeFetchZod] ${error.message}`, error.details);
+      logger.warn(`[safeFetchZod] ${error.message}`, error.details);
     } else {
-      console.warn(`[safeFetchZod] Fetch failed: ${url}`, error);
+      logger.warn(`[safeFetchZod] Fetch failed: ${url}`, error);
     }
     return fallback;
   }

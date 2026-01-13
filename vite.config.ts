@@ -28,6 +28,15 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+          charts: ['recharts'],
+          ui: ['@radix-ui/react-dialog', '@radix-ui/react-select'],
+        },
+      },
+    },
   },
   server: {
     fs: {

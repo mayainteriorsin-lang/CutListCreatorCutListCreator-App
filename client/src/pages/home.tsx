@@ -110,6 +110,7 @@ import { safeFetchZod } from '@/lib/api/fetchZod';
 import { debouncedFetch } from '@/lib/api/debouncedFetch';
 // PATCH 43: Centralized API client (available for future migrations)
 import { apiGet, apiPost } from '@/lib/api/apiClient';
+import { logger } from '@/lib/system/logger';
 import {
   WoodGrainsPrefsSchema,
   MasterSettingsMemorySchema as ApiMasterSettingsMemorySchema
@@ -573,7 +574,7 @@ export default function Home({ showAsCabinetsPage = false }: HomeProps) {
     if (saved && (saved.cabinets.length > 0 || saved.panels.length > 0)) {
       setCabinets(saved.cabinets as Cabinet[]);
       setManualPanels(saved.panels as ManualPanel[]);
-      console.log(`[Autosave] Restored ${saved.cabinets.length} cabinets and ${saved.panels.length} panels`);
+      logger.log(`[Autosave] Restored ${saved.cabinets.length} cabinets and ${saved.panels.length} panels`);
     }
   }, []); // Run once on mount
 
