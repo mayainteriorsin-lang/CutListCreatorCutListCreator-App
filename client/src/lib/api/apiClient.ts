@@ -27,6 +27,8 @@ export async function apiGet<T>(
   url: string,
   schema?: ZodSchema<T>
 ): Promise<T | null> {
+  if (!ENV.API_BASE) return Promise.resolve(null);
+
   const fullUrl = `${ENV.API_BASE}${url}`;
   const perfKey = `api:GET:${url}`;
   perfStart(perfKey);
@@ -71,6 +73,8 @@ export async function apiPost<T>(
   body: any,
   schema?: ZodSchema<T>
 ): Promise<T | null> {
+  if (!ENV.API_BASE) return Promise.resolve(null);
+
   const fullUrl = `${ENV.API_BASE}${url}`;
   const perfKey = `api:POST:${url}`;
   perfStart(perfKey);
@@ -115,6 +119,8 @@ export async function apiDelete<T>(
   url: string,
   schema?: ZodSchema<T>
 ): Promise<T | null> {
+  if (!ENV.API_BASE) return Promise.resolve(null);
+
   const fullUrl = `${ENV.API_BASE}${url}`;
   const perfKey = `api:DELETE:${url}`;
   perfStart(perfKey);

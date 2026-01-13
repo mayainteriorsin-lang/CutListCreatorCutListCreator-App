@@ -11,9 +11,13 @@ import { API_BASE } from "@/lib/queryClient";
 export type ApiHealthStatus = "checking" | "ok" | "error";
 
 export function useApiHealth() {
-  const [status, setStatus] = useState<ApiHealthStatus>("checking");
+  // No-op when API_BASE is not configured - always return "ok"
+  const [status, setStatus] = useState<ApiHealthStatus>(!API_BASE ? "ok" : "checking");
 
   useEffect(() => {
+    // Skip health checks when no API server is configured
+    if (!API_BASE) return;
+
     let cancelled = false;
 
     async function check() {

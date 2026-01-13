@@ -41,6 +41,11 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
+  // No-op when API_BASE is not configured
+  if (!API_BASE && url.startsWith('/api')) {
+    return new Response(JSON.stringify(null), { status: 200 });
+  }
+
   // Auto-prefix with API_BASE if url starts with /api
   const fullUrl = url.startsWith('/api') ? `${API_BASE}${url}` : url;
 
@@ -62,6 +67,12 @@ export const getQueryFn: <T>(options: {
   ({ on401: unauthorizedBehavior }) =>
     async ({ queryKey }) => {
       const url = queryKey.join("/") as string;
+
+      // No-op when API_BASE is not configured
+      if (!API_BASE && url.startsWith('/api')) {
+        return null;
+      }
+
       // Auto-prefix with API_BASE if url starts with /api
       const fullUrl = url.startsWith('/api') ? `${API_BASE}${url}` : url;
 
