@@ -76,9 +76,22 @@ export function serveStatic(app: Express) {
     );
   }
 
-  app.use(express.static(distPath));
+  // Serve static files with proper caching and MIME types
+  app.use(express.static(distPath, {
+    maxAge: '1y',           // Cache assets for 1 year (they have hashed filenames)
+    etag: true,
+    index: false,           // Don't serve index.html for directory requests
+    setHeaders: (res, filePath) => {
+      // Ensure correct MIME types for CSS and JS
+      if (filePath.endsWith('.css')) {
+        res.setHeader('Content-Type', 'text/css; charset=UTF-8');
+      } else if (filePath.endsWith('.js')) {
+        res.setHeader('Content-Type', 'application/javascript; charset=UTF-8');
+      }
+    }
+  }));
 
-  // fall through to index.html if the file doesn't exist
+  // fall through to index.html if the file doesn't exist (SPA routing)
   app.use("*", (_req, res) => {
     res.sendFile(path.resolve(distPath, "index.html"));
   });

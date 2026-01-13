@@ -4,6 +4,15 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Lock root font-size to ensure consistent sizing across all environments (dev/prod) */
+html {
+  font-size: 16px !important;
+  -webkit-text-size-adjust: 100%;
+  -moz-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  line-height: 1.5;
+}
+
 :root {
   --background: hsl(248, 50%, 98%);
   --foreground: hsl(222, 47%, 11%);
