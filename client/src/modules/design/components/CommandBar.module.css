@@ -1,0 +1,56 @@
+.container {
+    height: 30px;
+    padding: 0 8px;
+    background-color: #222236;
+    border-bottom: 1px solid #333;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 10px;
+    flex-shrink: 0;
+}
+
+.moduleSelect {
+    padding: 2px 6px;
+    border: 1px solid #444;
+    border-radius: 2px;
+    font-size: 10px;
+    background-color: #1e1e2e;
+    color: #ccc;
+    min-width: 140px;
+    font-family: 'Courier New', monospace;
+}
+
+.depthContainer {
+    display: flex;
+    gap: 3px;
+    align-items: center;
+    color: #888;
+}
+
+.depthInput {
+    width: 44px;
+    padding: 2px 4px;
+    border: 1px solid #444;
+    border-radius: 2px;
+    font-size: 10px;
+    background-color: #1e1e2e;
+    color: #ccc;
+    font-family: 'Courier New', monospace;
+}
+
+.spacer {
+    flex: 1;
+}
+
+.actionButton {
+    padding: 3px 10px;
+    border-radius: 2px;
+    font-size: 10px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-family: 'Courier New', monospace;
+    transition: all 0.2s;
+}

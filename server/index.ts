@@ -15,6 +15,12 @@ import { err } from "./lib/apiEnvelope";
 export const DB = createDBAdapter(db);
 
 const app = express();
+// PATCH 51: Security Headers
+import helmet from "helmet";
+app.use(helmet({
+  contentSecurityPolicy: false, // Disabled for development/inline scripts
+}));
+
 app.set("trust proxy", 1);
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: false, limit: "50mb" }));
@@ -61,6 +67,8 @@ app.use((req, res, next) => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+      console.log(`[METRICS] request_duration_ms=${duration} method=${req.method} path=${path} status=${res.statusCode}`);
+
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }

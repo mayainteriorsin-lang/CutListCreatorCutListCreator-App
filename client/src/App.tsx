@@ -1,11 +1,25 @@
+/**
+ * CutList Pro - Main Application
+ *
+ * Route structure:
+ * - Public routes: Login, Register, Public quote view, Appointment booking
+ * - Protected routes: All app pages (require authentication)
+ * - Role-protected routes: Design tools (require specific roles)
+ */
+
 import { lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { AuthProvider } from "@/lib/auth/AuthContext";
-import { ProtectedRoute } from "@/lib/auth/ProtectedRoute";
+
+// Auth guards
+import { AuthGuard } from "@/components/auth/AuthGuard";
+import { RoleGuard } from "@/components/auth/RoleGuard";
+
+// Feature Flags
+import { FeatureFlagsDebugPanel } from "@/modules/visual-quotation/components/safety/FeatureFlags";
 
 // Lazy-loaded pages for code splitting
 const HomePage = lazy(() => import("@/pages/dashboard"));
@@ -25,7 +39,8 @@ const QuotationsPage = lazy(() => import("@/pages/quotations"));
 const LibraryPage = lazy(() => import("@/pages/library"));
 const CustomerQuotePage = lazy(() => import("@/pages/customer-quote"));
 const AppointmentPage = lazy(() => import("@/pages/appointment"));
-
+const LoginPage = lazy(() => import("@/pages/auth/LoginPage"));
+const RegisterPage = lazy(() => import("@/pages/auth/RegisterPage"));
 const NotFound = lazy(() => import("@/pages/not-found"));
 
 // Loading fallback component
@@ -59,37 +74,51 @@ function Router() {
   return (
     <Suspense fallback={<PageLoader />}>
       <Routes>
-
-        {/* Main App Routes */}
-        <Route path="/" element={<HomePage />} />
-        <Route path="/home" element={<HomePage />} />
-        <Route path="/cabinets" element={<CabinetsPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/design" element={<DesignPage />} />
-        <Route path="/spreadsheet" element={<SpreadsheetPage />} />
-        {/* Business Routes */}
-        <Route path="/crm" element={<CrmPage />} />
-        <Route path="/client-info" element={<QuotationsPage />} />
-        <Route path="/start-quotation" element={<StartQuotationPage />} />
-        <Route path="/quick-quotation" element={<QuickQuotationPage />} />
-        <Route path="/library" element={<LibraryPage />} />
-        {/* Visual Quotation Routes - PROTECTED */}
-        <Route path="/3d-quotation" element={
-          <ProtectedRoute requiredRole="designer">
-            <Quotation3DPage />
-          </ProtectedRoute>
-        } />
-        <Route path="/3d-quotation/production" element={<ProductionPage />} />
-        {/* 2D Quotation Page */}
-        <Route path="/2d-quotation" element={<Quotation2DPage />} />
-        <Route path="/2d-quotation/production" element={<ProductionPage />} />
-        {/* Rate Card Management */}
-        <Route path="/rate-cards" element={<SimpleRateCardPage />} />
-        {/* Module Draw Demo */}
-        <Route path="/module-draw" element={<ModuleDrawDemo />} />
-        {/* Public Routes */}
+        {/* ============================================ */}
+        {/* PUBLIC ROUTES - No authentication required  */}
+        {/* ============================================ */}
+        <Route path="/auth/login" element={<LoginPage />} />
+        <Route path="/auth/register" element={<RegisterPage />} />
         <Route path="/quote/:quoteId" element={<CustomerQuotePage />} />
         <Route path="/appointment/:leadId" element={<AppointmentPage />} />
+
+        {/* ============================================ */}
+        {/* PROTECTED ROUTES - Authentication required  */}
+        {/* ============================================ */}
+        <Route element={<AuthGuard />}>
+          {/* Dashboard & Home */}
+          <Route path="/" element={<HomePage />} />
+          <Route path="/home" element={<HomePage />} />
+
+          {/* Core Features */}
+          <Route path="/cabinets" element={<CabinetsPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/spreadsheet" element={<SpreadsheetPage />} />
+
+          {/* Business Routes */}
+          <Route path="/crm" element={<CrmPage />} />
+          <Route path="/client-info" element={<QuotationsPage />} />
+          <Route path="/start-quotation" element={<StartQuotationPage />} />
+          <Route path="/quick-quotation" element={<QuickQuotationPage />} />
+          <Route path="/library" element={<LibraryPage />} />
+
+          {/* Rate Card Management */}
+          <Route path="/rate-cards" element={<SimpleRateCardPage />} />
+
+          {/* ============================================ */}
+          {/* DESIGNER ROUTES - Require designer or admin */}
+          {/* ============================================ */}
+          <Route element={<RoleGuard roles={['admin', 'designer']} />}>
+            <Route path="/design" element={<DesignPage />} />
+            <Route path="/3d-quotation" element={<Quotation3DPage />} />
+            <Route path="/3d-quotation/production" element={<ProductionPage />} />
+            <Route path="/2d-quotation" element={<Quotation2DPage />} />
+            <Route path="/2d-quotation/production" element={<ProductionPage />} />
+            <Route path="/module-draw" element={<ModuleDrawDemo />} />
+          </Route>
+        </Route>
+
+        {/* 404 - Not Found */}
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Suspense>
@@ -98,16 +127,16 @@ function Router() {
 
 function App() {
   return (
-    <AuthProvider>
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <Toaster />
-          <BrowserRouter>
-            <Router />
-          </BrowserRouter>
-        </TooltipProvider>
-      </QueryClientProvider>
-    </AuthProvider>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        {/* PATCH Phase 4: Feature Flags Debug Panel (visible if enabled in flags) */}
+        <FeatureFlagsDebugPanel />
+        <BrowserRouter>
+          <Router />
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
   );
 }
 

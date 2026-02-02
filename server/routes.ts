@@ -15,6 +15,7 @@ import { aiWardrobeLayoutRouter } from "./routes/aiWardrobeLayout";
 import quotationRouter from "./routes/quotationRoutes";
 import libraryRouter from "./routes/libraryRoutes";
 import authRouter from "./routes/authRoutes";
+import { authenticate, AuthRequest } from "./middleware/auth";
 import { normString, normNumber, normBoolean, normArray, normDate, normDateISO } from "./normalize";
 import {
   MasterSettingsResponseSchema,
@@ -103,30 +104,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   // PATCH 7: Health check endpoint
-  app.get("/api/health", (_req, res) => {
-    res.json({
-      status: "ok",
-      time: new Date().toISOString(),
-      message: "Backend running"
+  // PATCH 7: Health check endpoint
+  app.get("/api/health", async (_req, res) => {
+    const uptime = process.uptime();
+    const timestamp = new Date().toISOString();
+    let dbStatus = "unknown";
+
+    try {
+      // Simple query to verify DB connection
+      await safeQuery(() => db.execute(sql`SELECT 1`), [], { timeoutMs: 2000 });
+      dbStatus = "connected";
+    } catch (e) {
+      dbStatus = "disconnected";
+      console.error("Health check DB failure:", e);
+    }
+
+    const status = dbStatus === "connected" ? "ok" : "degraded";
+
+    res.status(status === "ok" ? 200 : 503).json({
+      status,
+      timestamp,
+      uptime,
+      database: dbStatus,
+      message: status === "ok" ? "System operational" : "System degraded"
     });
   });
 
+  // DEV-ONLY: Direct login bypass (no DB required)
+  app.post("/api/auth/login", async (req, res, next) => {
+    const { email, password } = req.body || {};
+
+    // Only handle dev credentials - pass others to authRouter
+    if (process.env.NODE_ENV !== 'production' &&
+      email === 'admin@cutlist.pro' &&
+      password === 'admin123') {
+
+      try {
+        const jwt = await import('jsonwebtoken');
+        const { nanoid } = await import('nanoid');
+
+        const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-production';
+        const devUser = {
+          userId: 'dev-admin-001',
+          email: 'admin@cutlist.pro',
+          role: 'admin',
+          tenantId: 'dev-tenant-001',
+        };
+
+        const accessToken = jwt.default.sign(devUser, JWT_SECRET, { expiresIn: '15m' });
+        const refreshToken = jwt.default.sign(
+          { ...devUser, tokenId: nanoid(64) },
+          JWT_SECRET,
+          { expiresIn: '7d' }
+        );
+
+        console.log('[Auth] Dev mode login successful for:', email);
+
+        return res.json({
+          success: true,
+          data: {
+            accessToken,
+            refreshToken,
+            user: devUser,
+          }
+        });
+      } catch (err) {
+        console.error('[Auth] Dev login error:', err);
+        return res.status(500).json({ success: false, error: 'Dev login failed' });
+      }
+    }
+
+    // Not dev credentials - pass to authRouter
+    next();
+  });
+
   // Global laminate memory routes
-  app.use("/api/auth", authRouter); // Authentication API
-  app.use("/api/crm", crmRouter);
-  app.use("/api/ai", aiInteriorDetectRouter());
-  app.use("/api/ai", aiWardrobeLayoutRouter());
-  app.use("/api", quotationRouter); // Quotation persistence API
-  app.use("/api", libraryRouter); // Library module persistence API
+  app.use("/api/auth", authRouter); // Authentication API (public - handles its own auth)
+  app.use("/api/crm", crmRouter); // CRM routes - protected (has internal auth middleware)
+  app.use("/api/ai", authenticate, aiInteriorDetectRouter()); // AI routes - protected
+  app.use("/api/ai", authenticate, aiWardrobeLayoutRouter()); // AI routes - protected
+  app.use("/api", quotationRouter); // Quotation persistence API - protected (has internal auth middleware)
+  app.use("/api", libraryRouter); // Library module persistence API - protected (has internal auth middleware)
 
   // PATCH 50: Removed deprecated /api/laminate-memory routes
   // Data migrated to /api/laminate-code-godown
   // See shared/schema.ts for details
 
-  // Plywood brand memory routes
+  // Plywood brand memory routes (protected)
 
   // Get all saved plywood brands
-  app.get("/api/plywood-brand-memory", async (_req, res) => {
+  app.get("/api/plywood-brand-memory", authenticate, async (_req, res) => {
     try {
       const brands = await safeQuery(
         () => db.select().from(plywoodBrandMemory).orderBy(plywoodBrandMemory.createdAt),
@@ -140,7 +207,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Save a new plywood brand to memory
-  app.post("/api/plywood-brand-memory", async (req, res) => {
+  app.post("/api/plywood-brand-memory", authenticate, async (req, res) => {
     try {
       const validation = insertPlywoodBrandMemorySchema.safeParse(req.body);
       if (!validation.success) {
@@ -164,7 +231,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete a plywood brand from memory
-  app.delete("/api/plywood-brand-memory/:brand", async (req, res) => {
+  app.delete("/api/plywood-brand-memory/:brand", authenticate, async (req, res) => {
     try {
       const { brand } = req.params;
       const deleted = await db.delete(plywoodBrandMemory).where(eq(plywoodBrandMemory.brand, brand)).returning();
@@ -180,10 +247,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Quick Shutter memory routes
+  // Quick Shutter memory routes (protected)
 
   // Get the most recent Quick Shutter settings
-  app.get("/api/quick-shutter-memory", async (_req, res) => {
+  app.get("/api/quick-shutter-memory", authenticate, async (_req, res) => {
     const defaultMemory = {
       roomName: null,
       plywoodBrand: null,
@@ -211,7 +278,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Save or update Quick Shutter memory
-  app.post("/api/quick-shutter-memory", async (req, res) => {
+  app.post("/api/quick-shutter-memory", authenticate, async (req, res) => {
     try {
       // Validate request body using insert schema
       const validation = insertQuickShutterMemorySchema.safeParse(req.body);
@@ -256,10 +323,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Master Settings memory routes
+  // Master Settings memory routes (protected)
 
   // Get the most recent Master Settings
-  app.get("/api/master-settings-memory", async (_req, res) => {
+  app.get("/api/master-settings-memory", authenticate, async (_req, res) => {
     const defaultSettings = {
       sheetWidth: '1210',
       sheetHeight: '2420',
@@ -317,7 +384,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Save or update Master Settings memory (including master laminate code)
-  app.post("/api/master-settings-memory", async (req, res) => {
+  app.post("/api/master-settings-memory", authenticate, async (req, res) => {
     try {
       const validation = insertMasterSettingsMemorySchema.safeParse(req.body);
       if (!validation.success) {
@@ -370,8 +437,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Simplified Master Settings routes (single master laminate + sheet defaults)
-  app.get("/api/master-settings", async (_req, res) => {
+  // Simplified Master Settings routes (single master laminate + sheet defaults) - protected
+  app.get("/api/master-settings", authenticate, async (_req, res) => {
     const defaultSettings = {
       id: 0,
       sheetWidth: '1210',
@@ -438,7 +505,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/master-settings", async (req, res) => {
+  app.post("/api/master-settings", authenticate, async (req, res) => {
     try {
       const validation = masterSettingsUpdateSchema.safeParse(req.body ?? {});
       if (!validation.success) {
@@ -501,10 +568,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Godown Memory routes
+  // Godown Memory routes (protected)
 
   // Get all godown names
-  app.get("/api/godown-memory", async (_req, res) => {
+  app.get("/api/godown-memory", authenticate, async (_req, res) => {
     try {
       const godowns = await safeQuery(
         () => db.select().from(godownMemory).orderBy(desc(godownMemory.createdAt)),
@@ -518,7 +585,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Save a new godown name
-  app.post("/api/godown-memory", async (req, res) => {
+  app.post("/api/godown-memory", authenticate, async (req, res) => {
     try {
       const { name, type } = req.body;
 
@@ -545,8 +612,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Godown plywood brands (history + autocomplete)
-  app.get("/api/godown/plywood", async (_req, res) => {
+  // Godown plywood brands (history + autocomplete) - protected
+  app.get("/api/godown/plywood", authenticate, async (_req, res) => {
     try {
       // PATCH 15: Check cache first
       const cached = getCache(CACHE_KEYS.GODOWN_PLYWOOD);
@@ -579,7 +646,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/godown/plywood", async (req, res) => {
+  app.post("/api/godown/plywood", authenticate, async (req, res) => {
     try {
       const brandRaw = (req.body?.brand as string | undefined)?.trim() ?? "";
       if (!brandRaw) {
@@ -618,8 +685,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ✅ CENTRAL LAMINATE CODE GODOWN (Warehouse) Routes
 
-  // Get all laminate codes from central godown
-  app.get("/api/laminate-code-godown", async (_req, res) => {
+  // Get all laminate codes from central godown - protected
+  app.get("/api/laminate-code-godown", authenticate, async (_req, res) => {
     try {
       // PATCH 15: Check cache first
       const cached = getCache(CACHE_KEYS.GODOWN_LAMINATE);
@@ -663,7 +730,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get single laminate code from godown
-  app.get("/api/laminate-code-godown/:code", async (req, res) => {
+  app.get("/api/laminate-code-godown/:code", authenticate, async (req, res) => {
     try {
       const { code } = req.params;
       // Use raw pg pool for Supabase compatibility
@@ -697,7 +764,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Add new laminate code to central godown (with wood grains setting)
-  app.post("/api/laminate-code-godown", async (req, res) => {
+  app.post("/api/laminate-code-godown", authenticate, async (req, res) => {
     try {
       const validation = insertLaminateCodeGodownSchema.safeParse(req.body);
       if (!validation.success) {
@@ -754,7 +821,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update laminate code in central godown (includes wood grains preference)
-  app.patch("/api/laminate-code-godown/:code", async (req, res) => {
+  app.patch("/api/laminate-code-godown/:code", authenticate, async (req, res) => {
     try {
       const { code } = req.params;
       const { name, innerCode, supplier, thickness, description, woodGrainsEnabled } = req.body;
@@ -805,7 +872,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete laminate code from central godown
-  app.delete("/api/laminate-code-godown/:code", async (req, res) => {
+  app.delete("/api/laminate-code-godown/:code", authenticate, async (req, res) => {
     try {
       const { code } = req.params;
       const deleted = await db.delete(laminateCodeGodown).where(eq(laminateCodeGodown.code, code)).returning();
@@ -828,10 +895,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Wood grains preference routes
+  // Wood grains preference routes (protected)
 
   // Get all wood grains preferences from WOOD GRAINS PREFERENCE TABLE
-  app.get("/api/wood-grains-preferences", async (_req, res) => {
+  app.get("/api/wood-grains-preferences", authenticate, async (_req, res) => {
     try {
       // PATCH 15: Check cache first
       const cached = getCache(CACHE_KEYS.WOOD_GRAINS);
@@ -875,7 +942,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get wood grains preference for a specific laminate code
-  app.get("/api/wood-grains-preference/:code", async (req, res) => {
+  app.get("/api/wood-grains-preference/:code", authenticate, async (req, res) => {
     try {
       const { code } = req.params;
       const [godown] = await db.select()
@@ -903,7 +970,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Save or update wood grains preference for a laminate code
-  app.post("/api/wood-grains-preference", async (req, res) => {
+  app.post("/api/wood-grains-preference", authenticate, async (req, res) => {
     try {
       const { laminateCode, woodGrainsEnabled } = req.body;
       const woodGrainsValue = normBoolean(woodGrainsEnabled) ? 'true' : 'false';
@@ -1013,8 +1080,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }),
   });
 
-  // Save client files (PDF and material list)
-  app.post("/api/clients/:clientSlug/files", async (req, res) => {
+  // Save client files (PDF and material list) - protected
+  app.post("/api/clients/:clientSlug/files", authenticate, async (req, res) => {
     try {
       const validation = saveClientFilesSchema.safeParse(req.body);
       if (!validation.success) {
@@ -1075,8 +1142,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Convert DWG to DXF - accepts raw binary data
-  app.post("/api/convert-dwg-to-dxf", async (req, res) => {
+  // Convert DWG to DXF - accepts raw binary data (protected)
+  app.post("/api/convert-dwg-to-dxf", authenticate, async (req, res) => {
     try {
       const fileContent = req.body as Buffer;
       if (!fileContent || fileContent.length === 0) {
@@ -1136,8 +1203,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get client file (PDF or material list)
-  app.get("/api/clients/:clientSlug/files/:filename", async (req, res) => {
+  // Get client file (PDF or material list) - protected
+  app.get("/api/clients/:clientSlug/files/:filename", authenticate, async (req, res) => {
     try {
       const clientSlug = slugifyClientName(req.params.clientSlug);
       const { filename } = req.params;
@@ -1171,8 +1238,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     base64: z.string().min(1),
   });
 
-  // Upload laminate catalogue PDF
-  app.post("/api/laminate-catalogue", async (req, res) => {
+  // Upload laminate catalogue PDF (protected)
+  app.post("/api/laminate-catalogue", authenticate, async (req, res) => {
     try {
       const validation = uploadCatalogueSchema.safeParse(req.body);
       if (!validation.success) {
@@ -1217,8 +1284,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get laminate catalogue PDF
-  app.get("/api/laminate-catalogue/:filename", async (req, res) => {
+  // Get laminate catalogue PDF (protected)
+  app.get("/api/laminate-catalogue/:filename", authenticate, async (req, res) => {
     try {
       const { filename } = req.params;
       const safeFilename = sanitizeFilename(filename);
@@ -1240,8 +1307,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // List all catalogues
-  app.get("/api/laminate-catalogues", async (_req, res) => {
+  // List all catalogues (protected)
+  app.get("/api/laminate-catalogues", authenticate, async (_req, res) => {
     try {
       const objectStorageService = new ObjectStorageService();
       const cataloguesDir = path.join(process.cwd(), 'storage', 'catalogues');
@@ -1270,8 +1337,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Delete catalogue
-  app.delete("/api/laminate-catalogue/:filename", async (req, res) => {
+  // Delete catalogue (protected)
+  app.delete("/api/laminate-catalogue/:filename", authenticate, async (req, res) => {
     try {
       const { filename } = req.params;
       const safeFilename = sanitizeFilename(filename);
@@ -1293,8 +1360,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // LAMINATE IMAGE UPLOAD API
   // ============================================
 
-  // Upload laminate image (thumbnail)
-  app.post("/api/laminate-image/:code", async (req, res) => {
+  // Upload laminate image (thumbnail) - protected
+  app.post("/api/laminate-image/:code", authenticate, async (req, res) => {
     try {
       const { code } = req.params;
       const { mimeType, base64 } = req.body;
@@ -1350,8 +1417,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get laminate image
-  app.get("/api/laminate-image/:code", async (req, res) => {
+  // Get laminate image (protected)
+  app.get("/api/laminate-image/:code", authenticate, async (req, res) => {
     try {
       const { code } = req.params;
       const safeCode = code.replace(/[^a-zA-Z0-9-_]/g, '_');
@@ -1388,8 +1455,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Delete laminate image
-  app.delete("/api/laminate-image/:code", async (req, res) => {
+  // Delete laminate image (protected)
+  app.delete("/api/laminate-image/:code", authenticate, async (req, res) => {
     try {
       const { code } = req.params;
       const safeCode = code.replace(/[^a-zA-Z0-9-_]/g, '_');
@@ -1415,8 +1482,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // List all laminate images
-  app.get("/api/laminate-images", async (_req, res) => {
+  // List all laminate images (protected)
+  app.get("/api/laminate-images", authenticate, async (_req, res) => {
     try {
       const imagesDir = path.join(process.cwd(), 'storage', 'laminate-images');
 

@@ -2,6 +2,7 @@ import { Pool, Client } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import * as sharedSchema from "@shared/schema";
 import * as crmSchema from "./db/crmSchema";
+import * as authSchema from "./db/authSchema";
 
 if (!process.env.DATABASE_URL) {
   throw new Error(
@@ -32,7 +33,7 @@ export const pool = new Pool({
   connectionTimeoutMillis: 10000,
 });
 
-const schema = { ...sharedSchema, ...crmSchema };
+const schema = { ...sharedSchema, ...crmSchema, ...authSchema };
 
 export const db = drizzle(pool, { schema });
 

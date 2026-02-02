@@ -13,7 +13,9 @@ import {
   ChevronRight,
   Zap,
   BookOpen,
+  LogOut,
 } from "lucide-react";
+import { useAuthStore } from "@/stores/authStore";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 
@@ -100,6 +102,12 @@ export default function AppLayout({
   const navigate = useNavigate();
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
+  const { logout, user } = useAuthStore();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate("/auth/login");
+  };
 
   const isActive = (path: string) => {
     if (path === "/") return location.pathname === "/";
@@ -232,27 +240,39 @@ export default function AppLayout({
         )}
       >
         {/* Header */}
-        {(title || headerActions) && (
-          <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200/60">
-            <div className="px-6 lg:px-8 py-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  {title && (
-                    <h1 className="text-xl font-bold text-slate-900">
-                      {title}
-                    </h1>
-                  )}
-                  {subtitle && (
-                    <p className="text-sm text-slate-500 mt-0.5">{subtitle}</p>
-                  )}
-                </div>
-                {headerActions && (
-                  <div className="flex items-center gap-3">{headerActions}</div>
+        <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200/60">
+          <div className="px-6 lg:px-8 py-4">
+            <div className="flex items-center justify-between">
+              <div>
+                {title && (
+                  <h1 className="text-xl font-bold text-slate-900">
+                    {title}
+                  </h1>
+                )}
+                {subtitle && (
+                  <p className="text-sm text-slate-500 mt-0.5">{subtitle}</p>
+                )}
+              </div>
+              <div className="flex items-center gap-3">
+                {headerActions}
+                {user && (
+                  <div className="flex items-center gap-3 pl-3 border-l border-slate-200">
+                    <span className="text-sm text-slate-600">{user.email}</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleLogout}
+                      className="text-slate-600 hover:text-red-600 hover:bg-red-50"
+                    >
+                      <LogOut className="w-4 h-4 mr-2" />
+                      Logout
+                    </Button>
+                  </div>
                 )}
               </div>
             </div>
-          </header>
-        )}
+          </div>
+        </header>
 
         {/* Page Content */}
         <div className="p-6 lg:p-8">{children}</div>

@@ -26,7 +26,9 @@ import {
   CreditCard,
   Zap,
   BookOpen,
+  LogOut,
 } from "lucide-react";
+import { useAuthStore } from "@/stores/authStore";
 
 type HomePageProps = {
   summary?: HomeSummary;
@@ -36,6 +38,12 @@ export default function HomePage({ summary }: HomePageProps) {
   const navigate = useNavigate();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [stats, setStats] = useState<HomeSummary>(summary ?? EMPTY_HOME_SUMMARY);
+  const { logout, user } = useAuthStore();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate("/auth/login");
+  };
 
   // Load stats from application service (read-only summary)
   useEffect(() => {
@@ -212,13 +220,27 @@ export default function HomePage({ summary }: HomePageProps) {
         {/* Header */}
         <header className="flex-shrink-0 h-14 bg-white/80 backdrop-blur-md border-b border-slate-200/60 px-6 flex items-center justify-between">
           <h1 className="text-xl font-bold text-slate-900">Dashboard</h1>
-          <button
-            onClick={() => navigate("/2d-quotation")}
-            className="h-9 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-sm font-medium rounded-xl shadow-lg shadow-blue-500/25 flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            New Project
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate("/2d-quotation")}
+              className="h-9 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-sm font-medium rounded-xl shadow-lg shadow-blue-500/25 flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              New Project
+            </button>
+            {user && (
+              <div className="flex items-center gap-3 pl-3 border-l border-slate-200">
+                <span className="text-sm text-slate-600">{user.email}</span>
+                <button
+                  onClick={handleLogout}
+                  className="h-9 px-3 text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg flex items-center gap-2 transition-colors"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Logout
+                </button>
+              </div>
+            )}
+          </div>
         </header>
 
         {/* Content */}

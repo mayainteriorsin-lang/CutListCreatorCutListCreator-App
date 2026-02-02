@@ -5,8 +5,12 @@ import { z } from "zod";
 import { db } from "../db";
 import { activities, leads, quotes } from "../db/crmSchema";
 import { ok, err } from "../lib/apiEnvelope"; // PATCH 17: Standardized error parsing
+import { requireAuth, AuthRequest } from "../middleware/auth";
 
 const crmRouter = Router();
+
+// Protect all CRM routes with authentication
+crmRouter.use(requireAuth);
 
 const nowISO = () => new Date().toISOString();
 
