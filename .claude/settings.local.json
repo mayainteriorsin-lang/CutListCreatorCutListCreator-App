@@ -56,7 +56,11 @@
       "Bash(npx vite-bundle-visualizer)",
       "Bash(find:*)",
       "Bash(npm run lint)",
-      "Bash(npm run lint:*)"
+      "Bash(npm run lint:*)",
+      "Bash(git status:*)",
+      "Bash(git push:*)",
+      "Bash(git remote set-url:*)",
+      "Bash(gh pr create:*)"
     ],
     "additionalDirectories": [
       "c:\\Users\\hi\\workspace\\CutListCreator"
