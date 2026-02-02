@@ -1,0 +1,156 @@
+.sceneContainer {
+  perspective: 1800px;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.roomContainer {
+  position: relative;
+  width: 700px;
+  height: 550px;
+  transform-style: preserve-3d;
+  transition: transform 0.1s ease-out;
+}
+
+.preserve3d {
+  transform-style: preserve-3d;
+}
+
+.floor {
+  position: absolute;
+  inset: 0;
+  border-width: 2px;
+  transform-style: preserve-3d;
+}
+
+.floorGrid {
+  position: absolute;
+  inset: 0;
+  opacity: 0.2;
+  background-image: 
+    linear-gradient(to right, #94a3b8 1px, transparent 1px),
+    linear-gradient(to bottom, #94a3b8 1px, transparent 1px);
+  background-size: 70px 70px;
+  pointer-events: none;
+}
+
+.wallBack {
+  position: absolute;
+  width: 700px;
+  height: 380px;
+  bottom: 100%;
+  left: 0;
+  transform-origin: bottom;
+  transform: rotateX(-90deg);
+}
+
+.wallSide {
+  position: absolute;
+  width: 550px;
+  height: 380px;
+  bottom: 100%;
+  right: 0;
+  transform-origin: bottom right;
+  transform: rotateX(-90deg) rotateY(90deg);
+}
+
+.wardrobeBase {
+  position: absolute;
+  left: 40px;
+  top: 40px;
+  width: 200px;
+  height: 120px;
+  transform-style: preserve-3d;
+}
+
+.wardrobeShadow {
+  position: absolute;
+  width: 210px;
+  height: 130px;
+  left: -5px;
+  top: -5px;
+  transform: translateZ(-2px);
+  background-color: rgba(148, 163, 184, 0.2);
+  filter: blur(4px);
+}
+
+.wardrobeFloor {
+  position: absolute;
+  width: 200px;
+  height: 120px;
+  transform-style: preserve-3d;
+}
+
+.wardrobeFront {
+  position: absolute;
+  width: 200px;
+  bottom: 100%;
+  transform-origin: bottom;
+  transform: rotateX(-90deg);
+}
+
+.wardrobeSide {
+  position: absolute;
+  width: 120px;
+  bottom: 100%;
+  right: 0;
+  transform-origin: bottom right;
+  transform: rotateX(-90deg) rotateY(90deg);
+}
+
+.wardrobeTop {
+  position: absolute;
+  width: 200px;
+  height: 120px;
+  transform-style: preserve-3d;
+}
+
+/* Kitchen Base Styles */
+.kitchenBase {
+  position: absolute;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  transform-style: preserve-3d;
+}
+
+.kitchenFront {
+  position: absolute;
+  bottom: 100%;
+  transform-origin: bottom;
+  transform: rotateX(-90deg);
+}
+
+.kitchenSide {
+  position: absolute;
+  bottom: 100%;
+  right: 0;
+  transform-origin: bottom right;
+  transform: rotateX(-90deg) rotateY(90deg);
+}
+
+.kitchenLabel {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.floatingControls {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background-color: rgba(0, 0, 0, 0.4);
+  border-radius: 8px;
+  padding: 6px 8px;
+  backdrop-filter: blur(4px);
+}
