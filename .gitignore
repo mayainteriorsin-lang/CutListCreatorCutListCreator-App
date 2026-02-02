@@ -1,33 +1,84 @@
 # Dependencies
-node_modules
+node_modules/
 
 # Build output
-dist
-server/public
+dist/
+server/public/
+*.tsbuildinfo
 
-# Environment variables - NEVER commit real credentials
+# Environment variables - NEVER commit credentials
 .env
-.env.local
-.env.production
-.env.*.local
+.env.*
+!.env.example
 
 # IDE and editor files
 .idea/
 .vscode/
 *.swp
 *.swo
-vite.config.ts.*
+*.sublime-*
 
 # OS files
 .DS_Store
 Thumbs.db
+desktop.ini
+
+# Windows reserved filenames (MUST exclude)
+nul
+NUL
+con
+CON
+aux
+AUX
+prn
+PRN
 
 # Logs
 *.log
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+tsc_log.txt
+tsc_output*.txt
+build_log.txt
+lint_log.txt
+
+# Test output and coverage
+coverage/
+*.lcov
+.nyc_output/
+test-results.json
+test_output.txt
+test_results.txt
+junit.xml
+test-report.xml
+
+# Backup files and folders
+.backup/
+backup-*/
+*.backup
+*.backup.*
+*.bak
+*.bak_*
+*.orig
+*.old
 
 # Archives
 *.tar.gz
+*.zip
+*.rar
 
 # Attached assets (generated)
 attached_assets/
+
+# Local storage (user data)
+storage/
+
+# Temporary files
+*.tmp
+*.temp
+~*
+
+# Claude/AI artifacts
+.claude/
