@@ -7,8 +7,9 @@ import {
 
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { PlywoodCombobox } from "@/components/master-settings/PlywoodCombobox";
+import { LaminateCombobox } from "@/components/master-settings/LaminateCombobox";
 import PanelDimensions from "@/components/panel/PanelDimensions";
 import GaddiToggle from "@/components/panel/GaddiToggle";
 import GrainToggle from "@/components/panel/GrainToggle";
@@ -26,9 +27,10 @@ export default function ManualPanelDialog({
   setSelectedSheetContext,
   setManualPanels,
 }: any) {
-  // PATCH 34: Safe array fallbacks to prevent .map() crashes
-  const safeLaminateCodes = Array.isArray(laminateCodes) ? laminateCodes : [];
-  const safePlywoodBrands = Array.isArray(globalPlywoodBrandMemory) ? globalPlywoodBrandMemory : [];
+  // Convert laminateCodes to string array for LaminateCombobox
+  const safeLaminateCodes = Array.isArray(laminateCodes)
+    ? laminateCodes.map((c: any) => c.code)
+    : undefined;
 
   if (!open) return null;
 
@@ -97,48 +99,31 @@ export default function ManualPanelDialog({
           {/* Plywood */}
           <div className="space-y-1">
             <Label className="text-sm">Plywood Type</Label>
-            <Select
-              value={manualPanelForm.plywoodType}
-              onValueChange={(value) =>
+            <PlywoodCombobox
+              value={manualPanelForm.plywoodType || ""}
+              onChange={(value) =>
                 setManualPanelForm((prev: any) => ({ ...prev, plywoodType: value }))
               }
-            >
-              <SelectTrigger className="h-9">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {safePlywoodBrands.map((b: any, idx: number) => (
-                  <SelectItem key={idx} value={b}>
-                    {b}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              placeholder="Select plywood type"
+              className="h-9"
+            />
           </div>
 
           {/* Laminate */}
           <div className="space-y-1">
             <Label className="text-sm">Laminate Code (Optional)</Label>
-            <Select
-              value={manualPanelForm.laminateCode || undefined}
-              onValueChange={(value) =>
+            <LaminateCombobox
+              value={manualPanelForm.laminateCode || ""}
+              onChange={(value) =>
                 setManualPanelForm((prev: any) => ({
                   ...prev,
                   laminateCode: value,
                 }))
               }
-            >
-              <SelectTrigger className="h-9">
-                <SelectValue placeholder="Select laminate code (optional)" />
-              </SelectTrigger>
-              <SelectContent>
-                {safeLaminateCodes.map((code: any) => (
-                  <SelectItem key={code.id} value={code.code}>
-                    {code.code}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              externalCodes={safeLaminateCodes}
+              placeholder="Select laminate code (optional)"
+              className="h-9"
+            />
           </div>
 
           {/* Switches */}

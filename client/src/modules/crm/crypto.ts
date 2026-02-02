@@ -208,7 +208,10 @@ export async function migrateToEncrypted(): Promise<void> {
       try {
         const data = JSON.parse(plain);
         await encryptedWrite(key, data);
-        console.log(`Migrated ${key} to encrypted storage`);
+        if (process.env.NODE_ENV === 'development') {
+          // eslint-disable-next-line no-console
+          console.debug(`Migrated ${key} to encrypted storage`);
+        }
       } catch (error) {
         console.error(`Failed to migrate ${key}:`, error);
       }

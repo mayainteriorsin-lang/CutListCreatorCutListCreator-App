@@ -552,8 +552,8 @@ export default function Spreadsheet({ onAddToCabinet }: SpreadsheetProps) {
       <div style={{ marginBottom: 12 }}>
         <button
           onClick={() => {
-            console.log("Spreadsheet rows:", rows);
-            console.log("Columns:", columns);
+            // Debug logs removed for production
+            // if (ENV.DEV) console.debug("Spreadsheet data:", { rows, columns });
             alert("Saved to localStorage (auto). Check console for JSON.");
           }}
         >

@@ -78,7 +78,7 @@ export function drawSheetPage(
   const efficiency = calculateSheetEfficiency(panels, sheetW, sheetH);
 
   // 3. Draw header with efficiency badge
-  let yPos = drawSheetHeader(doc, {
+  const yPos = drawSheetHeader(doc, {
     brand,
     laminateDisplay,
     sheetW,

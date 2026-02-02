@@ -13,7 +13,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useVisualQuotationStore, ObstructionType } from "../../store/visualQuotationStore";
+import { useDesignCanvasStore } from "../../store/v2/useDesignCanvasStore";
+import { useQuotationMetaStore } from "../../store/v2/useQuotationMetaStore";
+import { ObstructionType } from "../../types";
 
 const TYPE_OPTIONS: { type: ObstructionType; label: string }[] = [
   { type: "BEAM", label: "Beam Drop" },
@@ -26,7 +28,8 @@ const TYPE_OPTIONS: { type: ObstructionType; label: string }[] = [
 ];
 
 const ObstructionPanel: React.FC = () => {
-  const { room, addObstruction, removeObstruction, clearObstructions, status } = useVisualQuotationStore();
+  const { status } = useQuotationMetaStore();
+  const { room, addObstruction, removeObstruction, clearObstructions } = useDesignCanvasStore();
 
   const locked = status === "APPROVED";
 

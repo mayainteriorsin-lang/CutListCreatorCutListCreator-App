@@ -30,6 +30,8 @@ import {
   Check,
   Send,
   XCircle,
+  ExternalLink,
+  Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Quotation, QuotationStatus } from '@/modules/quotations/types';
@@ -124,9 +126,17 @@ export default function QuotationsPage() {
     setShowCreateDialog(true);
   };
 
+  // Check if a quotation is from Quick Quote
+  const isQuickQuote = (q: Quotation | null) => q?.source === 'quick-quote';
+
   // Handle edit
   const handleEdit = () => {
     if (!selected) return;
+    // Quick Quote entries open in the Quick Quote page
+    if (isQuickQuote(selected)) {
+      navigate('/quick-quotation');
+      return;
+    }
     setFormData({ ...selected });
     setEditMode(true);
     setShowCreateDialog(true);
@@ -136,11 +146,11 @@ export default function QuotationsPage() {
   const handleSave = () => {
     if (editMode && selectedId) {
       updateQuotation(selectedId, formData);
-      toast({ title: 'Quotation updated' });
+      toast({ title: 'Client updated' });
     } else {
       const newQuot = createQuotation(formData);
       setSelectedId(newQuot.id);
-      toast({ title: 'Quotation created', description: newQuot.quotationNumber });
+      toast({ title: 'Client created', description: newQuot.quotationNumber });
     }
     setShowCreateDialog(false);
     refreshQuotations();
@@ -153,7 +163,7 @@ export default function QuotationsPage() {
     setSelectedId(null);
     setShowDeleteDialog(false);
     refreshQuotations();
-    toast({ title: 'Quotation deleted' });
+    toast({ title: 'Client deleted' });
   };
 
   // Handle add payment
@@ -199,8 +209,8 @@ export default function QuotationsPage() {
                 <FileText className="h-5 w-5 text-white" />
               </div>
               <div>
-                <h1 className="text-lg font-bold text-slate-900">Quotations</h1>
-                <p className="text-xs text-slate-500">{stats.total} quotations</p>
+                <h1 className="text-lg font-bold text-slate-900">Client Info</h1>
+                <p className="text-xs text-slate-500">{stats.total} clients</p>
               </div>
             </div>
             <Button
@@ -270,10 +280,10 @@ export default function QuotationsPage() {
             {filteredQuotations.length === 0 ? (
               <div className="bg-white rounded-xl border border-slate-200 p-8 text-center">
                 <FileText className="h-12 w-12 text-slate-300 mx-auto mb-3" />
-                <p className="text-slate-500">No quotations found</p>
+                <p className="text-slate-500">No clients found</p>
                 <Button onClick={handleCreate} variant="outline" className="mt-3">
                   <Plus className="h-4 w-4 mr-1" />
-                  Create First Quotation
+                  Add First Client
                 </Button>
               </div>
             ) : (
@@ -296,10 +306,18 @@ export default function QuotationsPage() {
                         <p className="font-semibold text-slate-900 text-sm">{q.clientName || 'Unnamed'}</p>
                         <p className="text-[10px] text-slate-500 font-mono">{q.quotationNumber}</p>
                       </div>
-                      <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-medium flex items-center gap-1', statusConfig.bg, statusConfig.color)}>
-                        <StatusIcon className="h-3 w-3" />
-                        {statusConfig.label}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        {q.source === 'quick-quote' && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-700 flex items-center gap-1">
+                            <Zap className="h-3 w-3" />
+                            Quick
+                          </span>
+                        )}
+                        <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-medium flex items-center gap-1', statusConfig.bg, statusConfig.color)}>
+                          <StatusIcon className="h-3 w-3" />
+                          {statusConfig.label}
+                        </span>
+                      </div>
                     </div>
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-slate-500">{q.date}</span>
@@ -330,6 +348,12 @@ export default function QuotationsPage() {
                       <div>
                         <div className="flex items-center gap-2">
                           <h2 className="text-base font-semibold text-white">{selected.clientName || 'Unnamed'}</h2>
+                          {isQuickQuote(selected) && (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-amber-400/30 text-amber-100 flex items-center gap-1">
+                              <Zap className="h-3 w-3" />
+                              Quick Quote
+                            </span>
+                          )}
                           <span className={cn('px-2 py-0.5 rounded text-[10px] font-medium',
                             selected.status === 'DRAFT' ? 'bg-white/20 text-white' :
                             selected.status === 'SENT' ? 'bg-blue-400/30 text-blue-100' :
@@ -343,9 +367,19 @@ export default function QuotationsPage() {
                       </div>
                     </div>
                     <div className="flex gap-2">
+                      {isQuickQuote(selected) && (
+                        <button
+                          onClick={() => navigate('/quick-quotation')}
+                          className="h-8 px-3 rounded-lg bg-white/20 hover:bg-white/30 flex items-center gap-1.5 transition-colors text-xs font-medium text-white"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          Open in Quick Quote
+                        </button>
+                      )}
                       <button
                         onClick={handleEdit}
                         className="h-8 w-8 rounded-lg bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
+                        title={isQuickQuote(selected) ? 'Edit in Quick Quote' : 'Edit'}
                       >
                         <Edit3 className="h-4 w-4 text-white" />
                       </button>
@@ -418,14 +452,16 @@ export default function QuotationsPage() {
                         <History className="h-3.5 w-3.5" />
                         Payment History ({selected.payments.length})
                       </span>
-                      <Button
-                        onClick={handleAddPayment}
-                        size="sm"
-                        className="h-7 px-2 text-xs bg-emerald-500 hover:bg-emerald-600"
-                      >
-                        <Plus className="h-3 w-3 mr-1" />
-                        Add
-                      </Button>
+                      {!isQuickQuote(selected) && (
+                        <Button
+                          onClick={handleAddPayment}
+                          size="sm"
+                          className="h-7 px-2 text-xs bg-emerald-500 hover:bg-emerald-600"
+                        >
+                          <Plus className="h-3 w-3 mr-1" />
+                          Add
+                        </Button>
+                      )}
                     </div>
                     {selected.payments.length > 0 ? (
                       <div className="space-y-1 max-h-32 overflow-y-auto">
@@ -436,12 +472,14 @@ export default function QuotationsPage() {
                               <span className="text-slate-400">{p.date}</span>
                               {p.note && <span className="text-slate-500 truncate max-w-32">{p.note}</span>}
                             </div>
-                            <button
-                              onClick={() => handleRemovePayment(p.id)}
-                              className="h-6 w-6 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded flex items-center justify-center transition-colors"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
+                            {!isQuickQuote(selected) && (
+                              <button
+                                onClick={() => handleRemovePayment(p.id)}
+                                className="h-6 w-6 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded flex items-center justify-center transition-colors"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -481,47 +519,60 @@ export default function QuotationsPage() {
                     </div>
                   )}
 
-                  {/* Status Actions */}
-                  <div className="flex gap-2 pt-2">
-                    {selected.status !== 'SENT' && (
+                  {/* Status Actions - only for native quotations */}
+                  {isQuickQuote(selected) ? (
+                    <div className="flex gap-2 pt-2">
                       <Button
-                        onClick={() => handleStatusChange('SENT')}
-                        variant="outline"
+                        onClick={() => navigate('/quick-quotation')}
+                        className="flex-1 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white"
                         size="sm"
-                        className="flex-1"
                       >
-                        <Send className="h-3.5 w-3.5 mr-1.5" />
-                        Mark Sent
+                        <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                        Open in Quick Quote
                       </Button>
-                    )}
-                    {selected.status !== 'APPROVED' && (
-                      <Button
-                        onClick={() => handleStatusChange('APPROVED')}
-                        size="sm"
-                        className="flex-1 bg-emerald-500 hover:bg-emerald-600"
-                      >
-                        <Check className="h-3.5 w-3.5 mr-1.5" />
-                        Approve
-                      </Button>
-                    )}
-                    {selected.status !== 'REJECTED' && (
-                      <Button
-                        onClick={() => handleStatusChange('REJECTED')}
-                        variant="outline"
-                        size="sm"
-                        className="flex-1 text-red-600 border-red-200 hover:bg-red-50"
-                      >
-                        <XCircle className="h-3.5 w-3.5 mr-1.5" />
-                        Reject
-                      </Button>
-                    )}
-                  </div>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2 pt-2">
+                      {selected.status !== 'SENT' && (
+                        <Button
+                          onClick={() => handleStatusChange('SENT')}
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                        >
+                          <Send className="h-3.5 w-3.5 mr-1.5" />
+                          Mark Sent
+                        </Button>
+                      )}
+                      {selected.status !== 'APPROVED' && (
+                        <Button
+                          onClick={() => handleStatusChange('APPROVED')}
+                          size="sm"
+                          className="flex-1 bg-emerald-500 hover:bg-emerald-600"
+                        >
+                          <Check className="h-3.5 w-3.5 mr-1.5" />
+                          Approve
+                        </Button>
+                      )}
+                      {selected.status !== 'REJECTED' && (
+                        <Button
+                          onClick={() => handleStatusChange('REJECTED')}
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 text-red-600 border-red-200 hover:bg-red-50"
+                        >
+                          <XCircle className="h-3.5 w-3.5 mr-1.5" />
+                          Reject
+                        </Button>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-12 text-center">
                 <FileText className="h-16 w-16 text-slate-200 mx-auto mb-4" />
-                <p className="text-slate-500">Select a quotation to view details</p>
+                <p className="text-slate-500">Select a client to view details</p>
               </div>
             )}
           </div>
@@ -532,7 +583,7 @@ export default function QuotationsPage() {
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{editMode ? 'Edit Quotation' : 'New Quotation'}</DialogTitle>
+            <DialogTitle>{editMode ? 'Edit Client' : 'New Client'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             {/* Client Info */}
@@ -659,10 +710,10 @@ export default function QuotationsPage() {
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Quotation?</DialogTitle>
+            <DialogTitle>Delete Client?</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-slate-600 py-4">
-            This will permanently delete quotation <strong>{selected?.quotationNumber}</strong> and all payment records.
+            This will permanently delete client <strong>{selected?.quotationNumber}</strong> and all payment records.
           </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>

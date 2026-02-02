@@ -121,11 +121,11 @@ export const cabinetSchema = z.object({
   // Inner laminate code (for inside/back faces of all panels - from Cabinet Configuration)
   innerLaminateCode: z.string().optional(),
 
-  // Individual panel gaddi toggles
-  topPanelGaddi: z.boolean().default(false).optional(),
-  bottomPanelGaddi: z.boolean().default(false).optional(),
-  leftPanelGaddi: z.boolean().default(false).optional(),
-  rightPanelGaddi: z.boolean().default(false).optional(),
+  // Individual panel gaddi toggles - default TRUE for all sides
+  topPanelGaddi: z.boolean().default(true).optional(),
+  bottomPanelGaddi: z.boolean().default(true).optional(),
+  leftPanelGaddi: z.boolean().default(true).optional(),
+  rightPanelGaddi: z.boolean().default(true).optional(),
 
   // Individual panel grain direction toggles (for Front Laminate)
   topPanelGrainDirection: z.boolean().default(false).optional(),
@@ -282,6 +282,58 @@ export const godownMemory = pgTable("godown_memory", {
 
 export const insertGodownMemorySchema = createInsertSchema(godownMemory);
 
+// ✅ MODULE LIBRARY - Persistent storage for saved design templates
+export const libraryModules = pgTable("library_modules", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  tenantId: varchar("tenant_id", { length: 255 }).notNull().default('default'),
+
+  // Basic info
+  name: varchar("name", { length: 255 }).notNull(),
+  unitType: varchar("unit_type", { length: 100 }).notNull(),
+  description: text("description"),
+
+  // Store full module configuration as JSON
+  config: text("config").notNull(),
+
+  // Metadata for querying
+  category: varchar("category", { length: 50 }), // bedroom, kitchen, living, etc.
+  tags: text("tags"), // Comma-separated tags
+
+  // Publish settings
+  published: varchar("published", { length: 10 }).default('false'),
+  publishedAt: timestamp("published_at"),
+  shareCode: varchar("share_code", { length: 50 }), // Unique code for sharing
+
+  // Favorites and sorting
+  favorite: varchar("favorite", { length: 10 }).default('false'),
+  sortOrder: serial("sort_order"),
+
+  createdAt: timestamp("created_at").default(sql`now()`).notNull(),
+  updatedAt: timestamp("updated_at").default(sql`now()`).notNull(),
+});
+
+export const insertLibraryModuleSchema = createInsertSchema(libraryModules).omit({ sortOrder: true });
+
+// ✅ VISUAL QUOTATION STORAGE - Persistence for 3D quotation module
+export const quotations = pgTable("quotations", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  tenantId: varchar("tenant_id", { length: 255 }).notNull().default('default'),
+  leadId: varchar("lead_id", { length: 255 }),
+  quoteId: varchar("quote_id", { length: 255 }),
+
+  // Store entire Zustand state as JSON (preserves all data)
+  state: text("state").notNull(),
+
+  // Metadata for querying
+  clientName: varchar("client_name", { length: 255 }),
+  status: varchar("status", { length: 20 }),
+
+  createdAt: timestamp("created_at").default(sql`now()`).notNull(),
+  updatedAt: timestamp("updated_at").default(sql`now()`).notNull(),
+});
+
+export const insertQuotationSchema = createInsertSchema(quotations);
+
 export const cuttingListSchema = z.object({
   cabinets: z.array(cabinetSchema),
   laminateCodes: z.array(laminateCodeSchema).default([]),
@@ -313,6 +365,12 @@ export type InsertMasterSettingsMemory = z.infer<typeof insertMasterSettingsMemo
 
 export type GodownMemory = typeof godownMemory.$inferSelect;
 export type InsertGodownMemory = z.infer<typeof insertGodownMemorySchema>;
+
+export type LibraryModuleDB = typeof libraryModules.$inferSelect;
+export type InsertLibraryModule = z.infer<typeof insertLibraryModuleSchema>;
+
+export type Quotation = typeof quotations.$inferSelect;
+export type InsertQuotation = z.infer<typeof insertQuotationSchema>;
 
 export interface PanelGroup {
   laminateCode: string;

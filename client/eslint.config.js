@@ -20,4 +20,21 @@ export default defineConfig([
       globals: globals.browser,
     },
   },
+  // Block direct setState calls in visual-quotation module (use slice actions instead)
+  {
+    files: ['src/modules/visual-quotation/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'CallExpression[callee.property.name="setState"][callee.object.name="useVisualQuotationStore"]',
+          message: 'Direct setState() is forbidden in visual-quotation. Use slice actions instead.',
+        },
+        {
+          selector: 'MemberExpression[property.name="setState"][object.name="useVisualQuotationStore"]',
+          message: 'Direct setState() is forbidden in visual-quotation. Use slice actions instead.',
+        },
+      ],
+    },
+  },
 ])

@@ -14,6 +14,6 @@ export async function multiPassOptimize(
   sheetHeight: number = 2420,
   kerf: number = 5
 ): Promise<any[]> {
-  console.log('📦 Using standard optimizer');
+  // logger.info('📦 Using standard optimizer', { context: 'optimizer' });
   return await optimizeStandardCutlist(parts, sheetWidth, sheetHeight, kerf);
 }

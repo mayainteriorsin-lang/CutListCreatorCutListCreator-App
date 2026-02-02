@@ -1,5 +1,5 @@
 import { Label } from "@/components/ui/label";
-import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
+import { LaminateCombobox } from "@/components/master-settings/LaminateCombobox";
 import GrainToggle from "@/components/panel/GrainToggle";
 import GaddiToggle from "@/components/panel/GaddiToggle";
 
@@ -11,7 +11,7 @@ export interface PanelMaterialSelectorProps {
   grainDirection?: boolean;
   gaddi?: boolean;
 
-  laminateCodes: string[];
+  laminateCodes?: string[]; // Optional - LaminateCombobox fetches its own data
 
   onChange: (
     field: "laminateCode" | "innerLaminateCode" | "grainDirection" | "gaddi",
@@ -33,10 +33,6 @@ export default function PanelMaterialSelector({
   showGrain = false,
   showGaddi = false,
 }: PanelMaterialSelectorProps) {
-
-  // PATCH 17: Safe array fallback to prevent undefined.map() crashes
-  const safeLaminateCodes = Array.isArray(laminateCodes) ? laminateCodes : [];
-
   return (
     <div className="space-y-2 border rounded-md p-3 bg-gray-50">
 
@@ -45,55 +41,25 @@ export default function PanelMaterialSelector({
       {/* Outer Laminate */}
       <div className="space-y-1">
         <Label className="text-xs">Laminate Code</Label>
-        <Select
-          value={laminateCode}
-          onValueChange={(v) => onChange("laminateCode", v)}
-        >
-          <SelectTrigger className="h-9">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {/* PATCH 37: Empty state */}
-            {safeLaminateCodes.length === 0 ? (
-              <div className="px-3 py-2 text-xs text-slate-500">
-                No laminate codes available
-              </div>
-            ) : (
-              safeLaminateCodes.map((code: string) => (
-                <SelectItem key={code} value={code}>
-                  {code}
-                </SelectItem>
-              ))
-            )}
-          </SelectContent>
-        </Select>
+        <LaminateCombobox
+          value={laminateCode || ""}
+          onChange={(v) => onChange("laminateCode", v)}
+          externalCodes={laminateCodes}
+          placeholder="Select laminate..."
+          className="h-9"
+        />
       </div>
 
       {/* Inner Laminate */}
       <div className="space-y-1 pt-1">
         <Label className="text-xs">Inner Laminate</Label>
-        <Select
-          value={innerLaminateCode}
-          onValueChange={(v) => onChange("innerLaminateCode", v)}
-        >
-          <SelectTrigger className="h-9">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {/* PATCH 37: Empty state */}
-            {safeLaminateCodes.length === 0 ? (
-              <div className="px-3 py-2 text-xs text-slate-500">
-                No laminate codes available
-              </div>
-            ) : (
-              safeLaminateCodes.map((code: string) => (
-                <SelectItem key={code} value={code}>
-                  {code}
-                </SelectItem>
-              ))
-            )}
-          </SelectContent>
-        </Select>
+        <LaminateCombobox
+          value={innerLaminateCode || ""}
+          onChange={(v) => onChange("innerLaminateCode", v)}
+          externalCodes={laminateCodes}
+          placeholder="Select inner laminate..."
+          className="h-9"
+        />
       </div>
 
       {/* Grain + Gaddi */}

@@ -4,21 +4,20 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { useVisualQuotationStore } from "../../store/visualQuotationStore";
+import { LaminateCombobox } from "@/components/master-settings/LaminateCombobox";
+import { useDesignCanvasStore } from "../../store/v2/useDesignCanvasStore";
+import { useQuotationMetaStore } from "../../store/v2/useQuotationMetaStore";
 import { useGodownStore } from "@/features/material";
 
 const LaminatePanel: React.FC = () => {
-  const { units, updateWardrobeUnit, status } = useVisualQuotationStore();
+  const { status } = useQuotationMetaStore();
+  const { drawnUnits, updateUnit } = useDesignCanvasStore();
   const laminateOptions = useGodownStore((state) => state.laminateOptions);
   const fetchMaterials = useGodownStore((state) => state.fetch);
   const locked = status === "APPROVED";
+
+  // Convert to string array for LaminateCombobox
+  const laminateCodes = laminateOptions.map((l) => l.code);
 
   useEffect(() => {
     fetchMaterials();
@@ -28,7 +27,7 @@ const LaminatePanel: React.FC = () => {
     <Card className="border-slate-200 shadow-sm">
       <CardContent className="p-4 space-y-4">
         {/* Empty State */}
-        {units.length === 0 && (
+        {drawnUnits.length === 0 && (
           <div className="py-6 text-center">
             <div className="h-10 w-10 mx-auto rounded-full bg-slate-100 flex items-center justify-center mb-2">
               <Palette className="h-5 w-5 text-slate-400" />
@@ -39,9 +38,9 @@ const LaminatePanel: React.FC = () => {
         )}
 
         {/* Units List */}
-        {units.length > 0 && (
+        {drawnUnits.length > 0 && (
           <div className="space-y-4">
-            {units.map((u, idx) => (
+            {drawnUnits.map((u, idx) => (
               <div
                 key={u.id}
                 className="p-3 rounded-lg border border-slate-200 bg-slate-50/50 space-y-3"
@@ -57,54 +56,36 @@ const LaminatePanel: React.FC = () => {
                     <Label className="text-[10px] text-slate-500 uppercase tracking-wide">
                       Shutter Laminate
                     </Label>
-                    <Select
+                    <LaminateCombobox
                       value={u.finish.shutterLaminateCode || ""}
-                      onValueChange={(value) =>
-                        updateWardrobeUnit(u.id, {
+                      onChange={(value) =>
+                        updateUnit(u.id, {
                           finish: { ...u.finish, shutterLaminateCode: value },
                         })
                       }
+                      externalCodes={laminateCodes}
+                      placeholder="Select shutter finish"
                       disabled={locked}
-                    >
-                      <SelectTrigger className="h-9">
-                        <SelectValue placeholder="Select shutter finish" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {laminateOptions.map((l) => (
-                          <SelectItem key={l.code} value={l.code}>
-                            <span className="font-medium">{l.code}</span>
-                            <span className="text-slate-500 ml-2">{l.name}</span>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      className="h-9"
+                    />
                   </div>
 
                   <div className="space-y-1.5">
                     <Label className="text-[10px] text-slate-500 uppercase tracking-wide">
                       Loft Laminate
                     </Label>
-                    <Select
+                    <LaminateCombobox
                       value={u.finish.loftLaminateCode || ""}
-                      onValueChange={(value) =>
-                        updateWardrobeUnit(u.id, {
+                      onChange={(value) =>
+                        updateUnit(u.id, {
                           finish: { ...u.finish, loftLaminateCode: value },
                         })
                       }
+                      externalCodes={laminateCodes}
+                      placeholder="Select loft finish"
                       disabled={locked}
-                    >
-                      <SelectTrigger className="h-9">
-                        <SelectValue placeholder="Select loft finish" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {laminateOptions.map((l) => (
-                          <SelectItem key={l.code} value={l.code}>
-                            <span className="font-medium">{l.code}</span>
-                            <span className="text-slate-500 ml-2">{l.name}</span>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      className="h-9"
+                    />
                   </div>
                 </div>
               </div>

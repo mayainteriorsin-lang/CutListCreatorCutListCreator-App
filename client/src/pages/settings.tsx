@@ -17,6 +17,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { PlywoodSelectorPanel, LaminateSelectorPanel } from "@/components/selectors";
+import { LaminateLibrary } from "@/components/master-settings/LaminateLibrary";
 import { useMasterSettingsStore, useGodownStore } from "@/features/material";
 import {
   Ruler,
@@ -31,11 +32,7 @@ import {
   Settings2,
   Palette,
   Grid3X3,
-  Upload,
   FileText,
-  Eye,
-  Trash2,
-  ExternalLink,
 } from "lucide-react";
 
 // Local storage key for sheet settings (shared with cabinets page)
@@ -94,8 +91,8 @@ export default function SettingsPage() {
 
   // Catalogue state
   const [catalogues, setCatalogues] = useState<Catalogue[]>([]);
-  const [isUploadingCatalogue, setIsUploadingCatalogue] = useState(false);
-  const [isLoadingCatalogues, setIsLoadingCatalogues] = useState(false);
+  const [, setIsUploadingCatalogue] = useState(false);
+  const [, setIsLoadingCatalogues] = useState(false);
   const [viewingCatalogue, setViewingCatalogue] = useState<string | null>(null);
 
   // Master Settings from store
@@ -106,7 +103,7 @@ export default function SettingsPage() {
 
   // Godown from store
   const plywoodOptions = useGodownStore((s) => s.plywoodOptions);
-  const isLoadingMaterials = useGodownStore((s) => s.loading);
+  const _isLoadingMaterials = useGodownStore((s) => s.loading);
   const fetchMaterials = useGodownStore((s) => s.fetch);
 
   // Local state for materials
@@ -121,11 +118,13 @@ export default function SettingsPage() {
   const [sheetHeight, setSheetHeight] = useState(initialSheetSettings.sheetHeight);
   const [kerf, setKerf] = useState(initialSheetSettings.kerf);
 
-  // Fetch data on mount
+  // Fetch data on mount - run all in parallel for faster loading
   useEffect(() => {
-    fetchMasterSettings();
-    fetchMaterials();
-    fetchCatalogues();
+    Promise.all([
+      fetchMasterSettings(),
+      fetchMaterials(),
+      fetchCatalogues(),
+    ]);
   }, []);
 
   // Fetch catalogues
@@ -170,7 +169,7 @@ export default function SettingsPage() {
     setIsUploadingCatalogue(true);
     try {
       const base64 = await fileToBase64(file);
-      const response = await apiRequest("POST", "/api/laminate-catalogue", {
+      await apiRequest("POST", "/api/laminate-catalogue", {
         filename: file.name,
         mimeType: file.type,
         base64,
@@ -234,17 +233,15 @@ export default function SettingsPage() {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }
 
-  // Fetch wood grains preferences
+  // Fetch wood grains preferences - runs with initial load
   useEffect(() => {
-    async function fetchWoodGrainsPreferences() {
-      const json = await debouncedFetch("wood-grains-preferences", () =>
-        safeFetchZod(
-          `${API_BASE}/api/wood-grains-preferences`,
-          WoodGrainsPrefsSchema,
-          []
-        )
-      );
-
+    debouncedFetch("wood-grains-preferences", () =>
+      safeFetchZod(
+        `${API_BASE}/api/wood-grains-preferences`,
+        WoodGrainsPrefsSchema,
+        []
+      )
+    ).then((json) => {
       if (Array.isArray(json)) {
         const prefMap: Record<string, boolean> = {};
         json.forEach((item: any) => {
@@ -254,9 +251,7 @@ export default function SettingsPage() {
         });
         setWoodGrainsPreferences(prefMap);
       }
-    }
-
-    fetchWoodGrainsPreferences();
+    });
   }, []);
 
   // Initialize from master settings
@@ -324,8 +319,8 @@ export default function SettingsPage() {
     return uniqueLaminateCodes.filter((code) => code.toLowerCase().includes(query));
   }, [uniqueLaminateCodes, searchQuery]);
 
-  // Loading state
-  const isLoading = isLoadingMasterSettings || isLoadingMaterials;
+  // Loading state - no longer blocks UI, content shows progressively
+  const isLoading = false; // Removed blocking - each section loads independently
 
   // Stats for header
   const enabledGrainCount = Object.values(woodGrainsPreferences).filter(Boolean).length;
@@ -456,200 +451,69 @@ export default function SettingsPage() {
                     </div>
                   </div>
 
-                  {/* Plywood Brand */}
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center">
-                        <i className="fas fa-layer-group text-slate-600 text-sm"></i>
-                      </div>
-                      <div>
-                        <Label className="text-sm font-semibold text-slate-800">Plywood Brand</Label>
-                        <p className="text-xs text-slate-500">Default brand for new cabinets</p>
-                      </div>
-                    </div>
-                    <PlywoodSelectorPanel
-                      value={masterPlywoodBrand}
-                      onChange={setMasterPlywoodBrand}
-                      onSave={(val) => saveMasterSettings({ masterPlywoodBrand: val })}
-                    />
-                  </div>
-
-                  <div className="border-t border-slate-100 pt-8"></div>
-
-                  {/* Outer Laminate */}
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
+                  {/* Material Selection - Single Horizontal Row */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Plywood Brand */}
+                    <div className="space-y-2">
                       <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
-                          <i className="fas fa-paint-roller text-blue-600 text-sm"></i>
+                        <div className="w-6 h-6 rounded-md bg-slate-100 flex items-center justify-center">
+                          <i className="fas fa-layer-group text-slate-600 text-xs"></i>
                         </div>
-                        <div>
-                          <Label className="text-sm font-semibold text-slate-800">Outer Laminate</Label>
-                          <p className="text-xs text-slate-500">For visible surfaces - shutters, sides, top panels</p>
-                        </div>
+                        <Label className="text-sm font-semibold text-slate-800">Plywood</Label>
                       </div>
+                      <PlywoodSelectorPanel
+                        value={masterPlywoodBrand}
+                        onChange={setMasterPlywoodBrand}
+                        onSave={(val) => saveMasterSettings({ masterPlywoodBrand: val })}
+                      />
                     </div>
-                    <LaminateSelectorPanel
-                      value={masterLaminateCode}
-                      onChange={setMasterLaminateCode}
-                      onSave={(val) => saveMasterSettings({ masterLaminateCode: val })}
-                      showWoodGrainToggle={true}
-                      woodGrainsPreferences={woodGrainsPreferences}
-                      onWoodGrainChange={(code, enabled) => {
-                        setWoodGrainsPreferences((prev) => ({ ...prev, [code]: enabled }));
-                      }}
-                    />
 
-                    {/* PDF Catalogue Upload Section */}
-                    <div className="mt-6 p-4 bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl border border-emerald-200">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
-                            <FileText className="w-4 h-4 text-emerald-600" />
-                          </div>
-                          <div>
-                            <h4 className="text-sm font-semibold text-emerald-900">Laminate Catalogues</h4>
-                            <p className="text-xs text-emerald-700">Upload PDF catalogues for quick reference</p>
-                          </div>
+                    {/* Outer Laminate */}
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-md bg-blue-100 flex items-center justify-center">
+                          <i className="fas fa-paint-roller text-blue-600 text-xs"></i>
                         </div>
-                        <div>
-                          <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept="application/pdf"
-                            onChange={handleCatalogueUpload}
-                            className="hidden"
-                            id="catalogue-upload"
-                          />
-                          <Button
-                            size="sm"
-                            onClick={() => fileInputRef.current?.click()}
-                            disabled={isUploadingCatalogue}
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                          >
-                            {isUploadingCatalogue ? (
-                              <>
-                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                Uploading...
-                              </>
-                            ) : (
-                              <>
-                                <Upload className="w-4 h-4 mr-2" />
-                                Upload PDF
-                              </>
-                            )}
-                          </Button>
-                        </div>
+                        <Label className="text-sm font-semibold text-slate-800">Front Laminate</Label>
                       </div>
-
-                      {/* Catalogue List */}
-                      {isLoadingCatalogues ? (
-                        <div className="flex items-center justify-center py-8">
-                          <Loader2 className="w-5 h-5 animate-spin text-emerald-500" />
-                        </div>
-                      ) : catalogues.length === 0 ? (
-                        <div className="text-center py-8">
-                          <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center mx-auto mb-3">
-                            <FileText className="w-6 h-6 text-emerald-400" />
-                          </div>
-                          <p className="text-sm text-emerald-700">No catalogues uploaded yet</p>
-                          <p className="text-xs text-emerald-600 mt-1">Upload PDF catalogues to view laminate options</p>
-                        </div>
-                      ) : (
-                        <div className="space-y-2 max-h-48 overflow-y-auto">
-                          {catalogues.map((cat) => (
-                            <div
-                              key={cat.filename}
-                              className="flex items-center justify-between p-3 bg-white rounded-lg border border-emerald-100 hover:border-emerald-300 transition-colors"
-                            >
-                              <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center">
-                                  <i className="fas fa-file-pdf text-red-500"></i>
-                                </div>
-                                <div>
-                                  <p className="text-sm font-medium text-slate-800 truncate max-w-[200px]">
-                                    {cat.originalName || cat.filename}
-                                  </p>
-                                  <p className="text-xs text-slate-500">
-                                    {formatFileSize(cat.size)} • {new Date(cat.uploadedAt).toLocaleDateString()}
-                                  </p>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => setViewingCatalogue(viewingCatalogue === cat.filename ? null : cat.filename)}
-                                  className="h-8 w-8 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-100"
-                                >
-                                  <Eye className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => window.open(`${API_BASE}/api/laminate-catalogue/${cat.filename}`, '_blank')}
-                                  className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-100"
-                                >
-                                  <ExternalLink className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => handleDeleteCatalogue(cat.filename)}
-                                  className="h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-100"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* PDF Viewer */}
-                      {viewingCatalogue && (
-                        <div className="mt-4 rounded-lg overflow-hidden border border-emerald-200">
-                          <div className="flex items-center justify-between px-3 py-2 bg-slate-100 border-b">
-                            <span className="text-xs font-medium text-slate-600">PDF Preview</span>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => setViewingCatalogue(null)}
-                              className="h-6 w-6 p-0"
-                            >
-                              <X className="w-4 h-4" />
-                            </Button>
-                          </div>
-                          <iframe
-                            src={`${API_BASE}/api/laminate-catalogue/${viewingCatalogue}`}
-                            className="w-full h-[500px] bg-white"
-                            title="Catalogue Viewer"
-                          />
-                        </div>
-                      )}
+                      <LaminateSelectorPanel
+                        value={masterLaminateCode}
+                        onChange={setMasterLaminateCode}
+                        onSave={(val) => saveMasterSettings({ masterLaminateCode: val })}
+                        showWoodGrainToggle={true}
+                        woodGrainsPreferences={woodGrainsPreferences}
+                        onWoodGrainChange={(code, enabled) => {
+                          setWoodGrainsPreferences((prev) => ({ ...prev, [code]: enabled }));
+                        }}
+                      />
                     </div>
-                  </div>
 
-                  <div className="border-t border-slate-100 pt-8"></div>
-
-                  {/* Inner Laminate */}
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center">
-                        <i className="fas fa-box-open text-slate-600 text-sm"></i>
-                      </div>
-                      <div>
+                    {/* Inner Laminate */}
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-md bg-slate-100 flex items-center justify-center">
+                          <i className="fas fa-box-open text-slate-600 text-xs"></i>
+                        </div>
                         <Label className="text-sm font-semibold text-slate-800">Inner Laminate</Label>
-                        <p className="text-xs text-slate-500">For back panels and internal surfaces (usually plain)</p>
                       </div>
+                      <LaminateSelectorPanel
+                        value={masterInnerLaminateCode}
+                        onChange={setMasterInnerLaminateCode}
+                        onSave={(val) => saveMasterSettings({ masterInnerLaminateCode: val })}
+                        showWoodGrainToggle={false}
+                      />
                     </div>
-                    <LaminateSelectorPanel
-                      value={masterInnerLaminateCode}
-                      onChange={setMasterInnerLaminateCode}
-                      onSave={(val) => saveMasterSettings({ masterInnerLaminateCode: val })}
-                      showWoodGrainToggle={false}
-                    />
                   </div>
+
+                    {/* Laminate Library Section */}
+                    <div className="mt-6 p-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl border border-indigo-200">
+                      <LaminateLibrary
+                        woodGrainsPreferences={woodGrainsPreferences}
+                        onWoodGrainChange={(code, enabled) => {
+                          setWoodGrainsPreferences((prev) => ({ ...prev, [code]: enabled }));
+                        }}
+                      />
+                    </div>
                 </div>
               )}
 

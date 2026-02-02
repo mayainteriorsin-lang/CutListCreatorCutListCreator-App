@@ -20,8 +20,8 @@ export function computeDisplayDims(panel: any) {
     displayHeight = Number(panel.width ?? panel.nomW ?? panel.w ?? 0);   // Y-axis (width)
   } else {
     // fallback: width -> X, height -> Y
-    displayWidth = Number(panel.width ?? panel.w ?? 0);
-    displayHeight = Number(panel.height ?? panel.h ?? 0);
+    displayWidth = Number(panel.width ?? panel.nomW ?? panel.w ?? 0);
+    displayHeight = Number(panel.height ?? panel.nomH ?? panel.h ?? 0);
   }
 
   // Store computed dims back on panel so renderer & PDF can use them directly

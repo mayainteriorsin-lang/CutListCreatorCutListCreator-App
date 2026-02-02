@@ -12,6 +12,9 @@ import { z } from "zod";
 import { crmRouter } from "./routes/crmRoutes";
 import { aiInteriorDetectRouter } from "./routes/aiInteriorDetect";
 import { aiWardrobeLayoutRouter } from "./routes/aiWardrobeLayout";
+import quotationRouter from "./routes/quotationRoutes";
+import libraryRouter from "./routes/libraryRoutes";
+import authRouter from "./routes/authRoutes";
 import { normString, normNumber, normBoolean, normArray, normDate, normDateISO } from "./normalize";
 import {
   MasterSettingsResponseSchema,
@@ -56,7 +59,7 @@ async function safeQuery<T>(
     ]);
     return result;
   } catch (error) {
-    console.error('[QUERY TIMEOUT]', error);
+    console.error('[QUERY TIMEOUT ERROR]', error);
     return fallback;
   }
 }
@@ -109,9 +112,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Global laminate memory routes
+  app.use("/api/auth", authRouter); // Authentication API
   app.use("/api/crm", crmRouter);
   app.use("/api/ai", aiInteriorDetectRouter());
   app.use("/api/ai", aiWardrobeLayoutRouter());
+  app.use("/api", quotationRouter); // Quotation persistence API
+  app.use("/api", libraryRouter); // Library module persistence API
 
   // PATCH 50: Removed deprecated /api/laminate-memory routes
   // Data migrated to /api/laminate-code-godown
@@ -145,7 +151,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Check if brand already exists
       const existing = await db.select().from(plywoodBrandMemory).where(eq(plywoodBrandMemory.brand, brand));
-      if (existingCheck.rows && existingCheck.rows.length > 0) {
+      if (existing.length > 0) {
         return res.status(409).json({ error: "Brand already exists" });
       }
 
@@ -221,7 +227,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if any memory record exists
       const existing = await db.select().from(quickShutterMemory).limit(1);
 
-      if (existingCheck.rows && existingCheck.rows.length > 0) {
+      if (existing.length > 0) {
         // Update existing record
         const [updated] = await db.update(quickShutterMemory)
           .set({
@@ -323,7 +329,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if any memory record exists
       const existing = await db.select().from(masterSettingsMemory).limit(1);
 
-      if (existingCheck.rows && existingCheck.rows.length > 0) {
+      if (existing.length > 0) {
         // Update existing record
         const [updated] = await db.update(masterSettingsMemory)
           .set({
@@ -522,7 +528,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Check if exists
       const existing = await db.select().from(godownMemory).where(eq(godownMemory.name, name));
-      if (existingCheck.rows && existingCheck.rows.length > 0) {
+      if (existing.length > 0) {
         // Already exists, return it
         return res.json(existing[0]);
       }
@@ -585,7 +591,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .from(plywoodBrandMemory)
         .where(sql`lower(${plywoodBrandMemory.brand}) = ${brandLower}`);
 
-      if (existingCheck.rows && existingCheck.rows.length > 0) {
+      if (existing.length > 0) {
         return res.json(ok(existing[0]));
       }
 
@@ -702,8 +708,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const woodGrainsValue = normBoolean(woodGrainsEnabled) ? 'true' : 'false';
 
       // Check if code already exists (using raw pg pool for Supabase compatibility)
-      const existingCheck = await safeDbQuery('SELECT id FROM laminate_code_godown WHERE code = $1 LIMIT 1', [code]);
-      if (existingCheck.rows && existingCheck.rows.length > 0) {
+      const existing = await db.select().from(laminateCodeGodown).where(eq(laminateCodeGodown.code, code));
+      if (existing.length > 0) {
         return res.status(409).json(err("Laminate code already exists in godown"));
       }
 
@@ -911,7 +917,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .from(laminateWoodGrainsPreference)
         .where(eq(laminateWoodGrainsPreference.laminateCode, laminateCode));
 
-      if (existingCheck.rows && existingCheck.rows.length > 0) {
+      if (existing.length > 0) {
         // Update existing preference
         const [updated] = await db.update(laminateWoodGrainsPreference)
           .set({
@@ -1280,6 +1286,157 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error deleting catalogue:", error);
       res.status(500).json(err("Failed to delete catalogue", error?.message));
+    }
+  });
+
+  // ============================================
+  // LAMINATE IMAGE UPLOAD API
+  // ============================================
+
+  // Upload laminate image (thumbnail)
+  app.post("/api/laminate-image/:code", async (req, res) => {
+    try {
+      const { code } = req.params;
+      const { mimeType, base64 } = req.body;
+
+      if (!code || !base64) {
+        return res.status(400).json(err("Missing laminate code or image data"));
+      }
+
+      // Validate mime type (only images)
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+      if (!allowedTypes.includes(mimeType)) {
+        return res.status(400).json(err("Invalid image type. Allowed: JPEG, PNG, WebP, GIF"));
+      }
+
+      // Validate file size (max 2MB for thumbnails)
+      const maxSize = 2 * 1024 * 1024;
+      const fileSize = Buffer.byteLength(base64, 'base64');
+      if (fileSize > maxSize) {
+        return res.status(413).json(err("Image size exceeds 2MB limit"));
+      }
+
+      // Create safe filename from laminate code
+      const ext = mimeType.split('/')[1] === 'jpeg' ? 'jpg' : mimeType.split('/')[1];
+      const safeCode = code.replace(/[^a-zA-Z0-9-_]/g, '_');
+      const filename = `${safeCode}.${ext}`;
+
+      // Ensure directory exists
+      const imagesDir = path.join(process.cwd(), 'storage', 'laminate-images');
+      if (!fs.existsSync(imagesDir)) {
+        fs.mkdirSync(imagesDir, { recursive: true });
+      }
+
+      // Delete any existing image for this code (different extensions)
+      const existingFiles = fs.readdirSync(imagesDir).filter(f => f.startsWith(safeCode + '.'));
+      existingFiles.forEach(f => {
+        fs.unlinkSync(path.join(imagesDir, f));
+      });
+
+      // Save new image
+      const filePath = path.join(imagesDir, filename);
+      const buffer = Buffer.from(base64, 'base64');
+      fs.writeFileSync(filePath, buffer);
+
+      res.json(ok({
+        code,
+        filename,
+        size: fileSize,
+        url: `/api/laminate-image/${encodeURIComponent(code)}`
+      }));
+    } catch (error: any) {
+      console.error("Error uploading laminate image:", error);
+      res.status(500).json(err("Failed to upload image", error?.message));
+    }
+  });
+
+  // Get laminate image
+  app.get("/api/laminate-image/:code", async (req, res) => {
+    try {
+      const { code } = req.params;
+      const safeCode = code.replace(/[^a-zA-Z0-9-_]/g, '_');
+      const imagesDir = path.join(process.cwd(), 'storage', 'laminate-images');
+
+      // Find image file (could be jpg, png, webp, gif)
+      if (!fs.existsSync(imagesDir)) {
+        return res.status(404).json(err("Image not found"));
+      }
+
+      const files = fs.readdirSync(imagesDir).filter(f => f.startsWith(safeCode + '.'));
+      if (files.length === 0) {
+        return res.status(404).json(err("Image not found"));
+      }
+
+      const filename = files[0];
+      const filePath = path.join(imagesDir, filename);
+      const ext = path.extname(filename).slice(1);
+
+      const mimeTypes: Record<string, string> = {
+        jpg: 'image/jpeg',
+        jpeg: 'image/jpeg',
+        png: 'image/png',
+        webp: 'image/webp',
+        gif: 'image/gif'
+      };
+
+      res.setHeader('Content-Type', mimeTypes[ext] || 'image/jpeg');
+      res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 1 day
+      fs.createReadStream(filePath).pipe(res);
+    } catch (error: any) {
+      console.error("Error getting laminate image:", error);
+      res.status(500).json(err("Failed to get image", error?.message));
+    }
+  });
+
+  // Delete laminate image
+  app.delete("/api/laminate-image/:code", async (req, res) => {
+    try {
+      const { code } = req.params;
+      const safeCode = code.replace(/[^a-zA-Z0-9-_]/g, '_');
+      const imagesDir = path.join(process.cwd(), 'storage', 'laminate-images');
+
+      if (!fs.existsSync(imagesDir)) {
+        return res.status(404).json(err("Image not found"));
+      }
+
+      const files = fs.readdirSync(imagesDir).filter(f => f.startsWith(safeCode + '.'));
+      if (files.length === 0) {
+        return res.status(404).json(err("Image not found"));
+      }
+
+      files.forEach(f => {
+        fs.unlinkSync(path.join(imagesDir, f));
+      });
+
+      res.json(ok({ message: "Image deleted successfully" }));
+    } catch (error: any) {
+      console.error("Error deleting laminate image:", error);
+      res.status(500).json(err("Failed to delete image", error?.message));
+    }
+  });
+
+  // List all laminate images
+  app.get("/api/laminate-images", async (_req, res) => {
+    try {
+      const imagesDir = path.join(process.cwd(), 'storage', 'laminate-images');
+
+      if (!fs.existsSync(imagesDir)) {
+        return res.json(ok({}));
+      }
+
+      const files = fs.readdirSync(imagesDir);
+      const imageMap: Record<string, string> = {};
+
+      files.forEach(f => {
+        const ext = path.extname(f);
+        const code = f.replace(ext, '').replace(/_/g, '-'); // Convert back underscores
+        imageMap[code] = `/api/laminate-image/${encodeURIComponent(code)}`;
+      });
+
+      res.json(ok(imageMap));
+    } catch (error: any) {
+      console.error("Error listing laminate images:", error);
+      res.status(500).json(err("Failed to list images", error?.message));
     }
   });
 

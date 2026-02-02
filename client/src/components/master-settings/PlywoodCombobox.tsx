@@ -38,7 +38,31 @@ import { toast } from "@/hooks/use-toast";
 
 // Constants
 const RECENT_STORAGE_KEY = "plywood_recent_brands";
+const LOCAL_STORAGE_BRANDS_KEY = "plywood_library_brands";
 const MAX_RECENT = 5;
+
+// Load brands from localStorage (offline support)
+function loadLocalBrands(): string[] {
+  try {
+    const stored = localStorage.getItem(LOCAL_STORAGE_BRANDS_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return Array.isArray(parsed) ? parsed : [];
+    }
+  } catch {
+    // Ignore parse errors
+  }
+  return [];
+}
+
+// Save brands to localStorage
+function saveLocalBrands(brands: string[]) {
+  try {
+    localStorage.setItem(LOCAL_STORAGE_BRANDS_KEY, JSON.stringify(brands));
+  } catch {
+    // Ignore storage errors
+  }
+}
 
 export interface PlywoodComboboxProps {
   value: string;
@@ -60,6 +84,7 @@ export function PlywoodCombobox({
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [recentBrands, setRecentBrands] = useState<string[]>([]);
+  const [localBrands, setLocalBrands] = useState<string[]>(loadLocalBrands);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { data: brands = [] } = usePlywoodBrands();
@@ -68,12 +93,14 @@ export function PlywoodCombobox({
   const removePlywood = useGodownStore((state) => state.removePlywood);
   const fetchMaterials = useGodownStore((state) => state.fetch);
 
-  // Deduplicated and normalized brand list
+  // Deduplicated and normalized brand list - merge server + localStorage
   const plywoodOptions = useMemo(() => {
     const seen = new Set<string>();
     const deduped: string[] = [];
     const safeBrands = Array.isArray(brands) ? brands : [];
+    const safeLocalBrands = Array.isArray(localBrands) ? localBrands : [];
 
+    // Add server brands
     safeBrands.forEach((entry) => {
       const brand = (entry.brand || "").trim();
       const key = brand.toLowerCase();
@@ -82,8 +109,24 @@ export function PlywoodCombobox({
       deduped.push(brand);
     });
 
+    // Add localStorage brands (fallback when server is down)
+    safeLocalBrands.forEach((brand) => {
+      const trimmed = (brand || "").trim();
+      const key = trimmed.toLowerCase();
+      if (!trimmed || seen.has(key)) return;
+      seen.add(key);
+      deduped.push(trimmed);
+    });
+
     return deduped.sort((a, b) => a.localeCompare(b));
-  }, [brands]);
+  }, [brands, localBrands]);
+
+  // Refresh localStorage brands when dropdown opens
+  useEffect(() => {
+    if (open) {
+      setLocalBrands(loadLocalBrands());
+    }
+  }, [open]);
 
   // Load recent brands from localStorage
   useEffect(() => {
@@ -147,12 +190,26 @@ export function PlywoodCombobox({
     const trimmed = searchQuery.trim();
     if (!trimmed) return;
 
+    // Always save to localStorage first (offline support)
+    const currentLocal = loadLocalBrands();
+    if (!currentLocal.some((b) => b.toLowerCase() === trimmed.toLowerCase())) {
+      const updatedLocal = [...currentLocal, trimmed];
+      saveLocalBrands(updatedLocal);
+      setLocalBrands(updatedLocal);
+    }
+
     try {
       if (onCreate) {
         onCreate(trimmed);
       } else {
-        await createBrand.mutateAsync({ brand: trimmed });
-        await fetchMaterials();
+        // Try to save to server (may fail if database is down)
+        try {
+          await createBrand.mutateAsync({ brand: trimmed });
+          await fetchMaterials();
+        } catch (serverError) {
+          console.warn('⚠️ Server save failed, using localStorage:', serverError);
+          // Don't show error toast - localStorage save succeeded
+        }
       }
 
       toast({
@@ -179,6 +236,12 @@ export function PlywoodCombobox({
     e.preventDefault();
 
     const target = brand.toLowerCase();
+
+    // Remove from localStorage
+    const currentLocal = loadLocalBrands();
+    const updatedLocal = currentLocal.filter((b) => b.toLowerCase() !== target);
+    saveLocalBrands(updatedLocal);
+    setLocalBrands(updatedLocal);
 
     // Optimistic update for query cache
     queryClient.setQueryData(["godown", "plywood"], (prev: any) => {

@@ -1,13 +1,13 @@
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
+import { LaminateCombobox } from "@/components/master-settings/LaminateCombobox";
 import GrainToggle from "@/components/panel/GrainToggle";
 import GaddiToggle from "@/components/panel/GaddiToggle";
 
 /**
  * ShelfConfigPanel
  *
- * Reusable shelf configuration UI.
+ * Reusable shelf configuration UI with localStorage support for laminate codes.
  *
  * Props:
  *  - shelfCount: number
@@ -15,7 +15,7 @@ import GaddiToggle from "@/components/panel/GaddiToggle";
  *  - shelfInnerLaminate: string
  *  - shelfGrain: boolean
  *  - shelfGaddi: boolean
- *  - laminateCodes: array of laminate options
+ *  - laminateCodes: optional array of laminate options (Combobox fetches its own data)
  *  - onChange(field, value): callback for value changes
  */
 
@@ -25,7 +25,7 @@ interface ShelfConfigPanelProps {
   shelfInnerLaminate: string;
   shelfGrain: boolean;
   shelfGaddi: boolean;
-  laminateCodes: Array<{ id: string; code: string }>;
+  laminateCodes?: Array<{ id: string; code: string }>; // Optional - Combobox fetches its own data
   onChange: (field: string, value: any) => void;
 }
 
@@ -38,8 +38,10 @@ export default function ShelfConfigPanel({
   laminateCodes,
   onChange,
 }: ShelfConfigPanelProps) {
-  // PATCH 34: Safe array fallback to prevent .map() crashes
-  const safeLaminateCodes = Array.isArray(laminateCodes) ? laminateCodes : [];
+  // Convert laminateCodes to string array for LaminateCombobox
+  const safeLaminateCodes = Array.isArray(laminateCodes)
+    ? laminateCodes.map((l) => l.code)
+    : undefined;
 
   return (
     <div className="space-y-4 border rounded-md p-4 bg-gray-50">
@@ -64,40 +66,24 @@ export default function ShelfConfigPanel({
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
               <Label className="text-sm">Shelf Laminate</Label>
-              <Select
-                value={shelfLaminate}
-                onValueChange={(v) => onChange("shelfLaminate", v)}
-              >
-                <SelectTrigger className="h-9">
-                  <SelectValue placeholder="Select laminate" />
-                </SelectTrigger>
-                <SelectContent>
-                  {safeLaminateCodes.map((l) => (
-                    <SelectItem key={l.id} value={l.code}>
-                      {l.code}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <LaminateCombobox
+                value={shelfLaminate || ""}
+                onChange={(v) => onChange("shelfLaminate", v)}
+                externalCodes={safeLaminateCodes}
+                placeholder="Select laminate"
+                className="h-9"
+              />
             </div>
 
             <div className="space-y-1">
               <Label className="text-sm">Shelf Inner Laminate</Label>
-              <Select
-                value={shelfInnerLaminate}
-                onValueChange={(v) => onChange("shelfInnerLaminate", v)}
-              >
-                <SelectTrigger className="h-9">
-                  <SelectValue placeholder="Select inner laminate" />
-                </SelectTrigger>
-                <SelectContent>
-                  {safeLaminateCodes.map((l) => (
-                    <SelectItem key={l.id} value={l.code}>
-                      {l.code}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <LaminateCombobox
+                value={shelfInnerLaminate || ""}
+                onChange={(v) => onChange("shelfInnerLaminate", v)}
+                externalCodes={safeLaminateCodes}
+                placeholder="Select inner laminate"
+                className="h-9"
+              />
             </div>
           </div>
 

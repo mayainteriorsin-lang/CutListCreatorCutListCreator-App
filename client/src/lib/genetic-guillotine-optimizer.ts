@@ -14,6 +14,8 @@
 
 // ========== TYPES ==========
 
+import { logger } from "./system/logger";
+
 interface Rect {
   x: number;
   y: number;
@@ -102,7 +104,9 @@ class GuillotineBin {
   /**
    * Try to place a piece using Guillotine algorithm
    * WOOD GRAIN ENFORCEMENT: Only rotates if piece.rotateAllowed === true
+   * FIX: Handle Full Sheet / Edge Fit (don't force kerf if it's the edge)
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   tryPlace(piece: any): PlacedPiece | null {
     let bestRect: Rect | null = null;
     let bestRectIndex = -1;
@@ -114,6 +118,7 @@ class GuillotineBin {
       const rect = this.freeRects[i];
 
       // Try normal orientation
+      // FIT CHECK: Raw dimension must fit
       if (piece.w <= rect.w && piece.h <= rect.h) {
         const waste = rect.w * rect.h - piece.w * piece.h;
         if (waste < bestScore) {
@@ -125,6 +130,7 @@ class GuillotineBin {
       }
 
       // Try rotated orientation ONLY if rotation is allowed (wood grain rule)
+      // FIT CHECK: Raw dimension must fit
       if (piece.rotateAllowed && piece.h <= rect.w && piece.w <= rect.h) {
         const waste = rect.w * rect.h - piece.h * piece.w;
         if (waste < bestScore) {
@@ -139,17 +145,23 @@ class GuillotineBin {
     if (!bestRect) return null;
 
     // Determine final dimensions
-    const finalW = bestRotated ? piece.h : piece.w;
-    const finalH = bestRotated ? piece.w : piece.h;
+    const pieceW = bestRotated ? piece.h : piece.w;
+    const pieceH = bestRotated ? piece.w : piece.h;
+
+    // Calculate actual consumed space (including kerf, unless at edge)
+    // If piece+kerf fits, use piece+kerf.
+    // If piece+kerf > rect BUT piece <= rect, use rect (consume to edge).
+    const usedW = (pieceW + this.kerf <= bestRect.w) ? pieceW + this.kerf : bestRect.w;
+    const usedH = (pieceH + this.kerf <= bestRect.h) ? pieceH + this.kerf : bestRect.h;
 
     // Create placed piece
     const placed: PlacedPiece = {
       id: piece.id,
       origId: piece.origId ?? piece.id,
-      x: bestRect.x + this.kerf / 2,
-      y: bestRect.y + this.kerf / 2,
-      w: finalW - this.kerf,
-      h: finalH - this.kerf,
+      x: bestRect.x, // Start at 0 relative to rect (no half-kerf offset)
+      y: bestRect.y,
+      w: pieceW,     // Actual part dimension
+      h: pieceH,
       rotated: bestRotated,
       rotateAllowed: piece.rotateAllowed,
       gaddi: !!piece.gaddi,
@@ -159,10 +171,10 @@ class GuillotineBin {
     };
 
     this.placed.push(placed);
-    this.usedArea += finalW * finalH;
+    this.usedArea += usedW * usedH; // Count the full consumed area as used
 
     // Guillotine split
-    this.guillotineSplit(bestRect, finalW, finalH, bestRectIndex);
+    this.guillotineSplit(bestRect, usedW, usedH, bestRectIndex);
 
     return placed;
   }
@@ -189,18 +201,20 @@ class GuillotineBin {
       case SplitRule.LongerAxis:
         splitVertical = rect.w > rect.h;
         break;
-      case SplitRule.MinArea:
+      case SplitRule.MinArea: {
         // Split to minimize the larger remaining piece
         const vertAreaMax = Math.max(remainW * rect.h, usedW * remainH);
         const horizAreaMax = Math.max(rect.w * remainH, remainW * usedH);
         splitVertical = vertAreaMax < horizAreaMax;
         break;
-      case SplitRule.MaxArea:
+      }
+      case SplitRule.MaxArea: {
         // Split to maximize the larger remaining piece
         const vertAreaMax2 = Math.max(remainW * rect.h, usedW * remainH);
         const horizAreaMax2 = Math.max(rect.w * remainH, remainW * usedH);
         splitVertical = vertAreaMax2 > horizAreaMax2;
         break;
+      }
     }
 
     if (splitVertical) {
@@ -240,6 +254,43 @@ class GuillotineBin {
         });
       }
     }
+
+    // Attempt to merge back together any adjacent free rectangles
+    this.mergeNeighbors();
+  }
+
+  /**
+   * Merge adjacent free rectangles to create larger, more usable waste
+   */
+  private mergeNeighbors() {
+    const EPS = 1e-4;
+    let merged = true;
+    while (merged) {
+      merged = false;
+      outer: for (let i = 0; i < this.freeRects.length; i++) {
+        for (let j = i + 1; j < this.freeRects.length; j++) {
+          const a = this.freeRects[i], b = this.freeRects[j];
+
+          // X-axis merge (side by side)
+          if (Math.abs(a.y - b.y) <= EPS &&
+            Math.abs(a.h - b.h) <= EPS &&
+            (Math.abs(a.x + a.w - b.x) <= EPS || Math.abs(b.x + b.w - a.x) <= EPS)) {
+            const nx = Math.min(a.x, b.x), ny = a.y, nw = a.w + b.w, nh = Math.max(a.h, b.h);
+            this.freeRects.splice(j, 1); this.freeRects.splice(i, 1); this.freeRects.push({ x: nx, y: ny, w: nw, h: nh });
+            merged = true; break outer;
+          }
+
+          // Y-axis merge (top to bottom)
+          if (Math.abs(a.x - b.x) <= EPS &&
+            Math.abs(a.w - b.w) <= EPS &&
+            (Math.abs(a.y + a.h - b.y) <= EPS || Math.abs(b.y + b.h - a.y) <= EPS)) {
+            const nx = a.x, ny = Math.min(a.y, b.y), nw = Math.max(a.w, b.w), nh = a.h + b.h;
+            this.freeRects.splice(j, 1); this.freeRects.splice(i, 1); this.freeRects.push({ x: nx, y: ny, w: nw, h: nh });
+            merged = true; break outer;
+          }
+        }
+      }
+    }
   }
 }
 
@@ -260,12 +311,7 @@ function packWithChromosome(
   const leftover: Part[] = [];
 
   // Create bins as needed
-  const getOrCreateBin = () => {
-    if (bins.length === 0 || bins[bins.length - 1].freeRects.length === 0) {
-      bins.push(new GuillotineBin(W, H, kerf, splitRule));
-    }
-    return bins[bins.length - 1];
-  };
+
 
   // Place pieces according to chromosome order
   for (const gene of chromosome.genes) {
@@ -273,12 +319,12 @@ function packWithChromosome(
 
     // WOOD GRAIN ENFORCEMENT: respect the rotate flag
     const canRotate = piece.rotate === true;
-    const shouldRotate = canRotate && gene.rotated;
+    // const shouldRotate = canRotate && gene.rotated;
 
     const tryPiece = {
       id: piece.id,
-      w: piece.w + kerf,
-      h: piece.h + kerf,
+      w: piece.w, // RAW DIMENSION (tryPlace handles kerf)
+      h: piece.h, // RAW DIMENSION
       rotateAllowed: canRotate,  // Critical: only allow if piece.rotate is true
       gaddi: piece.gaddi,
       laminateCode: piece.laminateCode,
@@ -539,9 +585,9 @@ export function optimizeCutlistGenetic({
   const H = sheet.h;
   const kerf = sheet.kerf;
 
-  console.group('🧬 GENETIC ALGORITHM WITH GUILLOTINE CUTS');
-  console.log(`Population: ${populationSize}, Time: ${timeMs}ms`);
-  console.log(`Wood grain enforcement: ${parts.filter(p => !p.rotate).length} locked, ${parts.filter(p => p.rotate).length} rotatable`);
+  logger.log('🧬 GENETIC ALGORITHM WITH GUILLOTINE CUTS');
+  logger.log(`Population: ${populationSize}, Time: ${timeMs}ms`);
+  logger.log(`Wood grain enforcement: ${parts.filter(p => !p.rotate).length} locked, ${parts.filter(p => p.rotate).length} rotatable`);
 
   // Check for oversized parts
   const oversized = parts.filter(p => {
@@ -550,7 +596,7 @@ export function optimizeCutlistGenetic({
     return !fitsNormal && !fitsRotated;
   });
   if (oversized.length > 0) {
-    console.warn('⚠️ Some parts are larger than sheet:', oversized);
+    logger.warn('⚠️ Some parts are larger than sheet:', oversized);
   }
 
   const rng = rngSeed !== undefined ? mulberry32(rngSeed) : Math.random;
@@ -604,7 +650,7 @@ export function optimizeCutlistGenetic({
       }
     }
 
-    console.log(`Split rule ${SplitRule[splitRule]}: ${best.sheets} sheets, ${best.efficiency.toFixed(2)}% efficiency (${generation} generations)`);
+    logger.log(`Split rule ${SplitRule[splitRule]}: ${best.sheets} sheets, ${best.efficiency.toFixed(2)}% efficiency (${generation} generations)`);
 
     return { best, splitRule };
   });
@@ -613,8 +659,7 @@ export function optimizeCutlistGenetic({
   results.sort((a, b) => a.best.fitness - b.best.fitness);
   const winner = results[0];
 
-  console.log(`🏆 Winner: ${SplitRule[winner.splitRule]}`);
-  console.groupEnd();
+  logger.log(`🏆 Winner: ${SplitRule[winner.splitRule]}`);
 
   // Pack final result
   const { bins, leftover } = packWithChromosome(
@@ -652,32 +697,30 @@ export function optimizeCutlistGenetic({
   const totalOutputPanels = totalPlacedPanels + totalUnplacedPanels;
   const panelsLost = totalInputPanels - totalOutputPanels;
 
-  console.group('📊 PANEL COUNT VALIDATION');
-  console.log(`Input panels: ${totalInputPanels}`);
+  logger.log('📊 PANEL COUNT VALIDATION');
+  logger.log(`Input panels: ${totalInputPanels}`);
   const placedPercent = totalInputPanels > 0 ? ((totalPlacedPanels / totalInputPanels) * 100).toFixed(1) : '0.0';
-  console.log(`Placed panels: ${totalPlacedPanels} (${placedPercent}%)`);
-  console.log(`Unplaced panels: ${totalUnplacedPanels}`);
-  console.log(`Total output: ${totalOutputPanels}`);
+  logger.log(`Placed panels: ${totalPlacedPanels} (${placedPercent}%)`);
+  logger.log(`Unplaced panels: ${totalUnplacedPanels}`);
+  logger.log(`Total output: ${totalOutputPanels}`);
 
   if (panelsLost !== 0) {
-    console.error(`❌ CRITICAL ERROR: ${Math.abs(panelsLost)} panels ${panelsLost > 0 ? 'LOST' : 'DUPLICATED'} during optimization!`);
-    console.error('Input parts:', parts.map(p => `${p.id} (qty: ${p.qty})`));
-    console.error('Placed IDs:', bins.flatMap(b => b.placed.map(p => p.id)));
-    console.error('Unplaced IDs:', leftover.map(p => p.id));
+    logger.error(`❌ CRITICAL ERROR: ${Math.abs(panelsLost)} panels ${panelsLost > 0 ? 'LOST' : 'DUPLICATED'} during optimization!`);
+    logger.error('Input parts:', parts.map(p => `${p.id} (qty: ${p.qty})`));
+    logger.error('Placed IDs:', bins.flatMap(b => b.placed.map(p => p.id)));
+    logger.error('Unplaced IDs:', leftover.map(p => p.id));
     throw new Error(`Panel count mismatch: ${panelsLost} panels ${panelsLost > 0 ? 'lost' : 'duplicated'}`);
   } else {
-    console.log('✅ All panels accounted for - no panels lost!');
+    logger.log('✅ All panels accounted for - no panels lost!');
   }
-  console.groupEnd();
 
   // Detailed placement summary
   if (totalUnplacedPanels > 0) {
-    console.warn(`⚠️ WARNING: ${totalUnplacedPanels} panels could not be placed (oversized or constraint issues)`);
-    console.table(leftover.map(p => ({
+    logger.warn(`⚠️ WARNING: ${totalUnplacedPanels} panels could not be placed (oversized or constraint issues)`);
+    logger.warn('Unplaced details:', leftover.map(p => ({
       id: p.id,
       width: p.w,
       height: p.h,
-      rotate: p.rotate ? 'allowed' : 'locked',
       reason: (p.w > W && p.h > H) || (!p.rotate && (p.w > W || p.h > H)) ? 'Too large' : 'Unknown'
     })));
   }

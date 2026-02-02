@@ -114,7 +114,5 @@ export async function optimizeStandardCutlist(
     logger.error('❌ All optimization strategies failed.');
   }
 
-  logger.logEnd();
-
   return winner ? winner.result : [];
 }

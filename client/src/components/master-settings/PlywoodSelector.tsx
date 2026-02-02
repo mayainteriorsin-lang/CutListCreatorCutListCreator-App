@@ -169,7 +169,7 @@ export function PlywoodSelector({ value, onChange, onCreate }: PlywoodSelectorPr
         }
       }
 
-      console.log(`🧹 Cleaned deleted plywood "${deletedBrand}" from localStorage`);
+      // logger.info(`🧹 Cleaned deleted plywood "${deletedBrand}" from localStorage`);
     } catch (error) {
       console.error('Failed to clean localStorage after plywood deletion:', error);
     }

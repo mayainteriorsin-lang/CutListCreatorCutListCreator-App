@@ -3,7 +3,10 @@ import { FileSpreadsheet, FileText, Ruler } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { useVisualQuotationStore } from "../../store/visualQuotationStore";
+import { useQuotationMetaStore } from "../../store/v2/useQuotationMetaStore";
+import { useRoomStore } from "../../store/v2/useRoomStore";
+import { useDesignCanvasStore } from "../../store/v2/useDesignCanvasStore";
+import { usePricingStore } from "../../store/v2/usePricingStore";
 import { buildCutlistItems, formatMm } from "../../engine/productionEngine";
 import { exportProductionExcel, exportProductionPDF } from "../../engine/productionExportEngine";
 
@@ -75,16 +78,10 @@ function buildCadGroups(items: ReturnType<typeof buildCutlistItems>): CadGroup[]
 }
 
 const ProductionPanel: React.FC = () => {
-  const {
-    client,
-    meta,
-    units,
-    quotationRooms,
-    drawnUnits,
-    activeRoomIndex,
-    productionSettings,
-    setProductionSettings,
-  } = useVisualQuotationStore();
+  const { client, meta } = useQuotationMetaStore();
+  const { quotationRooms, activeRoomIndex } = useRoomStore();
+  const { drawnUnits } = useDesignCanvasStore();
+  const { productionSettings, setProductionSettings, units } = usePricingStore();
 
   const shutterLaminateCode = units[0]?.finish?.shutterLaminateCode;
   const loftLaminateCode = units[0]?.finish?.loftLaminateCode;

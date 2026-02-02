@@ -15,7 +15,7 @@ export interface Panel {
   w?: number;
   h?: number;
   laminateCode?: string;
-  gaddi?: boolean;
+  gaddi?: boolean; // GADDI = Panel has cavity/groove cut
   woodGrainsEnabled?: boolean;
   displayW?: number;
   displayH?: number;
@@ -34,7 +34,7 @@ export interface OptimizerPart {
   h: number;         // actual height for placement
   qty: number;       // quantity (always 1 after expansion)
   rotate: boolean;   // can optimizer rotate this part?
-  gaddi: boolean;    // GADDI marking flag
+  gaddi: boolean;    // GADDI = Panel has cavity/groove cut
   laminateCode: string;
   woodGrainsEnabled?: boolean; // Per-laminate wood grain setting
   panelType?: string;         // Panel type (TOP, BOTTOM, LEFT, RIGHT, BACK, SHUTTER)
@@ -82,7 +82,7 @@ export interface PlacedPart {
   h: number;
   rotated: boolean;
   rotateAllowed: boolean;
-  gaddi: boolean;
+  gaddi: boolean; // GADDI = Panel has cavity/groove cut
   laminateCode: string;
   nomW: number;
   nomH: number;

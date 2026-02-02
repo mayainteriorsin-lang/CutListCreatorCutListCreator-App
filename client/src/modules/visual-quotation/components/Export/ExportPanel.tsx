@@ -2,10 +2,10 @@ import React from "react";
 import { FileText, FileSpreadsheet, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { useVisualQuotationStore } from "../../store/visualQuotationStore";
+import { useQuotationMetaStore } from "../../store/v2/useQuotationMetaStore";
 
 const ExportPanel: React.FC = () => {
-  const { status } = useVisualQuotationStore();
+  const { status } = useQuotationMetaStore();
 
   const exportPdf = () => {
     alert("PDF export hook. Connect pdfmake / react-pdf later.");

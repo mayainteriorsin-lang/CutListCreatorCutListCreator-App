@@ -2,13 +2,20 @@ import React from "react";
 import { IndianRupee, TrendingUp } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { useVisualQuotationStore } from "../../store/visualQuotationStore";
-import { calculatePricing } from "../../engine/pricingEngine";
+import { useServices } from "../../services/useServices";
 
 const PriceSummary: React.FC = () => {
-  const { drawnUnits, sqftRate } = useVisualQuotationStore();
-  const validUnits = drawnUnits.filter(u => u.widthMm > 0 && u.heightMm > 0);
-  const price = calculatePricing(validUnits, sqftRate);
+  const { pricingService } = useServices();
+
+  // Calculate pricing using the service
+  const price = pricingService.calculateCurrentPricing() || {
+    total: 0,
+    subtotal: 0,
+    gst: 0,
+    totalSqft: 0,
+    units: [],
+    breakdown: {}
+  };
 
   return (
     <Card className="border-slate-200 shadow-sm overflow-hidden">

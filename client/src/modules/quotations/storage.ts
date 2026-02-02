@@ -4,6 +4,7 @@ import type { Quotation, PaymentEntry, QuotationStatus } from './types';
 import { generateUUID } from '@/lib/uuid';
 
 const STORAGE_KEY = 'quotations:data';
+const QUICK_QUOTE_KEY = 'mayaClients';
 const UPDATE_EVENT = 'quotations:update';
 
 function isBrowser(): boolean {
@@ -27,8 +28,130 @@ export function subscribeQuotationUpdates(callback: () => void): () => void {
   return () => window.removeEventListener(UPDATE_EVENT, callback);
 }
 
-// Read all quotations
-export function readQuotations(): Quotation[] {
+// ====== Quick Quote Bridge ======
+
+// Parse ₹-prefixed string like "₹1,50,000" to number
+function parseRupeeString(value: unknown): number {
+  if (typeof value === 'number') return value;
+  if (typeof value !== 'string') return 0;
+  const cleaned = value.replace(/[₹,\s]/g, '');
+  const num = Number(cleaned);
+  return Number.isFinite(num) ? num : 0;
+}
+
+// Read Quick Quote entries from mayaClients localStorage and convert to Quotation format
+function readQuickQuoteEntries(): Quotation[] {
+  if (!isBrowser()) return [];
+  try {
+    const raw = localStorage.getItem(QUICK_QUOTE_KEY);
+    if (!raw) return [];
+    const clients = JSON.parse(raw);
+    if (typeof clients !== 'object' || clients === null || Array.isArray(clients)) return [];
+
+    const entries: Quotation[] = [];
+
+    for (const [quoteNumber, data] of Object.entries(clients)) {
+      if (!data || typeof data !== 'object') continue;
+      const d = data as Record<string, unknown>;
+
+      const mainTotal = Number(d.mainTotal) || 0;
+      const additionalTotal = Number(d.additionalTotal) || 0;
+      const subtotal = mainTotal + additionalTotal;
+
+      // Parse discount
+      let discountPercent = 0;
+      let discountFlat = 0;
+      const discountValue = Number(d.discountValue) || 0;
+      if (d.discountType === 'percent') {
+        discountPercent = discountValue;
+      } else {
+        discountFlat = discountValue;
+      }
+
+      // Calculate final total (with GST if enabled)
+      const afterDiscount = subtotal - (discountPercent > 0 ? subtotal * discountPercent / 100 : discountFlat);
+      const gstEnabled = d.gstEnabled === true;
+      const gstRate = Number(d.gstRate) || 18;
+      const gst = gstEnabled ? afterDiscount * gstRate / 100 : 0;
+      const finalTotal = Math.round(afterDiscount + gst);
+
+      // Payment
+      const paidAmount = Number(d.paidAmount) || 0;
+      const payments: PaymentEntry[] = paidAmount > 0
+        ? [{ id: `qq-pay-${quoteNumber}`, amount: paidAmount, date: String(d.quoteDate || ''), note: 'Quick Quote payment' }]
+        : [];
+      const totalPaid = paidAmount;
+
+      // Build notes from GST info
+      const notes = gstEnabled ? `GST ${gstRate}% applied` : '';
+
+      // Parse date and generate validity
+      const dateStr = String(d.quoteDate || new Date().toISOString().split('T')[0]);
+      const savedAt = String(d.savedAt || nowISO());
+
+      const validityDate = (() => {
+        try {
+          const dt = new Date(dateStr || savedAt);
+          dt.setDate(dt.getDate() + 15);
+          return dt.toISOString().split('T')[0];
+        } catch {
+          const dt = new Date();
+          dt.setDate(dt.getDate() + 15);
+          return dt.toISOString().split('T')[0];
+        }
+      })();
+
+      entries.push({
+        id: `qq-${quoteNumber}`,
+        clientName: String(d.clientName || ''),
+        clientMobile: String(d.clientContact || ''),
+        clientLocation: String(d.clientAddress || ''),
+        quotationNumber: quoteNumber,
+        date: dateStr,
+        validityDate,
+        status: 'DRAFT',
+        subtotal,
+        discountPercent,
+        discountFlat,
+        finalTotal,
+        payments,
+        totalPaid,
+        pendingAmount: finalTotal - totalPaid,
+        notes,
+        createdAt: savedAt,
+        updatedAt: savedAt,
+        source: 'quick-quote',
+      });
+    }
+
+    return entries;
+  } catch {
+    return [];
+  }
+}
+
+// Delete a Quick Quote entry from mayaClients localStorage
+export function deleteQuickQuoteEntry(quoteNumber: string): boolean {
+  if (!isBrowser()) return false;
+  try {
+    const raw = localStorage.getItem(QUICK_QUOTE_KEY);
+    if (!raw) return false;
+    const clients = JSON.parse(raw);
+    if (typeof clients !== 'object' || clients === null) return false;
+    if (!(quoteNumber in clients)) return false;
+    delete clients[quoteNumber];
+    localStorage.setItem(QUICK_QUOTE_KEY, JSON.stringify(clients));
+    notifyUpdate();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// ====== Core Storage Functions ======
+
+// Read native quotations only
+function readNativeQuotations(): Quotation[] {
   if (!isBrowser()) return [];
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -39,10 +162,34 @@ export function readQuotations(): Quotation[] {
   }
 }
 
-// Write all quotations
+// Read all quotations (native + Quick Quote merged)
+export function readQuotations(): Quotation[] {
+  const native = readNativeQuotations();
+  const quickQuote = readQuickQuoteEntries();
+
+  if (quickQuote.length === 0) return native;
+
+  // Deduplicate: if a native quotation has the same quotationNumber as a Quick Quote entry, keep native
+  const nativeNumbers = new Set(native.map(q => q.quotationNumber));
+  const uniqueQQ = quickQuote.filter(qq => !nativeNumbers.has(qq.quotationNumber));
+
+  // Merge and sort by createdAt descending
+  const merged = [...native, ...uniqueQQ];
+  merged.sort((a, b) => {
+    const dateA = new Date(a.createdAt || 0).getTime();
+    const dateB = new Date(b.createdAt || 0).getTime();
+    return dateB - dateA;
+  });
+
+  return merged;
+}
+
+// Write all quotations (only writes native entries)
 function writeQuotations(quotations: Quotation[]): void {
   if (!isBrowser()) return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(quotations));
+  // Only persist native quotations (not Quick Quote entries)
+  const native = quotations.filter(q => q.source !== 'quick-quote');
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(native));
   notifyUpdate();
 }
 
@@ -54,7 +201,7 @@ export function getQuotationById(id: string): Quotation | null {
 
 // Generate next quotation number
 export function generateQuotationNumber(): string {
-  const quotations = readQuotations();
+  const quotations = readNativeQuotations();
   const year = new Date().getFullYear();
   const count = quotations.filter(q => q.quotationNumber.includes(`Q-${year}`)).length + 1;
   return `Q-${year}-${String(count).padStart(3, '0')}`;
@@ -92,9 +239,10 @@ export function createQuotation(data: Partial<Quotation>): Quotation {
     notes: data.notes || '',
     createdAt: now,
     updatedAt: now,
+    source: 'native',
   };
 
-  const quotations = readQuotations();
+  const quotations = readNativeQuotations();
   quotations.unshift(quotation);
   writeQuotations(quotations);
 
@@ -103,7 +251,7 @@ export function createQuotation(data: Partial<Quotation>): Quotation {
 
 // Update quotation
 export function updateQuotation(id: string, updates: Partial<Quotation>): Quotation | null {
-  const quotations = readQuotations();
+  const quotations = readNativeQuotations();
   const index = quotations.findIndex(q => q.id === id);
   if (index < 0) return null;
 
@@ -136,9 +284,16 @@ export function updateQuotation(id: string, updates: Partial<Quotation>): Quotat
   return updated;
 }
 
-// Delete quotation
+// Delete quotation (handles both native and Quick Quote)
 export function deleteQuotation(id: string): boolean {
-  const quotations = readQuotations();
+  // Check if it's a Quick Quote entry
+  if (id.startsWith('qq-')) {
+    const quoteNumber = id.slice(3); // Remove 'qq-' prefix
+    return deleteQuickQuoteEntry(quoteNumber);
+  }
+
+  // Native quotation
+  const quotations = readNativeQuotations();
   const index = quotations.findIndex(q => q.id === id);
   if (index < 0) return false;
 

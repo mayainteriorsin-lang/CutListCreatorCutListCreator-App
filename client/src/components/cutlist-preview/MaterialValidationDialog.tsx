@@ -7,12 +7,9 @@ import {
   AlertDialogFooter,
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
+import type { PendingMaterialAction } from "@/pages/homePageTypes";
 
 // PATCH 18: Strict prop typing
-export interface PendingMaterialAction {
-  missingPanels: string[];
-}
-
 export interface MaterialValidationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;

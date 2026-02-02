@@ -7,6 +7,7 @@
  * WOOD GRAIN CRITICAL: grainDirection must be propagated to ensure
  * optimization algorithm respects rotation constraints.
  */
+import { logger } from "../services/logger";
 
 export interface Shutter {
   id: string;
@@ -71,20 +72,22 @@ export function generateShutters(params: {
   // Validate custom widths if provided
   if (customShutterWidthsMm) {
     if (customShutterWidthsMm.length !== sectionCount) {
-      console.warn(
-        `Custom shutter widths count (${customShutterWidthsMm.length}) doesn't match section count (${sectionCount})`
+      logger.warn(
+        `Custom shutter widths count (${customShutterWidthsMm.length}) doesn't match section count (${sectionCount})`,
+        { context: 'shutter-engine' }
       );
     }
 
     const totalCustomWidth = customShutterWidthsMm.reduce((sum, w) => sum + w, 0);
     if (totalCustomWidth > unitWidthMm) {
-      console.warn(
-        `Total custom shutter widths (${totalCustomWidth}mm) exceed cabinet width (${unitWidthMm}mm)`
+      logger.warn(
+        `Total custom shutter widths (${totalCustomWidth}mm) exceed cabinet width (${unitWidthMm}mm)`,
+        { context: 'shutter-engine' }
       );
     }
 
     if (customShutterWidthsMm.some(w => w <= 0)) {
-      console.warn('All custom shutter widths must be positive');
+      logger.warn('All custom shutter widths must be positive', { context: 'shutter-engine' });
     }
   }
 

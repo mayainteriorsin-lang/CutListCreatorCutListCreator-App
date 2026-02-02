@@ -34,4 +34,6 @@ export interface Quotation {
   // Metadata
   createdAt: string;
   updatedAt: string;
+  // Source tracking
+  source?: 'native' | 'quick-quote';
 }

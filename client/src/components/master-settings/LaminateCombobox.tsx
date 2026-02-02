@@ -25,6 +25,8 @@ import {
   Trash2,
   Search,
   Layers,
+  Upload,
+  ImageIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -48,7 +50,101 @@ import { toast } from "@/hooks/use-toast";
 
 // Constants
 const RECENT_STORAGE_KEY = "laminate_recent_codes";
+const LOCAL_STORAGE_CODES_KEY = "laminate_library_codes";
+const LOCAL_STORAGE_IMAGES_KEY = "laminate_library_images";
 const MAX_RECENT = 5;
+
+// Laminate image cache
+type LaminateImageMap = Record<string, string>;
+
+// Load codes from localStorage (same key as LaminateLibrary)
+function loadLocalCodes(): string[] {
+  try {
+    const stored = localStorage.getItem(LOCAL_STORAGE_CODES_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return Array.isArray(parsed) ? parsed : [];
+    }
+  } catch {
+    // Ignore parse errors
+  }
+  return [];
+}
+
+// Save codes to localStorage
+function saveLocalCodes(codes: string[]) {
+  try {
+    localStorage.setItem(LOCAL_STORAGE_CODES_KEY, JSON.stringify(codes));
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+// Load images from localStorage (same key as LaminateLibrary)
+function loadLocalImages(): LaminateImageMap {
+  try {
+    const stored = localStorage.getItem(LOCAL_STORAGE_IMAGES_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return typeof parsed === 'object' && parsed !== null ? parsed : {};
+    }
+  } catch {
+    // Ignore parse errors
+  }
+  return {};
+}
+
+// Fetch laminate images from server
+async function fetchLaminateImages(): Promise<LaminateImageMap> {
+  try {
+    const res = await fetch('/api/laminate-images');
+    if (!res.ok) return {};
+    const json = await res.json();
+    // API returns { ok: true, data: {...} } envelope
+    return json?.data ?? json ?? {};
+  } catch {
+    return {};
+  }
+}
+
+// Upload laminate image
+async function uploadLaminateImage(code: string, file: File): Promise<string | null> {
+  try {
+    // Convert file to base64
+    const base64 = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        // Remove data:mime;base64, prefix
+        const base64Data = result.split(',')[1];
+        resolve(base64Data);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+    const res = await fetch(`/api/laminate-image/${encodeURIComponent(code)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        mimeType: file.type,
+        base64,
+      }),
+    });
+
+    if (!res.ok) {
+      const errorJson = await res.json().catch(() => ({}));
+      throw new Error(errorJson?.error || errorJson?.message || 'Upload failed');
+    }
+
+    const json = await res.json();
+    // API returns { ok: true, data: { url: ... } } envelope
+    return json?.data?.url ?? json?.url ?? null;
+  } catch (error) {
+    console.error('Failed to upload laminate image:', error);
+    throw error;
+  }
+}
 
 export interface LaminateComboboxProps {
   value: string;
@@ -78,7 +174,11 @@ export function LaminateCombobox({
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [recentCodes, setRecentCodes] = useState<string[]>([]);
+  const [laminateImages, setLaminateImages] = useState<LaminateImageMap>(loadLocalImages);
+  const [localCodes, setLocalCodes] = useState<string[]>(loadLocalCodes);
+  const [uploadingCode, setUploadingCode] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: fetchedCodes } = useLaminateCodes();
   const createCode = useCreateLaminateCode();
@@ -86,13 +186,18 @@ export function LaminateCombobox({
   const removeLaminate = useGodownStore((state) => state.removeLaminate);
   const fetchMaterials = useGodownStore((state) => state.fetch);
 
-  // Use external codes if provided, otherwise use fetched codes
+  // Use external codes if provided, otherwise merge fetched codes + localStorage codes
   const laminateOptions = useMemo(() => {
     const safeExternalCodes = Array.isArray(externalCodes) ? externalCodes : [];
     const safeFetchedCodes = Array.isArray(fetchedCodes)
       ? fetchedCodes.map((c) => c.code)
       : [];
-    const codes = safeExternalCodes.length > 0 ? safeExternalCodes : safeFetchedCodes;
+    const safeLocalCodes = Array.isArray(localCodes) ? localCodes : [];
+
+    // Merge server + localStorage codes (localStorage fallback when server is down)
+    const codes = safeExternalCodes.length > 0
+      ? safeExternalCodes
+      : [...safeFetchedCodes, ...safeLocalCodes];
 
     // Deduplicate and sort
     const seen = new Set<string>();
@@ -107,7 +212,29 @@ export function LaminateCombobox({
     });
 
     return deduped.sort((a, b) => a.localeCompare(b));
-  }, [externalCodes, fetchedCodes]);
+  }, [externalCodes, fetchedCodes, localCodes]);
+
+  // Load laminate images on mount (merge server + localStorage)
+  useEffect(() => {
+    const localImages = loadLocalImages();
+    fetchLaminateImages().then((serverImages) => {
+      // Merge server images with local images (server takes priority)
+      setLaminateImages({ ...localImages, ...serverImages });
+    });
+  }, []);
+
+  // Refresh data when dropdown opens
+  useEffect(() => {
+    if (open) {
+      // Refresh localStorage codes (may have been added from Laminate Library)
+      setLocalCodes(loadLocalCodes());
+      setLaminateImages((prev) => ({ ...prev, ...loadLocalImages() }));
+
+      // Force refresh the materials when dropdown opens
+      fetchMaterials();
+      queryClient.invalidateQueries({ queryKey: ["laminate-code-godown"] });
+    }
+  }, [open, fetchMaterials, queryClient]);
 
   // Load recent codes from localStorage
   useEffect(() => {
@@ -164,6 +291,57 @@ export function LaminateCombobox({
     [woodGrainsPreferences]
   );
 
+  // Get thumbnail URL for a laminate code
+  const getThumbnail = useCallback(
+    (code: string) => {
+      return laminateImages[code] || null;
+    },
+    [laminateImages]
+  );
+
+  // Handle image upload for a laminate code
+  const handleImageUpload = useCallback(async (code: string, file: File) => {
+    setUploadingCode(code);
+    try {
+      const url = await uploadLaminateImage(code, file);
+      if (url) {
+        setLaminateImages((prev) => ({ ...prev, [code]: url }));
+        toast({
+          title: "Image Uploaded",
+          description: `Thumbnail for "${code}" has been saved.`,
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Upload Failed",
+        description: error instanceof Error ? error.message : "Failed to upload image.",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingCode(null);
+    }
+  }, []);
+
+  // Trigger file input for a specific code
+  const triggerUpload = useCallback((code: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setUploadingCode(code);
+    fileInputRef.current?.click();
+  }, []);
+
+  // Handle file selection
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && uploadingCode) {
+      handleImageUpload(uploadingCode, file);
+    }
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }, [uploadingCode, handleImageUpload]);
+
   // Handle code selection
   const handleSelect = (code: string) => {
     onChange(code);
@@ -177,26 +355,48 @@ export function LaminateCombobox({
     const trimmed = searchQuery.trim();
     if (!trimmed) return;
 
+    // Always save to localStorage first (offline support)
+    const currentLocal = loadLocalCodes();
+    if (!currentLocal.some((c) => c.toLowerCase() === trimmed.toLowerCase())) {
+      const updatedLocal = [...currentLocal, trimmed];
+      saveLocalCodes(updatedLocal);
+      setLocalCodes(updatedLocal);
+    }
+
     try {
       if (onCreate) {
         onCreate(trimmed);
+        onChange(trimmed);
+        addToRecent(trimmed);
       } else {
-        // API requires both code and name - use code as name if not provided
-        await createCode.mutateAsync({ code: trimmed, name: trimmed });
-        await fetchMaterials();
+        // Try to save to server (may fail if database is down)
+        try {
+          const result = await createCode.mutateAsync({ code: trimmed, name: trimmed });
+          // logger.info('✅ Laminate code created:', result);
+
+          // Force refresh materials to get the new code
+          await fetchMaterials();
+
+          // Also invalidate the react-query cache
+          queryClient.invalidateQueries({ queryKey: ["laminate-code-godown"] });
+        } catch (serverError) {
+          console.warn('⚠️ Server save failed, using localStorage:', serverError);
+          // Don't show error toast - localStorage save succeeded
+        }
+
+        toast({
+          title: "Code Added",
+          description: `"${trimmed}" has been added to your laminate codes.`,
+        });
+
+        onChange(trimmed);
+        addToRecent(trimmed);
       }
 
-      toast({
-        title: "Code Added",
-        description: `"${trimmed}" has been added to your laminate codes.`,
-      });
-
-      onChange(trimmed);
-      addToRecent(trimmed);
       setOpen(false);
       setSearchQuery("");
     } catch (error) {
-      console.error("Failed to create laminate code:", error);
+      console.error("❌ Failed to create laminate code:", error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to create laminate code. Please try again.",
@@ -211,6 +411,12 @@ export function LaminateCombobox({
     e.preventDefault();
 
     const target = code.toLowerCase();
+
+    // Remove from localStorage
+    const currentLocal = loadLocalCodes();
+    const updatedLocal = currentLocal.filter((c) => c.toLowerCase() !== target);
+    saveLocalCodes(updatedLocal);
+    setLocalCodes(updatedLocal);
 
     // Optimistic update for query cache
     queryClient.setQueryData(["godown", "laminates"], (prev: any) => {
@@ -323,163 +529,201 @@ export function LaminateCombobox({
     );
   };
 
+  // Render thumbnail preview
+  const ThumbnailPreview = ({ code, size = 'md' }: { code: string; size?: 'sm' | 'md' }) => {
+    const url = getThumbnail(code);
+    const sizeClass = size === 'sm' ? 'w-5 h-5' : 'w-6 h-6';
+
+    if (url) {
+      return (
+        <img
+          src={url}
+          alt={code}
+          className={cn(sizeClass, "rounded border border-slate-200 object-cover shrink-0")}
+        />
+      );
+    }
+
+    // Placeholder when no image
+    return (
+      <div className={cn(sizeClass, "rounded border border-dashed border-slate-300 flex items-center justify-center bg-slate-50 shrink-0")}>
+        <ImageIcon className="w-3 h-3 text-slate-400" />
+      </div>
+    );
+  };
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          aria-label="Select laminate code"
-          disabled={disabled}
-          className={cn(
-            "w-full justify-between h-10 font-normal",
-            !value && "text-muted-foreground",
-            hasWoodGrain(value) && "border-amber-300 bg-amber-50/30",
-            className
-          )}
-        >
-          <span className="flex items-center gap-2 truncate">
-            {value ? (
-              <>
-                <Palette className="h-4 w-4 shrink-0 text-indigo-600" />
-                <span className="truncate">{value}</span>
-                <WoodGrainBadge code={value} />
-              </>
-            ) : (
-              <>
-                <Palette className="h-4 w-4 shrink-0 opacity-50" />
-                <span>{placeholder}</span>
-              </>
-            )}
-          </span>
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
+    <>
+      {/* Hidden file input for image upload */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleFileSelect}
+      />
 
-      <PopoverContent className="w-[320px] p-0" align="start">
-        <Command shouldFilter={false}>
-          <div className="flex items-center border-b px-3">
-            <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
-            <input
-              ref={inputRef}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && isNewCode && searchQuery.trim()) {
-                  e.preventDefault();
-                  handleCreate();
-                }
-              }}
-              placeholder="Search or type to add..."
-              className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery("")}
-                className="p-1 hover:bg-slate-100 rounded"
-              >
-                <X className="h-3 w-3 opacity-50" />
-              </button>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            aria-label="Select laminate code"
+            disabled={disabled}
+            className={cn(
+              "w-full justify-between h-10 font-normal",
+              !value && "text-muted-foreground",
+              hasWoodGrain(value) && "border-amber-300 bg-amber-50/30",
+              className
             )}
-          </div>
+          >
+            <span className="flex items-center gap-2 truncate">
+              {value ? (
+                <>
+                  <ThumbnailPreview code={value} />
+                  <span className="truncate">{value}</span>
+                  <WoodGrainBadge code={value} />
+                </>
+              ) : (
+                <>
+                  <Palette className="h-4 w-4 shrink-0 opacity-50" />
+                  <span>{placeholder}</span>
+                </>
+              )}
+            </span>
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
 
-          <CommandList>
-            {/* Create New Option */}
-            {isNewCode && searchQuery.trim() && (
-              <>
-                <CommandGroup>
-                  <CommandItem onSelect={handleCreate} className="cursor-pointer">
-                    <Plus className="mr-2 h-4 w-4 text-green-600" />
-                    <span>Create </span>
-                    <Badge variant="secondary" className="ml-1 font-medium">
-                      {searchQuery.trim()}
-                    </Badge>
-                  </CommandItem>
-                </CommandGroup>
-                <CommandSeparator />
-              </>
-            )}
+        <PopoverContent className="w-[320px] p-0" align="start">
+          <Command shouldFilter={false}>
+            <div className="flex items-center border-b px-3">
+              <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+              <input
+                ref={inputRef}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && isNewCode && searchQuery.trim()) {
+                    e.preventDefault();
+                    handleCreate();
+                  }
+                }}
+                placeholder="Search or type to add..."
+                className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="p-1 hover:bg-slate-100 rounded"
+                >
+                  <X className="h-3 w-3 opacity-50" />
+                </button>
+              )}
+            </div>
 
-            {/* Recent Codes */}
-            {recentToShow.length > 0 && (
-              <>
-                <CommandGroup heading="Recent">
-                  {recentToShow.map((code) => (
+            <CommandList>
+              {/* Create New Option */}
+              {isNewCode && searchQuery.trim() && (
+                <>
+                  <CommandGroup>
+                    <CommandItem onSelect={handleCreate} className="cursor-pointer">
+                      <Plus className="mr-2 h-4 w-4 text-green-600" />
+                      <span>Create </span>
+                      <Badge variant="secondary" className="ml-1 font-medium">
+                        {searchQuery.trim()}
+                      </Badge>
+                    </CommandItem>
+                  </CommandGroup>
+                  <CommandSeparator />
+                </>
+              )}
+
+              {/* Recent Codes */}
+              {recentToShow.length > 0 && (
+                <>
+                  <CommandGroup heading="Recent">
+                    {recentToShow.map((code) => (
+                      <CommandItem
+                        key={`recent-${code}`}
+                        value={code}
+                        onSelect={() => handleSelect(code)}
+                        className="cursor-pointer group"
+                      >
+                        <ThumbnailPreview code={code} size="sm" />
+                        <span className="flex-1 ml-2">{code}</span>
+                        <WoodGrainBadge code={code} />
+                        {value?.toLowerCase() === code.toLowerCase() && (
+                          <Check className="h-4 w-4 text-green-600 ml-2" />
+                        )}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                  <CommandSeparator />
+                </>
+              )}
+
+              {/* All Codes */}
+              <CommandGroup heading={searchQuery ? "Results" : "All Codes"}>
+                {filteredOptions.length === 0 && !isNewCode ? (
+                  <CommandEmpty>
+                    <div className="py-4 text-center">
+                      <Palette className="mx-auto h-8 w-8 text-slate-300 mb-2" />
+                      <p className="text-sm text-slate-500">No codes found</p>
+                      <p className="text-xs text-slate-400 mt-1">Type to add a new code</p>
+                    </div>
+                  </CommandEmpty>
+                ) : (
+                  filteredOptions.map((code) => (
                     <CommandItem
-                      key={`recent-${code}`}
+                      key={code}
                       value={code}
                       onSelect={() => handleSelect(code)}
                       className="cursor-pointer group"
                     >
-                      <Clock className="mr-2 h-4 w-4 text-slate-400" />
-                      <span className="flex-1">{code}</span>
+                      <ThumbnailPreview code={code} size="sm" />
+                      <span className="flex-1 ml-2">{code}</span>
                       <WoodGrainBadge code={code} />
                       {value?.toLowerCase() === code.toLowerCase() && (
-                        <Check className="h-4 w-4 text-green-600 ml-2" />
+                        <Check className="h-4 w-4 text-green-600 mr-2" />
                       )}
+                      {/* Upload button - show on hover */}
+                      <button
+                        onClick={(e) => triggerUpload(code, e)}
+                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-indigo-100 rounded transition-opacity"
+                        aria-label={`Upload image for ${code}`}
+                        title="Upload thumbnail"
+                      >
+                        <Upload className="h-3 w-3 text-indigo-500" />
+                      </button>
+                      <button
+                        onClick={(e) => handleDelete(code, e)}
+                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 rounded transition-opacity"
+                        aria-label={`Delete ${code}`}
+                      >
+                        <Trash2 className="h-3 w-3 text-red-500" />
+                      </button>
                     </CommandItem>
-                  ))}
-                </CommandGroup>
-                <CommandSeparator />
-              </>
-            )}
+                  ))
+                )}
+              </CommandGroup>
+            </CommandList>
 
-            {/* All Codes */}
-            <CommandGroup heading={searchQuery ? "Results" : "All Codes"}>
-              {filteredOptions.length === 0 && !isNewCode ? (
-                <CommandEmpty>
-                  <div className="py-4 text-center">
-                    <Palette className="mx-auto h-8 w-8 text-slate-300 mb-2" />
-                    <p className="text-sm text-slate-500">No codes found</p>
-                    <p className="text-xs text-slate-400 mt-1">Type to add a new code</p>
-                  </div>
-                </CommandEmpty>
-              ) : (
-                filteredOptions.map((code) => (
-                  <CommandItem
-                    key={code}
-                    value={code}
-                    onSelect={() => handleSelect(code)}
-                    className="cursor-pointer group"
-                  >
-                    <Palette
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        hasWoodGrain(code) ? "text-amber-500" : "text-indigo-500"
-                      )}
-                    />
-                    <span className="flex-1">{code}</span>
-                    <WoodGrainBadge code={code} />
-                    {value?.toLowerCase() === code.toLowerCase() && (
-                      <Check className="h-4 w-4 text-green-600 mr-2" />
-                    )}
-                    <button
-                      onClick={(e) => handleDelete(code, e)}
-                      className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 rounded transition-opacity"
-                      aria-label={`Delete ${code}`}
-                    >
-                      <Trash2 className="h-3 w-3 text-red-500" />
-                    </button>
-                  </CommandItem>
-                ))
-              )}
-            </CommandGroup>
-          </CommandList>
-
-          {/* Footer hint */}
-          <div className="border-t px-3 py-2 text-[10px] text-slate-400 flex items-center justify-between">
-            <span>Press Enter to create new</span>
-            <span className="flex items-center gap-1">
-              <kbd className="px-1.5 py-0.5 bg-slate-100 rounded text-[10px]">↑↓</kbd>
-              navigate
-              <kbd className="px-1.5 py-0.5 bg-slate-100 rounded text-[10px] ml-2">⏎</kbd>
-              select
-            </span>
-          </div>
-        </Command>
-      </PopoverContent>
-    </Popover>
+            {/* Footer hint */}
+            <div className="border-t px-3 py-2 text-[10px] text-slate-400 flex items-center justify-between">
+              <span>Press Enter to create new</span>
+              <span className="flex items-center gap-1">
+                <kbd className="px-1.5 py-0.5 bg-slate-100 rounded text-[10px]">↑↓</kbd>
+                navigate
+                <kbd className="px-1.5 py-0.5 bg-slate-100 rounded text-[10px] ml-2">⏎</kbd>
+                select
+              </span>
+            </div>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    </>
   );
 }
 

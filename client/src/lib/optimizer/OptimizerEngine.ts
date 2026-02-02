@@ -1,7 +1,7 @@
 import { preparePartsForOptimizer } from "./preparePartsForOptimizer";
 import { multiPassOptimize } from "./multiPassOptimize";
 import { computeDisplayDims } from "./computeDisplayDims";
-import { optimizeCutlist } from "@/lib/cutlist-optimizer";
+import { optimizeCutlistGenetic } from "../genetic-guillotine-optimizer";
 // PATCH 48: Performance monitoring
 import { perfStart, perfEnd } from "@/lib/perf";
 // PATCH 49: Production-safe logger
@@ -273,7 +273,15 @@ export async function runOptimizerInternal({
       }));
 
       const combinedParts = [...existingPanels, ...manualParts];
-      const combinedResult = optimizeCutlist({ parts: combinedParts, sheet: { w: currentSheetWidth, h: currentSheetHeight, kerf: currentKerf }, timeMs: 500 });
+
+      // FIX: Use Genetic Algorithm for manual panels to maintain guillotine constraints
+      // Increased time marginally to allow convergence
+      const combinedResult = optimizeCutlistGenetic({
+        parts: combinedParts,
+        sheet: { w: currentSheetWidth, h: currentSheetHeight, kerf: currentKerf },
+        timeMs: 1000,
+        populationSize: 50 // Smaller population for speed
+      });
 
       if (combinedResult?.panels && combinedResult.panels.length === 1) {
         combinedResult.panels[0]._sheetId = targetSheetId;

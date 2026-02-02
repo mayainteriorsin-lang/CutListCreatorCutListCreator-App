@@ -1,289 +1,299 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import AppLayout from "@/components/layout/AppLayout";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { EMPTY_HOME_SUMMARY, type HomeSummary } from "@/application/home/home.contract";
+import { getHomeSummary } from "@/application/home/home.service";
 import {
-  Package,
-  Settings,
-  Palette,
-  Table2,
-  FileText,
-  Users,
-  ArrowRight,
+  Plus,
+  Search,
+  Clock,
+  FolderOpen,
   TrendingUp,
+  Users,
+  Package,
+  FileText,
+  Settings,
+  Home,
+  ChevronLeft,
+  ChevronRight,
   Layers,
-  CheckCircle2,
+  PenTool,
+  Box,
+  Image,
+  Table2,
+  Palette,
+  Factory,
+  CreditCard,
+  Zap,
+  BookOpen,
 } from "lucide-react";
 
-export default function DashboardPage() {
+type HomePageProps = {
+  summary?: HomeSummary;
+};
+
+export default function HomePage({ summary }: HomePageProps) {
   const navigate = useNavigate();
-  const [stats, setStats] = useState({
-    cabinets: 0,
-    panels: 0,
-    quotations: 0,
-  });
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
+  const [stats, setStats] = useState<HomeSummary>(summary ?? EMPTY_HOME_SUMMARY);
 
-  // Load stats from localStorage
+  // Load stats from application service (read-only summary)
   useEffect(() => {
-    try {
-      // Count cabinets from autosave
-      const autosave = localStorage.getItem("cutlist_autosave_v1");
-      if (autosave) {
-        const data = JSON.parse(autosave);
-        setStats((prev) => ({
-          ...prev,
-          cabinets: data.cabinets?.length || 0,
-        }));
-      }
-
-      // Count panels from spreadsheet
-      const spreadsheet = localStorage.getItem("cutlist_spreadsheet_v1");
-      if (spreadsheet) {
-        const data = JSON.parse(spreadsheet);
-        setStats((prev) => ({
-          ...prev,
-          panels: Array.isArray(data) ? data.length : 0,
-        }));
-      }
-
-      // Count quotations
-      const quotations = localStorage.getItem("quotations_v1");
-      if (quotations) {
-        const data = JSON.parse(quotations);
-        setStats((prev) => ({
-          ...prev,
-          quotations: Array.isArray(data) ? data.length : 0,
-        }));
-      }
-    } catch (err) {
-      console.error("Error loading stats:", err);
+    if (summary) {
+      setStats(summary);
+      return;
     }
-  }, []);
 
-  const quickActions = [
+    setStats(getHomeSummary());
+  }, [summary]);
+
+  const formatCurrency = (amount: number) => {
+    if (amount >= 100000) return `${(amount / 100000).toFixed(1)}L`;
+    if (amount >= 1000) return `${(amount / 1000).toFixed(0)}K`;
+    return amount.toLocaleString("en-IN");
+  };
+
+  // Main app pages - large icons
+  const mainPages = [
     {
-      title: "Cabinet Builder",
-      description: "Create cutting lists for cabinets",
-      icon: <Package className="w-6 h-6" />,
-      gradient: "from-amber-500 to-orange-500",
-      shadow: "shadow-amber-500/25",
+      path: "/2d-quotation",
+      label: "2D Quotation",
+      description: "Visual room design",
+      icon: <PenTool className="w-8 h-8" />,
+      gradient: "from-emerald-500 to-teal-500",
+      shadow: "shadow-emerald-500/30",
+    },
+    {
+      path: "/3d-quotation",
+      label: "3D Quotation",
+      description: "3D room view",
+      icon: <Box className="w-8 h-8" />,
+      gradient: "from-violet-500 to-purple-500",
+      shadow: "shadow-violet-500/30",
+    },
+    {
       path: "/cabinets",
+      label: "Cabinets",
+      description: "Cut list builder",
+      icon: <Package className="w-8 h-8" />,
+      gradient: "from-amber-500 to-orange-500",
+      shadow: "shadow-amber-500/30",
     },
     {
-      title: "Visual Quotation",
-      description: "Design rooms with advanced tools",
-      icon: <i className="fas fa-drafting-compass text-xl"></i>,
-      gradient: "from-emerald-500 to-teal-500",
-      shadow: "shadow-emerald-500/25",
-      path: "/visual-quotation",
+      path: "/client-info",
+      label: "Client Info",
+      description: "Manage quotes",
+      icon: <FileText className="w-8 h-8" />,
+      gradient: "from-cyan-500 to-blue-500",
+      shadow: "shadow-cyan-500/30",
     },
     {
-      title: "Spreadsheet",
-      description: "Edit panel data directly",
-      icon: <Table2 className="w-6 h-6" />,
-      gradient: "from-emerald-500 to-teal-500",
-      shadow: "shadow-emerald-500/25",
-      path: "/spreadsheet",
+      path: "/quick-quotation",
+      label: "Quick Quote",
+      description: "Fast quotation",
+      icon: <Zap className="w-8 h-8" />,
+      gradient: "from-amber-500 to-yellow-500",
+      shadow: "shadow-amber-500/30",
     },
     {
-      title: "Design Center",
-      description: "Visual cabinet designer",
-      icon: <Palette className="w-6 h-6" />,
-      gradient: "from-purple-500 to-pink-500",
-      shadow: "shadow-purple-500/25",
       path: "/design",
+      label: "Design Center",
+      description: "Visual designer",
+      icon: <Palette className="w-8 h-8" />,
+      gradient: "from-pink-500 to-rose-500",
+      shadow: "shadow-pink-500/30",
+    },
+    {
+      path: "/library",
+      label: "Library",
+      description: "Module templates",
+      icon: <BookOpen className="w-8 h-8" />,
+      gradient: "from-indigo-500 to-blue-600",
+      shadow: "shadow-indigo-500/30",
+    },
+    {
+      path: "/spreadsheet",
+      label: "Spreadsheet",
+      description: "Panel data",
+      icon: <Table2 className="w-8 h-8" />,
+      gradient: "from-green-500 to-emerald-500",
+      shadow: "shadow-green-500/30",
+    },
+    {
+      path: "/2d-quotation/production",
+      label: "Production",
+      description: "Manufacturing view",
+      icon: <Factory className="w-8 h-8" />,
+      gradient: "from-slate-500 to-slate-700",
+      shadow: "shadow-slate-500/30",
+    },
+    {
+      path: "/crm",
+      label: "CRM",
+      description: "Client management",
+      icon: <Users className="w-8 h-8" />,
+      gradient: "from-rose-500 to-red-500",
+      shadow: "shadow-rose-500/30",
+    },
+    {
+      path: "/rate-cards",
+      label: "Rate Cards",
+      description: "Pricing configs",
+      icon: <CreditCard className="w-8 h-8" />,
+      gradient: "from-blue-500 to-indigo-600",
+      shadow: "shadow-blue-500/30",
+    },
+    {
+      path: "/settings",
+      label: "Settings",
+      description: "Configuration",
+      icon: <Settings className="w-8 h-8" />,
+      gradient: "from-gray-500 to-gray-700",
+      shadow: "shadow-gray-500/30",
     },
   ];
 
-  const businessTools = [
-    {
-      title: "Quotations",
-      description: "Manage client quotations",
-      icon: <FileText className="w-5 h-5" />,
-      gradient: "from-cyan-500 to-blue-500",
-      path: "/quotations",
-      count: stats.quotations,
-    },
-    {
-      title: "CRM",
-      description: "Customer relationships",
-      icon: <Users className="w-5 h-5" />,
-      gradient: "from-rose-500 to-red-500",
-      path: "/crm",
-    },
+  const sidebarNav = [
+    { path: "/", label: "Home", icon: <Home className="w-5 h-5" />, gradient: "from-blue-500 to-indigo-500" },
+    { path: "/2d-quotation", label: "2D Design", icon: <PenTool className="w-5 h-5" />, gradient: "from-emerald-500 to-teal-500" },
+    { path: "/cabinets", label: "Cabinets", icon: <Package className="w-5 h-5" />, gradient: "from-amber-500 to-orange-500" },
+    { path: "/settings", label: "Settings", icon: <Settings className="w-5 h-5" />, gradient: "from-slate-500 to-slate-600" },
   ];
 
   return (
-    <AppLayout>
-      <div className="max-w-6xl mx-auto space-y-8">
-        {/* Welcome Section */}
-        <div className="text-center py-6">
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">
-            Welcome to CutList Pro
-          </h1>
-          <p className="text-slate-500 max-w-xl mx-auto">
-            Your complete solution for cabinet cutting lists, visual quotations,
-            and customer management.
-          </p>
+    <div className="h-screen flex overflow-hidden bg-gradient-to-br from-slate-50 via-white to-blue-50/30">
+      {/* Sidebar */}
+      <aside className={cn(
+        "flex-shrink-0 bg-white/80 backdrop-blur-xl border-r border-slate-200/60 flex flex-col transition-all duration-300",
+        sidebarCollapsed ? "w-16" : "w-48"
+      )}>
+        {/* Logo */}
+        <div className="h-14 flex items-center px-3 border-b border-slate-100">
+          <div className="flex items-center gap-2">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/25 flex-shrink-0">
+              <Layers className="w-5 h-5 text-white" />
+            </div>
+            {!sidebarCollapsed && (
+              <h1 className="text-sm font-bold text-slate-900 whitespace-nowrap">Design Studio</h1>
+            )}
+          </div>
         </div>
 
-        {/* Stats Row */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white/70 backdrop-blur-sm border border-slate-200/60 rounded-2xl p-5">
-            <div className="flex items-center gap-4">
+        {/* Navigation */}
+        <nav className="flex-1 p-2 space-y-1">
+          {sidebarNav.map((item) => (
+            <button
+              key={item.path}
+              onClick={() => navigate(item.path)}
+              className={cn(
+                "w-full flex items-center gap-2 px-3 py-2.5 rounded-xl transition-all text-sm",
+                location.pathname === item.path || (item.path === "/" && location.pathname === "/home")
+                  ? `bg-gradient-to-r ${item.gradient} text-white shadow-md`
+                  : "text-slate-600 hover:bg-slate-100"
+              )}
+            >
+              <span className="flex-shrink-0">{item.icon}</span>
+              {!sidebarCollapsed && <span className="font-medium">{item.label}</span>}
+            </button>
+          ))}
+        </nav>
+
+        {/* Collapse Toggle */}
+        <button
+          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+          className="m-2 p-2 rounded-lg bg-slate-100 hover:bg-slate-200 transition-colors flex items-center justify-center"
+        >
+          {sidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+        </button>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Header */}
+        <header className="flex-shrink-0 h-14 bg-white/80 backdrop-blur-md border-b border-slate-200/60 px-6 flex items-center justify-between">
+          <h1 className="text-xl font-bold text-slate-900">Dashboard</h1>
+          <button
+            onClick={() => navigate("/2d-quotation")}
+            className="h-9 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-sm font-medium rounded-xl shadow-lg shadow-blue-500/25 flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            New Project
+          </button>
+        </header>
+
+        {/* Content */}
+        <div className="flex-1 p-6 flex flex-col gap-5 overflow-hidden">
+          {/* Stats Row */}
+          <div className="flex-shrink-0 grid grid-cols-4 gap-4">
+            <div className="bg-white/70 backdrop-blur-sm border border-slate-200/60 rounded-2xl p-4 flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/25">
+                <FolderOpen className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-slate-800">{stats.totalProjects}</p>
+                <p className="text-xs text-slate-500">Projects</p>
+              </div>
+            </div>
+
+            <div className="bg-white/70 backdrop-blur-sm border border-slate-200/60 rounded-2xl p-4 flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-500/25">
-                <Package className="w-6 h-6 text-white" />
+                <Clock className="w-6 h-6 text-white" />
               </div>
               <div>
-                <p className="text-3xl font-bold text-slate-800">{stats.cabinets}</p>
-                <p className="text-sm text-slate-500">Cabinets</p>
+                <p className="text-2xl font-bold text-slate-800">{stats.pendingQuotes}</p>
+                <p className="text-xs text-slate-500">Pending</p>
               </div>
             </div>
-          </div>
 
-          <div className="bg-white/70 backdrop-blur-sm border border-slate-200/60 rounded-2xl p-5">
-            <div className="flex items-center gap-4">
+            <div className="bg-white/70 backdrop-blur-sm border border-slate-200/60 rounded-2xl p-4 flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg shadow-emerald-500/25">
-                <Layers className="w-6 h-6 text-white" />
+                <TrendingUp className="w-6 h-6 text-white" />
               </div>
               <div>
-                <p className="text-3xl font-bold text-slate-800">{stats.panels}</p>
-                <p className="text-sm text-slate-500">Panels</p>
+                <p className="text-2xl font-bold text-slate-800">
+                  <span className="text-base">₹</span>{formatCurrency(stats.thisMonthRevenue)}
+                </p>
+                <p className="text-xs text-slate-500">Revenue</p>
+              </div>
+            </div>
+
+            <div className="bg-white/70 backdrop-blur-sm border border-slate-200/60 rounded-2xl p-4 flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-purple-500/25">
+                <Users className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-slate-800">{stats.activeClients}</p>
+                <p className="text-xs text-slate-500">Clients</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white/70 backdrop-blur-sm border border-slate-200/60 rounded-2xl p-5">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center shadow-lg shadow-cyan-500/25">
-                <FileText className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <p className="text-3xl font-bold text-slate-800">{stats.quotations}</p>
-                <p className="text-sm text-slate-500">Quotations</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Quick Actions */}
-        <div>
-          <h2 className="text-lg font-semibold text-slate-800 mb-4">Quick Actions</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {quickActions.map((action) => (
-              <button
-                key={action.path}
-                onClick={() => navigate(action.path)}
-                className="group bg-white/70 backdrop-blur-sm border border-slate-200/60 rounded-2xl p-5 hover:shadow-xl hover:shadow-slate-200/50 transition-all text-left"
-              >
-                <div
-                  className={`w-12 h-12 rounded-xl bg-gradient-to-br ${action.gradient} flex items-center justify-center shadow-lg ${action.shadow} mb-4 group-hover:scale-110 transition-transform`}
+          {/* Quick Access - All Pages Grid */}
+          <div className="flex-1 flex flex-col min-h-0">
+            <h2 className="text-lg font-semibold text-slate-800 mb-4">Quick Access</h2>
+            <div className="grid grid-cols-4 xl:grid-cols-6 gap-3">
+              {mainPages.map((page) => (
+                <button
+                  key={page.path}
+                  onClick={() => navigate(page.path)}
+                  className="group bg-white/70 backdrop-blur-sm border border-slate-200/60 rounded-xl p-3 hover:shadow-xl hover:shadow-slate-200/50 transition-all text-left flex flex-col items-center"
                 >
-                  <span className="text-white">{action.icon}</span>
-                </div>
-                <h3 className="font-semibold text-slate-800 mb-1 group-hover:text-blue-600 transition-colors">
-                  {action.title}
-                </h3>
-                <p className="text-sm text-slate-500">{action.description}</p>
-                <div className="mt-3 flex items-center text-sm text-slate-400 group-hover:text-blue-500 transition-colors">
-                  <span>Open</span>
-                  <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Business Tools */}
-        <div>
-          <h2 className="text-lg font-semibold text-slate-800 mb-4">Business Tools</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {businessTools.map((tool) => (
-              <button
-                key={tool.path}
-                onClick={() => navigate(tool.path)}
-                className="group bg-white/70 backdrop-blur-sm border border-slate-200/60 rounded-2xl p-5 hover:shadow-xl hover:shadow-slate-200/50 transition-all"
-              >
-                <div className="flex items-center gap-4">
-                  <div
-                    className={`w-10 h-10 rounded-lg bg-gradient-to-br ${tool.gradient} flex items-center justify-center shadow-lg`}
-                  >
-                    <span className="text-white">{tool.icon}</span>
+                  <div className={cn(
+                    "w-12 h-12 rounded-xl bg-gradient-to-br flex items-center justify-center shadow-lg mb-2 group-hover:scale-110 transition-transform",
+                    page.gradient, page.shadow
+                  )}>
+                    <span className="text-white [&>svg]:w-6 [&>svg]:h-6">{page.icon}</span>
                   </div>
-                  <div className="flex-1 text-left">
-                    <h3 className="font-semibold text-slate-800 group-hover:text-blue-600 transition-colors">
-                      {tool.title}
-                    </h3>
-                    <p className="text-sm text-slate-500">{tool.description}</p>
-                  </div>
-                  {tool.count !== undefined && tool.count > 0 && (
-                    <span className="px-3 py-1 bg-slate-100 rounded-full text-sm font-medium text-slate-600">
-                      {tool.count}
-                    </span>
-                  )}
-                  <ArrowRight className="w-5 h-5 text-slate-400 group-hover:text-blue-500 group-hover:translate-x-1 transition-all" />
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Settings Card */}
-        <Card className="bg-gradient-to-r from-slate-50 to-slate-100/50 border-slate-200/50 rounded-2xl">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-slate-500 to-slate-600 flex items-center justify-center">
-                  <Settings className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-slate-800">Master Settings</h3>
-                  <p className="text-sm text-slate-500">
-                    Configure default materials, sheet sizes, and optimization
-                  </p>
-                </div>
-              </div>
-              <Button
-                variant="outline"
-                onClick={() => navigate("/settings")}
-                className="border-slate-300"
-              >
-                <Settings className="w-4 h-4 mr-2" />
-                Open Settings
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Tips */}
-        <div className="bg-gradient-to-r from-blue-50/50 to-indigo-50/50 border border-blue-100/50 rounded-2xl p-6">
-          <h3 className="font-semibold text-blue-800 mb-3 flex items-center gap-2">
-            <i className="fas fa-lightbulb text-blue-500"></i>
-            Quick Tips
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-blue-700">
-            <div className="flex items-start gap-2">
-              <CheckCircle2 className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
-              <span>
-                Use <strong>Cabinet Builder</strong> for standard cabinet cutting lists
-              </span>
-            </div>
-            <div className="flex items-start gap-2">
-              <CheckCircle2 className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
-              <span>
-                Use <strong>Visual Quotation</strong> for complex room layouts
-              </span>
-            </div>
-            <div className="flex items-start gap-2">
-              <CheckCircle2 className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
-              <span>
-                Configure <strong>Settings</strong> to set default materials
-              </span>
+                  <h3 className="font-semibold text-slate-800 text-xs text-center group-hover:text-blue-600 transition-colors">
+                    {page.label}
+                  </h3>
+                  <p className="text-[10px] text-slate-500 text-center mt-0.5">{page.description}</p>
+                </button>
+              ))}
             </div>
           </div>
         </div>
-      </div>
-    </AppLayout>
+      </main>
+    </div>
   );
 }

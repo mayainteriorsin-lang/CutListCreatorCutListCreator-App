@@ -1,4 +1,7 @@
-import type { DrawnUnit, ProductionSettings, QuotationRoom } from "../store/visualQuotationStore";
+import type { DrawnUnit, ProductionSettings, QuotationRoom } from "../types";
+import { UNIT_TYPE_LABELS } from "../constants";
+import { generateModuleCutlistPanels, type ModuleCutlistPanel } from "@/modules/design/engine/panelGenerator";
+import type { ModuleConfig } from "@/modules/design/engine/shapeGenerator";
 
 export type ProductionPanelType = "SHUTTER" | "LOFT" | "KITCHEN_BASE" | "KITCHEN_WALL";
 
@@ -19,22 +22,6 @@ export interface ProductionPanelItem {
   laminateCode?: string;
   grainDirection: boolean;
 }
-
-const UNIT_TYPE_LABELS: Record<string, string> = {
-  wardrobe: "Wardrobe",
-  kitchen: "Kitchen",
-  tv_unit: "TV Unit",
-  dresser: "Dresser",
-  study_table: "Study Table",
-  shoe_rack: "Shoe Rack",
-  book_shelf: "Book Shelf",
-  crockery_unit: "Crockery Unit",
-  pooja_unit: "Pooja Unit",
-  vanity: "Vanity",
-  bar_unit: "Bar Unit",
-  display_unit: "Display Unit",
-  other: "Other",
-};
 
 function roundToStep(valueMm: number, stepMm: number): number {
   if (!Number.isFinite(valueMm)) return 0;
@@ -60,6 +47,7 @@ export function formatMm(valueMm: number, roundingMm: number): string {
   return fixed.replace(/\.0+$/, "");
 }
 
+// Unified edge builder - same logic for all panel types
 function buildEdges(
   start: number,
   size: number,
@@ -68,16 +56,196 @@ function buildEdges(
 ): number[] {
   const edges: number[] = [start];
   const safeCount = Math.max(1, count || 1);
-  const sortedDividers = (dividers || []).slice().sort((a, b) => a - b);
-  if (sortedDividers.length > 0) {
-    edges.push(...sortedDividers);
-  } else if (safeCount > 1) {
-    for (let i = 1; i < safeCount; i += 1) {
-      edges.push(start + (size / safeCount) * i);
+  const end = start + size;
+
+  // Minimum panel width in pixels (to avoid tiny panels)
+  const minPanelWidth = Math.max(10, size * 0.02);
+
+  // Filter dividers within valid range
+  const sortedDividers = (dividers || [])
+    .filter(d => d > start + minPanelWidth && d < end - minPanelWidth)
+    .sort((a, b) => a - b);
+
+  // Validate dividers count matches expected
+  const expectedDividers = safeCount - 1;
+  const hasValidDividers = sortedDividers.length === expectedDividers && sortedDividers.length > 0;
+
+  if (hasValidDividers) {
+    // Verify all panels have reasonable width
+    let valid = true;
+    let prev = start;
+    for (const d of sortedDividers) {
+      if (d - prev < minPanelWidth) { valid = false; break; }
+      prev = d;
     }
+    if (end - prev < minPanelWidth) valid = false;
+
+    if (valid) {
+      edges.push(...sortedDividers);
+    } else {
+      // Fall back to even distribution
+      for (let i = 1; i < safeCount; i++) edges.push(start + (size / safeCount) * i);
+    }
+  } else if (safeCount > 1) {
+    // Even distribution
+    for (let i = 1; i < safeCount; i++) edges.push(start + (size / safeCount) * i);
   }
-  edges.push(start + size);
+
+  edges.push(end);
   return edges;
+}
+
+// Unified panel generation - same function for SHUTTER, LOFT, KITCHEN_BASE, KITCHEN_WALL
+interface PanelGridConfig {
+  box: { x: number; y: number; width: number; height: number };
+  totalWidthMm: number;
+  totalHeightMm: number;
+  colCount: number;
+  rowCount: number;
+  colDividers?: number[];
+  rowDividers?: number[];
+  panelType: ProductionPanelType;
+  labelPrefix: string;
+  laminateCode?: string;
+  settings: ProductionSettings;
+  // Context for item creation
+  roomIndex: number;
+  roomName: string;
+  unitIndex: number;
+  unitId: string;
+  unitType: string;
+  unitLabel: string;
+}
+
+function generatePanelGrid(config: PanelGridConfig): ProductionPanelItem[] {
+  const {
+    box, totalWidthMm, totalHeightMm,
+    colCount, rowCount,
+    colDividers, rowDividers,
+    panelType, labelPrefix, laminateCode,
+    settings,
+    roomIndex, roomName, unitIndex, unitId, unitType, unitLabel,
+  } = config;
+
+  const items: ProductionPanelItem[] = [];
+
+  // Calculate pixel-to-mm ratio
+  const mmPerPxX = totalWidthMm / box.width;
+  const mmPerPxY = totalHeightMm / box.height;
+
+  if (!Number.isFinite(mmPerPxX) || !Number.isFinite(mmPerPxY)) return items;
+
+  // Build column edges (X axis)
+  const colEdges = buildEdges(box.x, box.width, colDividers, colCount);
+
+  // Build row edges (Y axis)
+  const rowEdges = buildEdges(box.y, box.height, rowDividers, rowCount);
+
+  // Generate panels for each cell in the grid
+  rowEdges.slice(0, -1).forEach((topEdge, rowIdx) => {
+    const bottomEdge = rowEdges[rowIdx + 1]!;
+    colEdges.slice(0, -1).forEach((leftEdge, colIdx) => {
+      const rightEdge = colEdges[colIdx + 1]!;
+
+      // Calculate dimensions in mm
+      const rawWidthMm = (rightEdge - leftEdge) * mmPerPxX;
+      const rawHeightMm = (bottomEdge - topEdge) * mmPerPxY;
+      const widthMm = applyProductionSizing(rawWidthMm, settings.widthReductionMm, settings.roundingMm);
+      const heightMm = applyProductionSizing(rawHeightMm, settings.heightReductionMm, settings.roundingMm);
+
+      const row = rowIdx + 1;
+      const col = colIdx + 1;
+
+      // Generate label based on panel type
+      let panelLabel: string;
+      if (panelType === "LOFT") {
+        panelLabel = `${labelPrefix}${col}`;
+      } else if (panelType === "KITCHEN_BASE" || panelType === "KITCHEN_WALL") {
+        panelLabel = `${labelPrefix} ${col}`;
+      } else {
+        // SHUTTER - R{row}C{col} format
+        panelLabel = rowCount > 1 ? `R${row}C${col}` : `C${col}`;
+      }
+
+      items.push({
+        id: `${roomIndex}-${unitId}-${panelType.charAt(0)}-${row}-${col}`,
+        roomIndex,
+        roomName,
+        unitIndex,
+        unitId,
+        unitType,
+        unitLabel,
+        panelType,
+        panelLabel,
+        row,
+        col,
+        widthMm,
+        heightMm,
+        laminateCode,
+        grainDirection: true,
+      });
+    });
+  });
+
+  return items;
+}
+
+/**
+ * Convert Design page cutlist panels to production panel items.
+ * Used for library-loaded wardrobe_carcass models.
+ */
+function convertLibraryPanelsToProductionItems(
+  panels: ModuleCutlistPanel[],
+  context: {
+    roomIndex: number;
+    roomName: string;
+    unitIndex: number;
+    unitId: string;
+    unitType: string;
+    unitLabel: string;
+    settings: ProductionSettings;
+    laminateCode?: string;
+  }
+): ProductionPanelItem[] {
+  const items: ProductionPanelItem[] = [];
+
+  panels.forEach((panel, idx) => {
+    // Apply production sizing (reductions and rounding)
+    const widthMm = applyProductionSizing(panel.widthMm, context.settings.widthReductionMm, context.settings.roundingMm);
+    const heightMm = applyProductionSizing(panel.heightMm, context.settings.heightReductionMm, context.settings.roundingMm);
+
+    // Create production items for each panel (qty times)
+    for (let q = 0; q < panel.qty; q++) {
+      // Determine panel type for production
+      let panelType: ProductionPanelType = "SHUTTER";
+      if (panel.panelType === "loft_shutter") {
+        panelType = "LOFT";
+      }
+
+      // Generate label with quantity suffix if needed
+      const panelLabel = panel.qty > 1 ? `${panel.name} ${q + 1}` : panel.name;
+
+      items.push({
+        id: `${context.roomIndex}-${context.unitId}-${panel.panelType}-${idx}-${q}`,
+        roomIndex: context.roomIndex,
+        roomName: context.roomName,
+        unitIndex: context.unitIndex,
+        unitId: context.unitId,
+        unitType: context.unitType,
+        unitLabel: context.unitLabel,
+        panelType,
+        panelLabel,
+        row: 1,
+        col: q + 1,
+        widthMm,
+        heightMm,
+        laminateCode: context.laminateCode,
+        grainDirection: panel.grainDirection,
+      });
+    }
+  });
+
+  return items;
 }
 
 function buildRoomUnits(
@@ -124,171 +292,148 @@ export function buildCutlistItems(params: {
 
   rooms.forEach((room) => {
     room.units.forEach((unit, unitIndex) => {
-      if (!unit.box || unit.widthMm <= 0 || unit.heightMm <= 0) {
-        return;
-      }
+      if (!unit.box) return;
 
-      const mmPerPxX = unit.widthMm / unit.box.width;
-      const mmPerPxY = unit.heightMm / unit.box.height;
-
-      if (!Number.isFinite(mmPerPxX) || !Number.isFinite(mmPerPxY)) {
-        return;
-      }
-
+      const isLoftOnly = unit.loftOnly || false;
       const unitLabel = `${UNIT_TYPE_LABELS[unit.unitType] || unit.unitType} ${unitIndex + 1}`;
 
-      // Handle kitchen units differently - generate base and wall cabinet panels
+      // Common context for all panel types
+      const context = {
+        roomIndex: room.roomIndex,
+        roomName: room.roomName,
+        unitIndex,
+        unitId: unit.id,
+        unitType: unit.unitType,
+        unitLabel,
+        settings,
+      };
+
+      // Kitchen units - special handling for base + wall cabinets
       if (unit.unitType === "kitchen") {
-        // Kitchen standard dimensions
-        const KITCHEN_BASE_HEIGHT = 850; // mm
-        const KITCHEN_WALL_HEIGHT = 720; // mm
-        const KITCHEN_DEPTH = 600; // mm
-        const WALL_DEPTH = 350; // mm
+        if (unit.widthMm <= 0 || unit.heightMm <= 0) return;
 
-        // Calculate cabinet widths from dividers
-        const columnEdges = buildEdges(
-          unit.box.x,
-          unit.box.width,
-          unit.shutterDividerXs,
-          unit.shutterCount
-        );
+        const KITCHEN_BASE_HEIGHT = 850;
+        const KITCHEN_WALL_HEIGHT = 720;
 
-        // Generate base cabinet shutters
-        columnEdges.slice(0, -1).forEach((leftEdge, colIdx) => {
-          const rightEdge = columnEdges[colIdx + 1]!;
-          const rawWidthMm = (rightEdge - leftEdge) * mmPerPxX;
-          const widthMm = applyProductionSizing(rawWidthMm, settings.widthReductionMm, settings.roundingMm);
-          const heightMm = applyProductionSizing(KITCHEN_BASE_HEIGHT, settings.heightReductionMm, settings.roundingMm);
+        // Base cabinets (single row)
+        items.push(...generatePanelGrid({
+          ...context,
+          box: { ...unit.box, height: unit.box.height * 0.5 }, // Use half height for base
+          totalWidthMm: unit.widthMm,
+          totalHeightMm: KITCHEN_BASE_HEIGHT,
+          colCount: unit.shutterCount,
+          rowCount: 1,
+          colDividers: unit.shutterDividerXs,
+          panelType: "KITCHEN_BASE",
+          labelPrefix: "Base",
+          laminateCode: shutterLaminateCode,
+        }));
 
-          items.push({
-            id: `${room.roomIndex}-${unit.id}-KB-${colIdx + 1}`,
-            roomIndex: room.roomIndex,
-            roomName: room.roomName,
-            unitIndex,
-            unitId: unit.id,
-            unitType: unit.unitType,
-            unitLabel,
-            panelType: "KITCHEN_BASE",
-            panelLabel: `Base ${colIdx + 1}`,
-            row: 1,
-            col: colIdx + 1,
-            widthMm,
-            heightMm,
-            laminateCode: shutterLaminateCode,
-            grainDirection: true,
-          });
-        });
+        // Wall cabinets (single row)
+        items.push(...generatePanelGrid({
+          ...context,
+          box: { ...unit.box, height: unit.box.height * 0.5 },
+          totalWidthMm: unit.widthMm,
+          totalHeightMm: KITCHEN_WALL_HEIGHT,
+          colCount: unit.shutterCount,
+          rowCount: 1,
+          colDividers: unit.shutterDividerXs,
+          panelType: "KITCHEN_WALL",
+          labelPrefix: "Wall",
+          laminateCode: shutterLaminateCode,
+        }));
 
-        // Generate wall cabinet shutters
-        columnEdges.slice(0, -1).forEach((leftEdge, colIdx) => {
-          const rightEdge = columnEdges[colIdx + 1]!;
-          const rawWidthMm = (rightEdge - leftEdge) * mmPerPxX;
-          const widthMm = applyProductionSizing(rawWidthMm, settings.widthReductionMm, settings.roundingMm);
-          const heightMm = applyProductionSizing(KITCHEN_WALL_HEIGHT, settings.heightReductionMm, settings.roundingMm);
-
-          items.push({
-            id: `${room.roomIndex}-${unit.id}-KW-${colIdx + 1}`,
-            roomIndex: room.roomIndex,
-            roomName: room.roomName,
-            unitIndex,
-            unitId: unit.id,
-            unitType: unit.unitType,
-            unitLabel,
-            panelType: "KITCHEN_WALL",
-            panelLabel: `Wall ${colIdx + 1}`,
-            row: 1,
-            col: colIdx + 1,
-            widthMm,
-            heightMm,
-            laminateCode: shutterLaminateCode,
-            grainDirection: true,
-          });
-        });
-
-        return; // Skip the regular shutter processing for kitchen units
+        return;
       }
 
-      // Regular wardrobe/other unit processing
-      const columnEdges = buildEdges(
-        unit.box.x,
-        unit.box.width,
-        unit.shutterDividerXs,
-        unit.shutterCount
-      );
-      const rowEdges = buildEdges(
-        unit.box.y,
-        unit.box.height,
-        unit.horizontalDividerYs,
-        unit.sectionCount
-      );
+      // LIBRARY-LOADED WARDROBE_CARCASS - use Design page panel generation
+      // This ensures library models render with their exact saved configuration
+      if (unit.libraryConfig && unit.unitType === "wardrobe_carcass") {
+        const libraryConfig = unit.libraryConfig as unknown as ModuleConfig;
 
-      rowEdges.slice(0, -1).forEach((topEdge, rowIdx) => {
-        const bottomEdge = rowEdges[rowIdx + 1]!;
-        columnEdges.slice(0, -1).forEach((leftEdge, colIdx) => {
-          const rightEdge = columnEdges[colIdx + 1]!;
-          const rawWidthMm = (rightEdge - leftEdge) * mmPerPxX;
-          const rawHeightMm = (bottomEdge - topEdge) * mmPerPxY;
-          const widthMm = applyProductionSizing(rawWidthMm, settings.widthReductionMm, settings.roundingMm);
-          const heightMm = applyProductionSizing(rawHeightMm, settings.heightReductionMm, settings.roundingMm);
+        // Ensure dimensions are set (use unit dimensions if not in libraryConfig)
+        const configWithDims: ModuleConfig = {
+          ...libraryConfig,
+          widthMm: libraryConfig.widthMm || unit.widthMm,
+          heightMm: libraryConfig.heightMm || unit.heightMm,
+          depthMm: libraryConfig.depthMm || unit.depthMm,
+        };
 
-          items.push({
-            id: `${room.roomIndex}-${unit.id}-S-${rowIdx + 1}-${colIdx + 1}`,
-            roomIndex: room.roomIndex,
-            roomName: room.roomName,
-            unitIndex,
-            unitId: unit.id,
-            unitType: unit.unitType,
-            unitLabel,
-            panelType: "SHUTTER",
-            panelLabel: `R${rowIdx + 1}C${colIdx + 1}`,
-            row: rowIdx + 1,
-            col: colIdx + 1,
-            widthMm,
-            heightMm,
-            laminateCode: shutterLaminateCode,
-            grainDirection: true,
-          });
+        // Generate panels using Design page logic
+        const libraryPanels = generateModuleCutlistPanels(configWithDims);
+
+        // Convert to production items
+        const libraryItems = convertLibraryPanelsToProductionItems(libraryPanels, {
+          ...context,
+          laminateCode: shutterLaminateCode,
         });
-      });
 
+        items.push(...libraryItems);
+        return;
+      }
+
+      // LOFT ONLY - treat main box as loft panels
+      if (isLoftOnly) {
+        if (unit.loftWidthMm <= 0 || unit.loftHeightMm <= 0) return;
+
+        // For loft-only, main box IS the loft - use shutterDividerXs or loftDividerXs
+        const dividers = unit.shutterDividerXs?.length > 0
+          ? unit.shutterDividerXs
+          : unit.loftDividerXs;
+
+        items.push(...generatePanelGrid({
+          ...context,
+          box: unit.box,
+          totalWidthMm: unit.loftWidthMm,
+          totalHeightMm: unit.loftHeightMm,
+          colCount: unit.loftShutterCount,
+          rowCount: 1, // Loft is always 1 row
+          colDividers: dividers,
+          panelType: "LOFT",
+          labelPrefix: "L",
+          laminateCode: loftLaminateCode,
+        }));
+
+        return;
+      }
+
+      // SHUTTER (regular units) - grid of cols × rows
+      if (unit.widthMm > 0 && unit.heightMm > 0) {
+        items.push(...generatePanelGrid({
+          ...context,
+          box: unit.box,
+          totalWidthMm: unit.widthMm,
+          totalHeightMm: unit.heightMm,
+          colCount: unit.shutterCount,
+          rowCount: unit.sectionCount,
+          colDividers: unit.shutterDividerXs,
+          rowDividers: unit.horizontalDividerYs,
+          panelType: "SHUTTER",
+          labelPrefix: "", // Not used for SHUTTER
+          laminateCode: shutterLaminateCode,
+        }));
+      }
+
+      // LOFT (for regular units with loft enabled)
       if (settings.includeLoft && unit.loftEnabled && unit.loftBox) {
         const loftWidthMm = unit.loftWidthMm > 0 ? unit.loftWidthMm : unit.widthMm;
         const loftHeightMm = unit.loftHeightMm > 0
           ? unit.loftHeightMm
-          : unit.loftBox.height * mmPerPxY;
+          : (unit.heightMm * (unit.loftBox.height / unit.box.height));
 
         if (loftWidthMm > 0 && loftHeightMm > 0) {
-          const loftEdges = buildEdges(
-            unit.loftBox.x,
-            unit.loftBox.width,
-            unit.loftDividerXs,
-            unit.loftShutterCount
-          );
-          const loftMmPerPxX = loftWidthMm / unit.loftBox.width;
-          loftEdges.slice(0, -1).forEach((leftEdge, colIdx) => {
-            const rightEdge = loftEdges[colIdx + 1]!;
-            const rawWidthMm = (rightEdge - leftEdge) * loftMmPerPxX;
-            const widthMm = applyProductionSizing(rawWidthMm, settings.widthReductionMm, settings.roundingMm);
-            const heightMm = applyProductionSizing(loftHeightMm, settings.heightReductionMm, settings.roundingMm);
-
-            items.push({
-              id: `${room.roomIndex}-${unit.id}-L-${colIdx + 1}`,
-              roomIndex: room.roomIndex,
-              roomName: room.roomName,
-              unitIndex,
-              unitId: unit.id,
-              unitType: unit.unitType,
-              unitLabel,
-              panelType: "LOFT",
-              panelLabel: `L${colIdx + 1}`,
-              row: 1,
-              col: colIdx + 1,
-              widthMm,
-              heightMm,
-              laminateCode: loftLaminateCode,
-              grainDirection: true,
-            });
-          });
+          items.push(...generatePanelGrid({
+            ...context,
+            box: unit.loftBox,
+            totalWidthMm: loftWidthMm,
+            totalHeightMm: loftHeightMm,
+            colCount: unit.loftShutterCount,
+            rowCount: 1, // Loft is always 1 row
+            colDividers: unit.loftDividerXs,
+            panelType: "LOFT",
+            labelPrefix: "L",
+            laminateCode: loftLaminateCode,
+          }));
         }
       }
     });

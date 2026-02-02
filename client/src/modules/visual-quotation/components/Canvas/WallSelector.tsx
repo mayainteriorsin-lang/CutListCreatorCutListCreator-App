@@ -3,7 +3,8 @@ import { LayoutGrid } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useVisualQuotationStore, WallId } from "../../store/visualQuotationStore";
+import { useDesignCanvasStore } from "../../store/v2/useDesignCanvasStore";
+import { WallId } from "../../types";
 
 const WALLS: { id: WallId; label: string }[] = [
   { id: "LEFT", label: "Left" },
@@ -13,7 +14,7 @@ const WALLS: { id: WallId; label: string }[] = [
 ];
 
 const WallSelector: React.FC = () => {
-  const { room, setSelectedWall } = useVisualQuotationStore();
+  const { room, setSelectedWall } = useDesignCanvasStore();
 
   return (
     <Card className="border-slate-200 shadow-sm">

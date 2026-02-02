@@ -6,8 +6,9 @@ import { jsPDF } from "jspdf";
  * - Handles grain rules that affect GADDI
  * - Handles nomW / nomH based constraints
  *
- * GADDI marks indicate the "top" edge of a panel for installation reference.
- * They are drawn as dotted red lines along either the top or left edge.
+ * GADDI marks indicate that a panel has a cavity/groove cut.
+ * They are drawn as dotted red lines along either the top or left edge
+ * to show where the cavity is located on the panel.
  */
 
 export interface GaddiMarkOptions {
@@ -63,7 +64,7 @@ function isValidGaddiPanelType(type: string): boolean {
 
 /**
  * Draw GADDI mark on a panel
- * Draws a dotted line along the top or left edge to indicate orientation
+ * Draws a dotted line along the top or left edge to indicate cavity location
  */
 export function drawGaddiMark(
   doc: jsPDF,

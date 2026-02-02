@@ -57,7 +57,10 @@ export function perfEnd(name: string): number {
       ? ` (${JSON.stringify(entry.metadata)})`
       : "";
     const color = duration > 1000 ? "color: red" : duration > 500 ? "color: orange" : "color: green";
-    console.log(`%c[PERF] ${name}: ${duration.toFixed(2)}ms${metaStr}`, color);
+    if (process.env.NODE_ENV === 'development') {
+      // eslint-disable-next-line no-console
+      console.debug(`%c[PERF] ${name}: ${duration.toFixed(2)}ms${metaStr}`, color);
+    }
   }
 
   return duration;

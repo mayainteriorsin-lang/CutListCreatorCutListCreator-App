@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import PinLock, { isPinSet, clearPin } from "@/components/guards/PinLock";
+import PinLock, { clearPin } from "@/components/guards/PinLock";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,23 +23,15 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import {
-  getActivity,
-  getLeads,
-  getQuoteSummaryByLead,
   getAllQuotesByLead,
   getAppointmentsByLead,
   updateAppointmentStatus,
   logActivity,
-  markFollowUpDone,
-  setFollowUp,
-  subscribeCrmUpdates,
   upsertLead,
-  updateLeadStatus,
-  deleteLead,
   clearCrmCache,
 } from "@/modules/crm/storage";
 import { clearEncryption } from "@/modules/crm/crypto";
-import type { ActivityEvent, Appointment, AppointmentStatus, LeadRecord, LeadStatus } from "@/modules/crm/types";
+import type { AppointmentStatus, LeadRecord, LeadStatus } from "@/modules/crm/types";
 import { generateUUID } from "@/lib/uuid";
 import {
   Users,
@@ -61,126 +53,39 @@ import {
   PhoneCall,
   ExternalLink,
   ChevronRight,
-  Sparkles,
-  Target,
-  UserCheck,
-  XCircle,
   Share2,
   CalendarCheck,
   CalendarClock,
-  Ban,
   Download,
   Trash2,
   BarChart3,
   Percent,
-  Settings,
+  Target,
   KeyRound,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const PIPELINE: LeadStatus[] = [
-  "NEW",
-  "CONTACTED",
-  "SITE_VISIT",
-  "DESIGN_SHARED",
-  "NEGOTIATION",
-  "CONFIRMED",
-  "LOST",
-];
+// Error Boundary
+import { CRMErrorBoundary } from "@/components/errors/CRMErrorBoundary";
 
-const PIPELINE_CONFIG: Record<LeadStatus, { label: string; color: string; bgColor: string; icon: React.ReactNode }> = {
-  NEW: { label: "New", color: "text-slate-700", bgColor: "bg-slate-100 border-slate-200", icon: <Sparkles className="h-3 w-3" /> },
-  CONTACTED: { label: "Contacted", color: "text-blue-700", bgColor: "bg-blue-50 border-blue-200", icon: <Phone className="h-3 w-3" /> },
-  SITE_VISIT: { label: "Site Visit", color: "text-violet-700", bgColor: "bg-violet-50 border-violet-200", icon: <MapPin className="h-3 w-3" /> },
-  DESIGN_SHARED: { label: "Design Shared", color: "text-amber-700", bgColor: "bg-amber-50 border-amber-200", icon: <FileText className="h-3 w-3" /> },
-  NEGOTIATION: { label: "Negotiation", color: "text-orange-700", bgColor: "bg-orange-50 border-orange-200", icon: <Target className="h-3 w-3" /> },
-  CONFIRMED: { label: "Confirmed", color: "text-emerald-700", bgColor: "bg-emerald-50 border-emerald-200", icon: <UserCheck className="h-3 w-3" /> },
-  LOST: { label: "Lost", color: "text-red-700", bgColor: "bg-red-50 border-red-200", icon: <XCircle className="h-3 w-3" /> },
-};
+// Custom hooks
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { useDebounce } from "@/hooks/useDebounce";
+
+// Extracted hooks
+import { useCRMState } from "@/features/crm/hooks/useCRMState";
+import { useCRMStats } from "@/features/crm/hooks/useCRMStats";
+import { useLeadOperations } from "@/features/crm/hooks/useLeadOperations";
+
+// Extracted utilities
+import { formatWhen, formatRelativeDate, formatActivityType, quoteBadgeClass } from "@/features/crm/utils/formatters";
+import { exportLeadsToCSV } from "@/features/crm/utils/exportHelpers";
+import { generateWhatsAppLink } from "@/features/crm/utils/whatsappHelpers";
+import { PIPELINE, PIPELINE_CONFIG, APPOINTMENT_STATUS_CONFIG, followUpIndicator } from "@/features/crm/utils/crmConfig";
 
 function safeId(prefix: string) {
   return `${prefix}-${generateUUID()}`;
-}
-
-function normalizeMobile(mobile: string): string {
-  return (mobile || "").replace(/\D/g, "");
-}
-
-function formatWhen(iso: string): string {
-  if (!iso) return "-";
-  const dt = new Date(iso);
-  if (Number.isNaN(dt.getTime())) return "-";
-  return dt.toLocaleString();
-}
-
-function formatRelativeDate(iso: string): string {
-  if (!iso) return "-";
-  const dt = new Date(iso);
-  if (Number.isNaN(dt.getTime())) return "-";
-
-  const now = new Date();
-  const diffMs = now.getTime() - dt.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-  if (diffDays === 0) return "Today";
-  if (diffDays === 1) return "Yesterday";
-  if (diffDays < 7) return `${diffDays} days ago`;
-  if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
-  return dt.toLocaleDateString();
-}
-
-function quoteBadgeClass(status: "DRAFT" | "APPROVED"): string {
-  return status === "APPROVED"
-    ? "bg-emerald-100 text-emerald-700 border border-emerald-200"
-    : "bg-blue-100 text-blue-700 border border-blue-200";
-}
-
-function formatActivityType(type: string): string {
-  return type.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-function followUpIndicator(lead: LeadRecord) {
-  if (lead.followUpDone) {
-    return { icon: <CheckCircle2 className="h-4 w-4" />, label: "Done", color: "text-emerald-600", bgColor: "bg-emerald-50" };
-  }
-  if (!lead.nextFollowUpDate) {
-    return { icon: <Clock className="h-4 w-4" />, label: "Not set", color: "text-slate-400", bgColor: "bg-slate-50" };
-  }
-
-  const today = new Date();
-  const target = new Date(lead.nextFollowUpDate);
-  const todayKey = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
-  const targetKey = new Date(target.getFullYear(), target.getMonth(), target.getDate()).getTime();
-
-  if (targetKey < todayKey) return { icon: <AlertCircle className="h-4 w-4" />, label: "Overdue", color: "text-red-600", bgColor: "bg-red-50" };
-  if (targetKey === todayKey) return { icon: <Clock className="h-4 w-4" />, label: "Today", color: "text-amber-600", bgColor: "bg-amber-50" };
-  return { icon: <Calendar className="h-4 w-4" />, label: "Upcoming", color: "text-blue-600", bgColor: "bg-blue-50" };
-}
-
-const APPOINTMENT_STATUS_CONFIG: Record<AppointmentStatus, { label: string; color: string; bgColor: string; icon: React.ReactNode }> = {
-  PENDING: { label: "Pending", color: "text-amber-700", bgColor: "bg-amber-50 border-amber-200", icon: <CalendarClock className="h-3.5 w-3.5" /> },
-  CONFIRMED: { label: "Confirmed", color: "text-blue-700", bgColor: "bg-blue-50 border-blue-200", icon: <CalendarCheck className="h-3.5 w-3.5" /> },
-  COMPLETED: { label: "Completed", color: "text-emerald-700", bgColor: "bg-emerald-50 border-emerald-200", icon: <CheckCircle2 className="h-3.5 w-3.5" /> },
-  CANCELLED: { label: "Cancelled", color: "text-red-700", bgColor: "bg-red-50 border-red-200", icon: <Ban className="h-3.5 w-3.5" /> },
-};
-
-function generateAppointmentLink(leadId: string): string {
-  return `${window.location.origin}/appointment/${leadId}`;
-}
-
-function generateWhatsAppLink(lead: LeadRecord): string {
-  const appointmentLink = generateAppointmentLink(lead.id);
-  const message = `Hi ${lead.name},
-
-Please schedule your site visit appointment:
-
-${appointmentLink}
-
-Looking forward to meeting you!`;
-
-  const phone = lead.mobile.replace(/\D/g, "");
-  const phoneWithCountry = phone.startsWith("91") ? phone : `91${phone}`;
-  return `https://wa.me/${phoneWithCountry}?text=${encodeURIComponent(message)}`;
 }
 
 export default function CrmPage() {
@@ -189,224 +94,55 @@ export default function CrmPage() {
 
   // PIN Lock state
   const [isUnlocked, setIsUnlocked] = useState(false);
-  const [showResetPinDialog, setShowResetPinDialog] = useState(false);
 
-  const [leads, setLeads] = useState<LeadRecord[]>([]);
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<LeadStatus | "ALL">("ALL");
+  // Use custom hooks
+  const crmState = useCRMState();
+  const {
+    leads,
+    isLoading,
+    error,
+    search,
+    setSearch,
+    statusFilter,
+    setStatusFilter,
+    selectedLeadId,
+    setSelectedLeadId,
+    selectedLead,
+    activity,
+    deleteConfirmLead,
+    setDeleteConfirmLead,
+    followUpLead,
+    setFollowUpLead,
+    showResetPinDialog,
+    setShowResetPinDialog,
+    noteDraft,
+    setNoteDraft,
+    callDraft,
+    setCallDraft,
+    followUpDate,
+    setFollowUpDate,
+    followUpNote,
+    setFollowUpNote,
+    emailDraft,
+    setEmailDraft,
+    locationDraft,
+    setLocationDraft,
+    refreshLeads,
+    refreshActivity,
+  } = crmState;
 
-  const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
-  const [activity, setActivity] = useState<ActivityEvent[]>([]);
+  // Debounced search for better performance
+  const debouncedSearch = useDebounce(search, 300);
 
-  const [noteDraft, setNoteDraft] = useState("");
-  const [callDraft, setCallDraft] = useState("");
-  const [followUpLead, setFollowUpLead] = useState<LeadRecord | null>(null);
-  const [followUpDate, setFollowUpDate] = useState("");
-  const [followUpNote, setFollowUpNote] = useState("");
-  const [emailDraft, setEmailDraft] = useState("");
-  const [locationDraft, setLocationDraft] = useState("");
-  const [deleteConfirmLead, setDeleteConfirmLead] = useState<LeadRecord | null>(null);
+  // Use statistics hook with debounced search
+  const { pipelineStats, dashboardStats, filteredLeads } = useCRMStats(leads, debouncedSearch, statusFilter);
 
-  const refreshLeads = useCallback((options?: { skipRemote?: boolean }) => {
-    setLeads(getLeads(options));
-  }, []);
-  const refreshActivity = useCallback((leadId: string, options?: { skipRemote?: boolean }) => {
-    setActivity(getActivity(leadId, options));
-  }, []);
-
-  useEffect(() => {
-    refreshLeads();
-  }, [refreshLeads]);
-
-  useEffect(() => {
-    const unsubscribe = subscribeCrmUpdates(() => {
-      refreshLeads({ skipRemote: true });
-      if (selectedLeadId) {
-        refreshActivity(selectedLeadId, { skipRemote: true });
-      }
-    });
-    return unsubscribe;
-  }, [refreshActivity, refreshLeads, selectedLeadId]);
-
-  const selectedLead = useMemo(() => {
-    if (!selectedLeadId) return null;
-    return leads.find((l) => l.id === selectedLeadId) ?? null;
-  }, [leads, selectedLeadId]);
-
-  useEffect(() => {
-    if (!selectedLeadId) {
-      setActivity([]);
-      setNoteDraft("");
-      setCallDraft("");
-      setEmailDraft("");
-      setLocationDraft("");
-      return;
-    }
-
-    logActivity({ leadId: selectedLeadId, type: "LEAD_OPENED", message: "Lead opened." });
-    refreshActivity(selectedLeadId);
-  }, [selectedLeadId]);
-
-  useEffect(() => {
-    if (selectedLeadId) {
-      const lead = leads.find((l) => l.id === selectedLeadId);
-      setFollowUpDate(lead?.nextFollowUpDate ? lead.nextFollowUpDate.slice(0, 10) : "");
-      setEmailDraft(lead?.email || "");
-      setLocationDraft(lead?.location || "");
-    }
-  }, [selectedLeadId, leads]);
-
-  // Pipeline stats
-  const pipelineStats = useMemo(() => {
-    const stats: Record<LeadStatus, { count: number; value: number }> = {
-      NEW: { count: 0, value: 0 },
-      CONTACTED: { count: 0, value: 0 },
-      SITE_VISIT: { count: 0, value: 0 },
-      DESIGN_SHARED: { count: 0, value: 0 },
-      NEGOTIATION: { count: 0, value: 0 },
-      CONFIRMED: { count: 0, value: 0 },
-      LOST: { count: 0, value: 0 },
-    };
-
-    leads.forEach((lead) => {
-      stats[lead.status].count++;
-      const quotes = getAllQuotesByLead(lead.id);
-      const total = quotes.reduce((sum, q) => sum + (q.amount || 0), 0);
-      stats[lead.status].value += total;
-    });
-
-    return stats;
-  }, [leads]);
-
-  // Dashboard stats
-  const dashboardStats = useMemo(() => {
-    const now = new Date();
-    const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-    // Leads this month
-    const leadsThisMonth = leads.filter((lead) => new Date(lead.createdAt) >= thisMonth).length;
-
-    // Conversion rate (CONFIRMED / total excluding LOST)
-    const totalExcludingLost = leads.filter((l) => l.status !== "LOST").length;
-    const confirmed = leads.filter((l) => l.status === "CONFIRMED").length;
-    const conversionRate = totalExcludingLost > 0 ? Math.round((confirmed / totalExcludingLost) * 100) : 0;
-
-    // Average quotation value
-    let totalValue = 0;
-    let quoteCount = 0;
-    leads.forEach((lead) => {
-      const quotes = getAllQuotesByLead(lead.id);
-      quotes.forEach((q) => {
-        if (q.amount > 0) {
-          totalValue += q.amount;
-          quoteCount++;
-        }
-      });
-    });
-    const avgQuoteValue = quoteCount > 0 ? Math.round(totalValue / quoteCount) : 0;
-
-    // Follow-ups due today
-    const followUpsDueToday = leads.filter((lead) => {
-      if (!lead.nextFollowUpDate || lead.followUpDone) return false;
-      const target = new Date(lead.nextFollowUpDate);
-      const targetDate = new Date(target.getFullYear(), target.getMonth(), target.getDate());
-      return targetDate.getTime() <= today.getTime();
-    }).length;
-
-    return { leadsThisMonth, conversionRate, avgQuoteValue, followUpsDueToday };
-  }, [leads]);
-
-  // Export to Excel/CSV
-  const handleExportLeads = () => {
-    const data = leads.map((lead) => {
-      const quotes = getAllQuotesByLead(lead.id);
-      const totalAmount = quotes.reduce((sum, q) => sum + (q.amount || 0), 0);
-      return {
-        Name: lead.name,
-        Mobile: lead.mobile,
-        Email: lead.email || "",
-        Location: lead.location || "",
-        Source: lead.source,
-        Status: lead.status,
-        "Quote Amount": totalAmount,
-        "Follow Up": lead.nextFollowUpDate || "",
-        "Created At": new Date(lead.createdAt).toLocaleDateString("en-IN"),
-      };
-    });
-
-    // Convert to CSV
-    const headers = Object.keys(data[0] || {});
-    const csvRows = [
-      headers.join(","),
-      ...data.map((row) =>
-        headers
-          .map((h) => {
-            const value = String(row[h as keyof typeof row] || "");
-            // Escape quotes and wrap in quotes if contains comma
-            if (value.includes(",") || value.includes('"')) {
-              return `"${value.replace(/"/g, '""')}"`;
-            }
-            return value;
-          })
-          .join(",")
-      ),
-    ];
-    const csvContent = csvRows.join("\n");
-
-    // Download
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `crm-leads-${new Date().toISOString().slice(0, 10)}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-
-    toast({ title: "Leads exported", description: `${leads.length} leads exported to CSV` });
-  };
-
-  // Delete lead handler
-  const handleDeleteLead = (lead: LeadRecord) => {
-    deleteLead(lead.id);
-    setDeleteConfirmLead(null);
-    setSelectedLeadId(null);
-    refreshLeads();
-    toast({ title: "Lead deleted", description: `${lead.name} has been removed` });
-  };
-
-  // Handle PIN reset
-  const handleResetPin = () => {
-    clearPin();
-    clearEncryption();
-    clearCrmCache();
-    setShowResetPinDialog(false);
-    setIsUnlocked(false);
-    toast({ title: "PIN Reset", description: "Please set a new PIN" });
-  };
-
-  const filteredLeads = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    const qDigits = normalizeMobile(search);
-
-    return leads.filter((lead) => {
-      if (statusFilter !== "ALL" && lead.status !== statusFilter) return false;
-      if (!q) return true;
-
-      const nameMatch = lead.name.toLowerCase().includes(q);
-      const sourceMatch = (lead.source || "").toLowerCase().includes(q);
-      const mobileDigits = normalizeMobile(lead.mobile);
-      const mobileMatch = (qDigits && mobileDigits.includes(qDigits)) || lead.mobile.toLowerCase().includes(q);
-
-      return nameMatch || sourceMatch || mobileMatch;
-    });
-  }, [leads, search, statusFilter]);
-
-  const handleStatusChange = (leadId: string, nextStatus: LeadStatus) => {
-    updateLeadStatus(leadId, nextStatus);
-    refreshLeads();
-    if (selectedLeadId === leadId) refreshActivity(leadId);
-  };
+  // Use operations hook
+  const leadOperations = useLeadOperations({
+    refreshLeads,
+    refreshActivity,
+    selectedLeadId,
+  });
 
   const ensureQuoteId = (lead: LeadRecord): string => {
     if (lead.quoteId) return lead.quoteId;
@@ -426,33 +162,19 @@ export default function CrmPage() {
 
   const handleCreateOrViewQuotation = (lead: LeadRecord) => {
     const quoteId = ensureQuoteId(lead);
-    navigate(
-      `/visual-quotation?leadId=${encodeURIComponent(lead.id)}&quoteId=${encodeURIComponent(quoteId)}`
-    );
+    navigate(`/quotation-maker?leadId=${lead.id}`);
   };
 
   const handleAddNote = () => {
     if (!selectedLead) return;
-    const message = noteDraft.trim();
-    if (!message) {
-      toast({ title: "Add a note", description: "Type a note before saving." });
-      return;
-    }
-
-    logActivity({ leadId: selectedLead.id, type: "NOTE_ADDED", message });
+    leadOperations.handleAddNote(selectedLead.id, noteDraft);
     setNoteDraft("");
-    refreshActivity(selectedLead.id);
-    toast({ title: "Note added" });
   };
 
   const handleLogCall = () => {
     if (!selectedLead) return;
-    const message = callDraft.trim() || "Call logged.";
-
-    logActivity({ leadId: selectedLead.id, type: "CALL_LOGGED", message });
+    leadOperations.handleLogCall(selectedLead.id, callDraft);
     setCallDraft("");
-    refreshActivity(selectedLead.id);
-    toast({ title: "Call logged" });
   };
 
   const openFollowUpDialog = (lead: LeadRecord) => {
@@ -463,24 +185,75 @@ export default function CrmPage() {
 
   const handleSaveFollowUp = () => {
     if (!followUpLead) return;
-    if (!followUpDate) {
-      toast({ title: "Select a follow-up date" });
-      return;
-    }
-    setFollowUp(followUpLead.id, followUpDate, followUpNote);
-    refreshLeads();
-    if (selectedLeadId === followUpLead.id) refreshActivity(followUpLead.id);
+    leadOperations.handleSaveFollowUp(followUpLead.id, followUpDate, followUpNote);
     setFollowUpLead(null);
     setFollowUpDate("");
     setFollowUpNote("");
-    toast({ title: "Follow-up saved" });
   };
 
-  const handleMarkFollowUpDone = (leadId: string) => {
-    markFollowUpDone(leadId);
+  const handleExportLeads = () => {
+    exportLeadsToCSV(leads);
+    toast({ title: "Leads exported", description: `${leads.length} leads exported to CSV` });
+  };
+
+  const handleAddNewLead = () => {
+    const newLead: LeadRecord = {
+      id: generateUUID(),
+      name: "New Lead",
+      mobile: "",
+      status: "NEW",
+      source: "Manual",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    upsertLead(newLead);
     refreshLeads();
-    if (selectedLeadId === leadId) refreshActivity(leadId);
-    toast({ title: "Follow-up marked done" });
+    setSelectedLeadId(newLead.id);
+    toast({ title: "New lead created" });
+  };
+
+  // Keyboard shortcuts
+  const searchInputRef = React.useRef<HTMLInputElement>(null);
+
+  useKeyboardShortcuts([
+    {
+      key: "n",
+      ctrl: true,
+      description: "Create new lead",
+      handler: handleAddNewLead,
+    },
+    {
+      key: "f",
+      ctrl: true,
+      description: "Focus search",
+      handler: () => searchInputRef.current?.focus(),
+    },
+    {
+      key: "e",
+      ctrl: true,
+      description: "Export leads",
+      handler: handleExportLeads,
+    },
+    {
+      key: "Escape",
+      description: "Close detail view",
+      handler: () => setSelectedLeadId(null),
+    },
+  ]);
+
+  const handleDeleteLead = (lead: LeadRecord) => {
+    leadOperations.handleDeleteLead(lead);
+    setDeleteConfirmLead(null);
+    setSelectedLeadId(null);
+  };
+
+  const handleResetPin = () => {
+    clearPin();
+    clearEncryption();
+    clearCrmCache();
+    setShowResetPinDialog(false);
+    setIsUnlocked(false);
+    toast({ title: "PIN Reset", description: "Please set a new PIN" });
   };
 
   // Show PIN lock screen if not unlocked
@@ -488,8 +261,63 @@ export default function CrmPage() {
     return <PinLock onUnlock={() => setIsUnlocked(true)} />;
   }
 
+  // Show loading spinner while data is being fetched
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-slate-50 to-slate-100 flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-12 w-12 animate-spin text-blue-600 mx-auto" />
+          <p className="text-slate-600">Loading CRM data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state if data failed to load
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-slate-50 to-slate-100 flex items-center justify-center p-4">
+        <Card className="max-w-md w-full">
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-red-100 rounded-full">
+                <AlertCircle className="h-6 w-6 text-red-600" />
+              </div>
+              <CardTitle>Error Loading CRM</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-slate-600">Failed to load CRM data. Please try again.</p>
+            {error.message && (
+              <div className="bg-red-50 border border-red-200 rounded p-3">
+                <p className="text-sm text-red-800">{error.message}</p>
+              </div>
+            )}
+            <Button onClick={() => refreshLeads()} className="w-full">
+              Try Again
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-slate-50 to-slate-100">
+      {/* Skip Links for Accessibility */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-indigo-600 focus:text-white focus:rounded-lg focus:shadow-lg"
+      >
+        Skip to main content
+      </a>
+      <a
+        href="#leads-table"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-40 focus:z-50 focus:px-4 focus:py-2 focus:bg-indigo-600 focus:text-white focus:rounded-lg focus:shadow-lg"
+      >
+        Skip to leads table
+      </a>
+
       {/* Header */}
       <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-slate-200/60 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -517,12 +345,15 @@ export default function CrmPage() {
             <div className="flex items-center gap-3">
               {/* Search */}
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" aria-hidden="true" />
                 <Input
+                  ref={searchInputRef}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search leads..."
                   className="w-64 pl-9 h-9 bg-slate-50 border-slate-200 focus:bg-white transition-colors"
+                  aria-label="Search leads by name, mobile, or source"
+                  role="searchbox"
                 />
               </div>
 
@@ -553,8 +384,9 @@ export default function CrmPage() {
                 variant="outline"
                 onClick={handleExportLeads}
                 className="h-9"
+                aria-label="Export leads to CSV (Ctrl+E)"
               >
-                <Download className="h-4 w-4 mr-2" />
+                <Download className="h-4 w-4 mr-2" aria-hidden="true" />
                 Export
               </Button>
 
@@ -565,16 +397,18 @@ export default function CrmPage() {
                 className="h-9 w-9 p-0 text-slate-500 hover:text-slate-900"
                 onClick={() => setShowResetPinDialog(true)}
                 title="Reset PIN"
+                aria-label="Reset PIN"
               >
-                <KeyRound className="h-4 w-4" />
+                <KeyRound className="h-4 w-4" aria-hidden="true" />
               </Button>
 
               {/* New Lead Button */}
               <Button
-                onClick={() => navigate("/start-quotation")}
+                onClick={handleAddNewLead}
                 className="h-9 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-md shadow-indigo-500/20"
+                aria-label="Create new lead (Ctrl+N)"
               >
-                <Plus className="h-4 w-4 mr-2" />
+                <Plus className="h-4 w-4 mr-2" aria-hidden="true" />
                 New Lead
               </Button>
             </div>
@@ -582,7 +416,7 @@ export default function CrmPage() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <main id="main-content" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* Dashboard Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
@@ -661,7 +495,7 @@ export default function CrmPage() {
         </div>
 
         {/* Leads Table */}
-        <Card className="border-slate-200/60 shadow-sm overflow-hidden">
+        <Card id="leads-table" className="border-slate-200/60 shadow-sm overflow-hidden">
           <CardHeader className="bg-slate-50/50 border-b border-slate-100 py-4">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base font-semibold text-slate-900 flex items-center gap-2">
@@ -780,7 +614,7 @@ export default function CrmPage() {
                         <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                           <Select
                             value={lead.status}
-                            onValueChange={(v) => handleStatusChange(lead.id, v as LeadStatus)}
+                            onValueChange={(v) => leadOperations.handleStatusChange(lead.id, v as LeadStatus)}
                           >
                             <SelectTrigger className={cn(
                               "h-8 w-[140px] border text-xs font-medium",
@@ -1107,10 +941,7 @@ export default function CrmPage() {
                           toast({ title: "Select a follow-up date" });
                           return;
                         }
-                        setFollowUp(selectedLead.id, followUpDate);
-                        refreshLeads();
-                        refreshActivity(selectedLead.id);
-                        toast({ title: "Follow-up saved" });
+                        leadOperations.handleSaveFollowUp(selectedLead.id, followUpDate);
                       }}
                     >
                       Save
@@ -1118,7 +949,7 @@ export default function CrmPage() {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => handleMarkFollowUpDone(selectedLead.id)}
+                      onClick={() => leadOperations.handleMarkFollowUpDone(selectedLead.id)}
                     >
                       <CheckCircle2 className="h-4 w-4 mr-1" />
                       Done

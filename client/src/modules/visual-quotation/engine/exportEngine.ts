@@ -8,17 +8,10 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
-import type { QuotationRoom, ClientInfo, QuoteMeta, DrawnUnit } from "../store/visualQuotationStore";
-import { calculatePricing, type PricingResult } from "./pricingEngine";
-
-// Unit type labels
-const UNIT_TYPE_LABELS: Record<string, string> = {
-  wardrobe: "Wardrobe",
-  kitchen: "Kitchen",
-  tv_unit: "TV Unit",
-  dresser: "Dresser",
-  other: "Other",
-};
+import type { QuotationRoom, ClientInfo, QuoteMeta, DrawnUnit, RoomPhoto, ReferencePhoto } from "../types";
+import { type PricingResult } from "./pricingEngine";
+import { pricingService } from "../services/pricingService";
+import { UNIT_TYPE_LABELS } from "../constants";
 
 // Format mm to feet'inches"
 function formatDimension(mm: number): string {
@@ -46,17 +39,19 @@ interface RoomPricing {
 function calculateAllRoomsPricing(
   quotationRooms: QuotationRoom[],
   currentDrawnUnits: DrawnUnit[],
-  activeRoomIndex: number,
-  sqftRate: number
-): { roomPricings: RoomPricing[]; grandTotal: { subtotal: number; gst: number; total: number } } {
+  activeRoomIndex: number
+): { roomPricings: RoomPricing[]; grandTotal: { subtotal: number; addOnsTotal: number; gst: number; total: number } } {
   const roomPricings: RoomPricing[] = [];
   let grandSubtotal = 0;
+  let grandAddOnsTotal = 0;
 
   if (quotationRooms.length === 0) {
     // No rooms - use current drawnUnits
-    const validUnits = currentDrawnUnits.filter(u => u.widthMm > 0 && u.heightMm > 0);
-    const pricing = calculatePricing(validUnits, sqftRate);
+    // Accept units with either real-world dimensions (widthMm) OR pixel dimensions (box)
+    const validUnits = currentDrawnUnits.filter(u => (u.widthMm > 0 && u.heightMm > 0) || (u.box && u.box.width > 0 && u.box.height > 0));
+    const pricing = pricingService.calculate(validUnits);
     grandSubtotal = pricing.subtotal;
+    grandAddOnsTotal = pricing.addOnsTotal;
     // Create a dummy room for single-room case
     roomPricings.push({
       room: {
@@ -78,22 +73,26 @@ function calculateAllRoomsPricing(
   } else {
     quotationRooms.forEach((room, index) => {
       const roomUnits = index === activeRoomIndex ? currentDrawnUnits : room.drawnUnits;
-      const validUnits = roomUnits.filter(u => u.widthMm > 0 && u.heightMm > 0);
-      const pricing = calculatePricing(validUnits, sqftRate);
+      // Accept units with either real-world dimensions (widthMm) OR pixel dimensions (box)
+      const validUnits = roomUnits.filter(u => (u.widthMm > 0 && u.heightMm > 0) || (u.box && u.box.width > 0 && u.box.height > 0));
+      const pricing = pricingService.calculate(validUnits);
       grandSubtotal += pricing.subtotal;
+      grandAddOnsTotal += pricing.addOnsTotal;
       roomPricings.push({ room, pricing, validUnits });
     });
   }
 
-  const grandGst = grandSubtotal * 0.18;
-  const grandTotal = grandSubtotal + grandGst;
+  const grandTotal = grandSubtotal + grandAddOnsTotal;
+  const grandGst = grandTotal * 0.18;
+  const total = grandTotal + grandGst;
 
   return {
     roomPricings,
     grandTotal: {
       subtotal: Math.round(grandSubtotal),
+      addOnsTotal: Math.round(grandAddOnsTotal),
       gst: Math.round(grandGst),
-      total: Math.round(grandTotal),
+      total: Math.round(total),
     },
   };
 }
@@ -111,18 +110,20 @@ export function generateQuotationPDF({
   quotationRooms,
   currentDrawnUnits,
   activeRoomIndex,
-  sqftRate,
   canvasImageData,
   allCanvasImages,
+  currentRoomPhoto,
+  currentReferencePhotos,
 }: {
   client: ClientInfo;
   meta: QuoteMeta;
   quotationRooms: QuotationRoom[];
   currentDrawnUnits: DrawnUnit[];
   activeRoomIndex: number;
-  sqftRate: number;
   canvasImageData?: string; // Base64 image of current canvas (fallback)
   allCanvasImages?: Map<number, string>; // Map of roomIndex -> canvasImageData
+  currentRoomPhoto?: RoomPhoto; // Current room's main photo
+  currentReferencePhotos?: ReferencePhoto[]; // Current room's reference photos (thumbnails)
 }): void {
   const doc = new jsPDF({
     orientation: "portrait",
@@ -136,12 +137,11 @@ export function generateQuotationPDF({
   const contentWidth = pageWidth - (margin * 2);
   let y = 0;
 
-  // Calculate all pricing
+  // Calculate all pricing using Unit Setup rates
   const { roomPricings, grandTotal } = calculateAllRoomsPricing(
     quotationRooms,
     currentDrawnUnits,
-    activeRoomIndex,
-    sqftRate
+    activeRoomIndex
   );
 
   // Helper: Add new page if needed
@@ -195,69 +195,308 @@ export function generateQuotationPDF({
 
   y = y + 20;
 
-  // ========== ROOM SECTIONS (SCROLLABLE STYLE) ==========
-  // Each room gets: Canvas image (65mm height) + mini pricing table
-  const canvasHeight = 65;
-  const roomSectionHeight = canvasHeight + 45; // canvas + table + spacing
+  // ========== QUOTATION SUMMARY (ALWAYS ON PAGE 1) ==========
+  // Group rooms by floor
+  interface FloorGroup {
+    floor: string;
+    rooms: { room: string; unitType: string; area: number; amount: number }[];
+    floorTotal: number;
+  }
+
+  const floorGroups: Map<string, FloorGroup> = new Map();
+
+  roomPricings.forEach(({ room, pricing }) => {
+    // Parse floor from room name (e.g., "Kids Room (1st Floor)" -> "1st Floor")
+    const floorMatch = room.name.match(/\(([^)]+)\)/);
+    const floor = floorMatch ? floorMatch[1] : "Ground";
+    const roomName = room.name.replace(/\s*\([^)]+\)/, "").trim();
+
+    if (!floorGroups.has(floor)) {
+      floorGroups.set(floor, { floor, rooms: [], floorTotal: 0 });
+    }
+
+    const group = floorGroups.get(floor)!;
+    group.rooms.push({
+      room: roomName,
+      unitType: UNIT_TYPE_LABELS[room.unitType] || room.unitType,
+      area: pricing.totalSqft,
+      amount: pricing.subtotal,
+    });
+    group.floorTotal += pricing.subtotal;
+  });
+
+  // Summary section header - Livinza Celadon Green
+  doc.setFillColor(168, 220, 171); // Celadon #A8DCAB
+  doc.roundedRect(margin, y, contentWidth, 10, 2, 2, "F");
+  doc.setTextColor(45, 80, 50); // Dark Green for contrast
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.text("QUOTATION SUMMARY", margin + 4, y + 7);
+  y += 14;
+
+  // Render each floor section - compact on page 1
+  floorGroups.forEach((group) => {
+    // Floor header bar - Livinza Celadon Green
+    doc.setFillColor(168, 220, 171); // Celadon #A8DCAB
+    doc.roundedRect(margin, y, contentWidth, 6, 1, 1, "F");
+    doc.setTextColor(45, 80, 50); // Dark Green for contrast
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "bold");
+    doc.text(group.floor.toUpperCase(), margin + 4, y + 4);
+    y += 8;
+
+    // Room table for this floor (compact)
+    const floorTableData = group.rooms.map(room => [
+      room.room,
+      room.unitType,
+      `${room.area} sqft`,
+      formatCurrency(room.amount),
+    ]);
+
+    autoTable(doc, {
+      startY: y,
+      head: [["Room", "Type", "Area", "Amount"]],
+      body: floorTableData,
+      theme: "plain",
+      headStyles: {
+        fillColor: [210, 240, 212], // Light Celadon
+        textColor: [45, 80, 50],    // Dark Green
+        fontStyle: "bold",
+        fontSize: 10,
+        cellPadding: 2.5,
+      },
+      bodyStyles: {
+        fontSize: 12, // 2x larger room text
+        cellPadding: 3,
+        textColor: [30, 41, 59], // Slate-800
+      },
+      alternateRowStyles: {
+        fillColor: [248, 250, 252], // Slate-50
+      },
+      columnStyles: {
+        0: { halign: "left", cellWidth: 55, fontStyle: "bold" }, // Room name bold
+        1: { halign: "center", cellWidth: 35 },
+        2: { halign: "center", cellWidth: 35 },
+        3: { halign: "right", cellWidth: 45 },
+      },
+      margin: { left: margin, right: margin },
+      tableLineColor: [203, 213, 225],
+      tableLineWidth: 0.1,
+    });
+
+    y = (doc as any).lastAutoTable.finalY + 2;
+
+    // Floor total row - Light celadon background
+    doc.setFillColor(210, 240, 212); // Light Celadon
+    doc.roundedRect(margin, y, contentWidth, 6, 1, 1, "F");
+
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(45, 80, 50); // Dark Green
+    doc.text(`${group.floor} Total`, margin + 4, y + 4);
+    doc.text(formatCurrency(group.floorTotal), pageWidth - margin - 4, y + 4, { align: "right" });
+
+    y += 10;
+  });
+
+  // ========== GRAND TOTALS BOX (ON PAGE 1) ==========
+  const totalsBoxWidth = 85;
+  const totalsBoxX = pageWidth - margin - totalsBoxWidth;
+
+  // Totals background box
+  doc.setFillColor(248, 250, 252);
+  doc.setDrawColor(203, 213, 225);
+  doc.setLineWidth(0.5);
+  doc.roundedRect(totalsBoxX - 5, y - 2, totalsBoxWidth + 5, 32, 3, 3, "FD");
+
+  // Subtotal
+  y += 2;
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(100, 116, 139);
+  doc.text("Subtotal", totalsBoxX, y);
+  doc.setTextColor(30, 41, 59);
+  doc.text(formatCurrency(grandTotal.subtotal), pageWidth - margin, y, { align: "right" });
+  y += 6;
+
+  // GST
+  doc.setTextColor(100, 116, 139);
+  doc.text("GST (18%)", totalsBoxX, y);
+  doc.setTextColor(30, 41, 59);
+  doc.text(formatCurrency(grandTotal.gst), pageWidth - margin, y, { align: "right" });
+  y += 4;
+
+  // Divider
+  doc.setDrawColor(203, 213, 225);
+  doc.setLineWidth(0.5);
+  doc.line(totalsBoxX, y, pageWidth - margin, y);
+  y += 5;
+
+  // Grand Total Box - Livinza Celadon Green
+  doc.setFillColor(168, 220, 171); // Celadon #A8DCAB
+  doc.roundedRect(totalsBoxX - 3, y - 4, totalsBoxWidth + 3, 14, 3, 3, "F");
+  doc.setTextColor(45, 80, 50); // Dark Green for contrast
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.text("GRAND TOTAL", totalsBoxX + 2, y + 4);
+  doc.setFontSize(12);
+  doc.text(formatCurrency(grandTotal.total), pageWidth - margin - 2, y + 4, { align: "right" });
+
+  y += 18;
+
+  // ========== ROOM SECTIONS (PAGE 2+) ==========
+  // Each room: Room Photo (80% centered) + Reference Thumbnails + Canvas Drawing (80% centered) + Pricing Table
+  const mainPhotoHeight = 80; // 80mm height
+  const thumbnailHeight = 18;
+  const canvasHeight = 80; // 80mm height
 
   roomPricings.forEach(({ room, pricing, validUnits }, roomIndex) => {
+    // Get room photo - use current room's photo for active room, or stored in room
+    const roomPhoto = roomIndex === activeRoomIndex ? currentRoomPhoto : room.roomPhoto;
+    const referencePhotos = roomIndex === activeRoomIndex ? currentReferencePhotos : [];
+    const hasRoomPhoto = roomPhoto && roomPhoto.src;
+    const hasReferences = referencePhotos && referencePhotos.length > 0;
+
+    // Calculate required height for this room section
+    const photoSectionHeight = hasRoomPhoto ? (mainPhotoHeight + (hasReferences ? thumbnailHeight + 4 : 0) + 4) : 0;
+    const roomSectionHeight = 12 + photoSectionHeight + canvasHeight + 50; // header + photos + canvas + table
+
     // Check if we need a new page for this room
     checkPageBreak(roomSectionHeight);
 
-    // Room header bar - Livinza Celadon Green
+    // Room header bar - Livinza Celadon Green (larger)
     doc.setFillColor(168, 220, 171); // Celadon #A8DCAB
-    doc.roundedRect(margin, y, contentWidth, 8, 2, 2, "F");
+    doc.roundedRect(margin, y, contentWidth, 12, 2, 2, "F");
     doc.setTextColor(45, 80, 50); // Dark Green for contrast
-    doc.setFontSize(10);
+    doc.setFontSize(14); // 2x larger room name
     doc.setFont("helvetica", "bold");
-    doc.text(room.name.toUpperCase(), margin + 4, y + 5.5);
+    doc.text(room.name.toUpperCase(), margin + 4, y + 8);
 
     // Room subtotal on right
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "normal");
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
     doc.setTextColor(45, 80, 50); // Dark Green
-    doc.text(formatCurrency(pricing.subtotal), pageWidth - margin - 4, y + 5.5, { align: "right" });
+    doc.text(formatCurrency(pricing.subtotal), pageWidth - margin - 4, y + 8, { align: "right" });
 
-    y += 12;
+    y += 16;
 
-    // Canvas image for this room
-    const roomCanvasImage = allCanvasImages?.get(roomIndex) || (roomIndex === activeRoomIndex ? canvasImageData : undefined);
+    // ========== ROOM PHOTO SECTION (TOP) ==========
+    if (hasRoomPhoto) {
+      // "Room Photo" label
+      doc.setFontSize(7);
+      doc.setTextColor(100, 116, 139); // Slate-500
+      doc.text("ROOM PHOTO", margin, y + 3);
+      y += 5;
 
-    if (roomCanvasImage) {
-      // Shadow effect
-      doc.setFillColor(226, 232, 240);
-      doc.roundedRect(margin + 1.5, y + 1.5, contentWidth, canvasHeight, 2, 2, "F");
+      // Main room photo - 80% width, centered
+      const photoWidth = contentWidth * 0.8; // 80% width
+      const photoX = margin + (contentWidth - photoWidth) / 2; // Center it
 
-      // Border frame
-      doc.setDrawColor(203, 213, 225);
-      doc.setLineWidth(0.5);
-      doc.roundedRect(margin, y, contentWidth, canvasHeight, 2, 2, "S");
-
-      // Canvas image
-      try {
-        doc.addImage(roomCanvasImage, "PNG", margin + 0.5, y + 0.5, contentWidth - 1, canvasHeight - 1);
-      } catch {
-        // Fallback placeholder
-        doc.setFillColor(241, 245, 249);
-        doc.roundedRect(margin + 0.5, y + 0.5, contentWidth - 1, canvasHeight - 1, 2, 2, "F");
-        doc.setTextColor(148, 163, 184);
-        doc.setFontSize(10);
-        doc.text(`${room.name} Preview`, pageWidth / 2, y + canvasHeight / 2, { align: "center" });
-      }
-    } else {
-      // No image placeholder
       doc.setFillColor(241, 245, 249);
       doc.setDrawColor(203, 213, 225);
       doc.setLineWidth(0.5);
-      doc.roundedRect(margin, y, contentWidth, canvasHeight, 2, 2, "FD");
+      doc.roundedRect(photoX, y, photoWidth, mainPhotoHeight, 2, 2, "FD");
+
+      try {
+        // Maintain aspect ratio
+        const imgAspect = roomPhoto!.width / roomPhoto!.height;
+        const boxAspect = photoWidth / mainPhotoHeight;
+        let imgW = photoWidth - 2;
+        let imgH = mainPhotoHeight - 2;
+        let imgX = photoX + 1;
+        let imgY = y + 1;
+
+        if (imgAspect > boxAspect) {
+          // Image is wider - fit to width
+          imgH = imgW / imgAspect;
+          imgY = y + (mainPhotoHeight - imgH) / 2;
+        } else {
+          // Image is taller - fit to height
+          imgW = imgH * imgAspect;
+          imgX = photoX + (photoWidth - imgW) / 2;
+        }
+
+        doc.addImage(roomPhoto!.src, "JPEG", imgX, imgY, imgW, imgH);
+      } catch {
+        doc.setTextColor(148, 163, 184);
+        doc.setFontSize(8);
+        doc.text("Photo", photoX + photoWidth / 2, y + mainPhotoHeight / 2, { align: "center" });
+      }
+
+      y += mainPhotoHeight + 4;
+
+      // Reference photo thumbnails (if any)
+      if (hasReferences && referencePhotos!.length > 0) {
+        const thumbWidth = 25;
+        const thumbGap = 4;
+        const thumbsCount = Math.min(referencePhotos!.length, 5); // Max 5 thumbnails
+        const totalThumbsWidth = thumbsCount * thumbWidth + (thumbsCount - 1) * thumbGap;
+        let thumbX = margin + (contentWidth - totalThumbsWidth) / 2;
+
+        for (let i = 0; i < thumbsCount; i++) {
+          const thumb = referencePhotos![i];
+          doc.setFillColor(241, 245, 249);
+          doc.setDrawColor(203, 213, 225);
+          doc.setLineWidth(0.3);
+          doc.roundedRect(thumbX, y, thumbWidth, thumbnailHeight, 1, 1, "FD");
+
+          try {
+            doc.addImage(thumb.src, "JPEG", thumbX + 0.5, y + 0.5, thumbWidth - 1, thumbnailHeight - 1);
+          } catch {
+            // Skip failed thumbnails
+          }
+
+          thumbX += thumbWidth + thumbGap;
+        }
+
+        y += thumbnailHeight + 4;
+      }
+    }
+
+    // ========== CANVAS DRAWING (BELOW PHOTO) - 50% width, centered ==========
+    const roomCanvasImage = allCanvasImages?.get(roomIndex) || (roomIndex === activeRoomIndex ? canvasImageData : undefined);
+
+    // "Design Drawing" label
+    doc.setFontSize(7);
+    doc.setTextColor(100, 116, 139); // Slate-500
+    doc.text("DESIGN DRAWING", margin, y + 3);
+    y += 5;
+
+    // Canvas box - 80% width, centered
+    const canvasWidth = contentWidth * 0.8;
+    const canvasX = margin + (contentWidth - canvasWidth) / 2;
+
+    if (roomCanvasImage) {
+      // Border frame
+      doc.setDrawColor(203, 213, 225);
+      doc.setLineWidth(0.5);
+      doc.roundedRect(canvasX, y, canvasWidth, canvasHeight, 2, 2, "S");
+
+      // Canvas image
+      try {
+        doc.addImage(roomCanvasImage, "PNG", canvasX + 0.5, y + 0.5, canvasWidth - 1, canvasHeight - 1);
+      } catch {
+        // Fallback placeholder
+        doc.setFillColor(241, 245, 249);
+        doc.roundedRect(canvasX + 0.5, y + 0.5, canvasWidth - 1, canvasHeight - 1, 2, 2, "F");
+        doc.setTextColor(148, 163, 184);
+        doc.setFontSize(10);
+        doc.text(`${room.name} Design`, pageWidth / 2, y + canvasHeight / 2, { align: "center" });
+      }
+    } else {
+      // No canvas placeholder
+      doc.setFillColor(241, 245, 249);
+      doc.setDrawColor(203, 213, 225);
+      doc.setLineWidth(0.5);
+      doc.roundedRect(canvasX, y, canvasWidth, canvasHeight, 2, 2, "FD");
       doc.setTextColor(148, 163, 184);
       doc.setFontSize(10);
-      doc.text(`${room.name} - No Preview Available`, pageWidth / 2, y + canvasHeight / 2, { align: "center" });
+      doc.text(`${room.name} - No Design`, pageWidth / 2, y + canvasHeight / 2, { align: "center" });
     }
 
     y += canvasHeight + 4;
 
-    // Mini pricing table for this room
+    // ========== PRICING TABLE ==========
     if (validUnits.length > 0) {
       const tableData: (string | number)[][] = [];
 
@@ -268,11 +507,13 @@ export function generateQuotationPDF({
         const typeLabel = UNIT_TYPE_LABELS[unit.unitType] || unit.unitType;
         const dimensions = `${formatDimension(unit.widthMm)} × ${formatDimension(unit.heightMm)}`;
 
+        // Combined carcass + shutter pricing
+        const totalPrice = unitPricing.carcassPrice + unitPricing.shutterPrice;
         tableData.push([
           typeLabel,
           dimensions,
-          `${unitPricing.wardrobeSqft} sqft`,
-          formatCurrency(unitPricing.wardrobePrice),
+          `${unitPricing.shutterSqft} sqft`,
+          formatCurrency(totalPrice),
         ]);
 
         // Add loft if enabled
@@ -334,170 +575,6 @@ export function generateQuotationPDF({
     y += 8;
   });
 
-  // ========== QUOTATION SUMMARY TABLE (LAST PAGE) ==========
-  // Group rooms by floor
-  interface FloorGroup {
-    floor: string;
-    rooms: { room: string; unitType: string; area: number; amount: number }[];
-    floorTotal: number;
-  }
-
-  const floorGroups: Map<string, FloorGroup> = new Map();
-
-  roomPricings.forEach(({ room, pricing }) => {
-    // Parse floor from room name (e.g., "Kids Room (1st Floor)" -> "1st Floor")
-    const floorMatch = room.name.match(/\(([^)]+)\)/);
-    const floor = floorMatch ? floorMatch[1] : "Ground";
-    const roomName = room.name.replace(/\s*\([^)]+\)/, "").trim();
-
-    if (!floorGroups.has(floor)) {
-      floorGroups.set(floor, { floor, rooms: [], floorTotal: 0 });
-    }
-
-    const group = floorGroups.get(floor)!;
-    group.rooms.push({
-      room: roomName,
-      unitType: UNIT_TYPE_LABELS[room.unitType] || room.unitType,
-      area: pricing.totalSqft,
-      amount: pricing.subtotal,
-    });
-    group.floorTotal += pricing.subtotal;
-  });
-
-  // Calculate required height for summary section
-  let totalRows = 0;
-  floorGroups.forEach(group => {
-    totalRows += 1 + group.rooms.length + 1; // floor header + rooms + floor total row
-  });
-  const summaryHeight = 20 + (totalRows * 10) + 50;
-  checkPageBreak(summaryHeight);
-
-  // Summary section header - Livinza Celadon Green
-  doc.setFillColor(168, 220, 171); // Celadon #A8DCAB
-  doc.roundedRect(margin, y, contentWidth, 10, 2, 2, "F");
-  doc.setTextColor(45, 80, 50); // Dark Green for contrast
-  doc.setFontSize(11);
-  doc.setFont("helvetica", "bold");
-  doc.text("QUOTATION SUMMARY", margin + 4, y + 7);
-  y += 16;
-
-  // Render each floor section - Livinza brand theme
-  floorGroups.forEach((group) => {
-    // Check for page break before each floor section
-    const floorSectionHeight = 12 + (group.rooms.length * 8) + 10;
-    checkPageBreak(floorSectionHeight);
-
-    // Floor header bar - Livinza Celadon Green
-    doc.setFillColor(168, 220, 171); // Celadon #A8DCAB
-    doc.roundedRect(margin, y, contentWidth, 7, 1, 1, "F");
-    doc.setTextColor(45, 80, 50); // Dark Green for contrast
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "bold");
-    doc.text(group.floor.toUpperCase(), margin + 4, y + 5);
-    y += 10;
-
-    // Room table for this floor
-    const floorTableData = group.rooms.map(room => [
-      room.room,
-      room.unitType,
-      `${room.area} sqft`,
-      formatCurrency(room.amount),
-    ]);
-
-    autoTable(doc, {
-      startY: y,
-      head: [["Room", "Type", "Area", "Amount"]],
-      body: floorTableData,
-      theme: "plain",
-      headStyles: {
-        fillColor: [210, 240, 212], // Light Celadon
-        textColor: [45, 80, 50],    // Dark Green
-        fontStyle: "bold",
-        fontSize: 8,
-        cellPadding: 2,
-      },
-      bodyStyles: {
-        fontSize: 8,
-        cellPadding: 2,
-        textColor: [30, 41, 59], // Slate-800
-      },
-      alternateRowStyles: {
-        fillColor: [248, 250, 252], // Slate-50
-      },
-      columnStyles: {
-        0: { halign: "left", cellWidth: 55 },
-        1: { halign: "center", cellWidth: 35 },
-        2: { halign: "center", cellWidth: 35 },
-        3: { halign: "right", cellWidth: 45 },
-      },
-      margin: { left: margin, right: margin },
-      tableLineColor: [203, 213, 225], // Slate-300
-      tableLineWidth: 0.1,
-    });
-
-    y = (doc as any).lastAutoTable.finalY + 2;
-
-    // Floor total row - Light celadon background
-    doc.setFillColor(210, 240, 212); // Light Celadon
-    doc.roundedRect(margin, y, contentWidth, 7, 1, 1, "F");
-
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(45, 80, 50); // Dark Green
-    doc.text(`${group.floor} Total`, margin + 4, y + 5);
-    doc.text(formatCurrency(group.floorTotal), pageWidth - margin - 4, y + 5, { align: "right" });
-
-    y += 12;
-  });
-
-  // ========== GRAND TOTALS BOX ==========
-  // Ensure grand totals fit on page
-  checkPageBreak(50);
-
-  const totalsBoxWidth = 90;
-  const totalsBoxX = pageWidth - margin - totalsBoxWidth;
-
-  // Totals background box
-  doc.setFillColor(248, 250, 252);
-  doc.setDrawColor(203, 213, 225);
-  doc.setLineWidth(0.5);
-  doc.roundedRect(totalsBoxX - 5, y - 2, totalsBoxWidth + 5, 38, 3, 3, "FD");
-
-  // Subtotal
-  y += 4;
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(100, 116, 139);
-  doc.text("Subtotal", totalsBoxX, y);
-  doc.setTextColor(30, 41, 59);
-  doc.text(formatCurrency(grandTotal.subtotal), pageWidth - margin, y, { align: "right" });
-  y += 7;
-
-  // GST
-  doc.setTextColor(100, 116, 139);
-  doc.text("GST (18%)", totalsBoxX, y);
-  doc.setTextColor(30, 41, 59);
-  doc.text(formatCurrency(grandTotal.gst), pageWidth - margin, y, { align: "right" });
-  y += 5;
-
-  // Divider
-  doc.setDrawColor(203, 213, 225);
-  doc.setLineWidth(0.5);
-  doc.line(totalsBoxX, y, pageWidth - margin, y);
-  y += 7;
-
-  // Grand Total Box - Livinza Celadon Green
-  doc.setFillColor(168, 220, 171); // Celadon #A8DCAB
-  doc.roundedRect(totalsBoxX - 3, y - 5, totalsBoxWidth + 3, 16, 3, 3, "F");
-  doc.setTextColor(45, 80, 50); // Dark Green for contrast
-  doc.setFontSize(12);
-  doc.setFont("helvetica", "bold");
-  doc.text("GRAND TOTAL", totalsBoxX + 2, y + 5);
-  doc.setFontSize(14);
-  doc.text(formatCurrency(grandTotal.total), pageWidth - margin - 2, y + 5, { align: "right" });
-
-  y += 20;
-
   // ========== FOOTER ON LAST PAGE ==========
   const footerY = pageHeight - 15;
 
@@ -535,21 +612,18 @@ export function generateQuotationExcel({
   quotationRooms,
   currentDrawnUnits,
   activeRoomIndex,
-  sqftRate,
 }: {
   client: ClientInfo;
   meta: QuoteMeta;
   quotationRooms: QuotationRoom[];
   currentDrawnUnits: DrawnUnit[];
   activeRoomIndex: number;
-  sqftRate: number;
 }): void {
-  // Calculate all pricing
+  // Calculate all pricing using Unit Setup rates
   const { roomPricings, grandTotal } = calculateAllRoomsPricing(
     quotationRooms,
     currentDrawnUnits,
-    activeRoomIndex,
-    sqftRate
+    activeRoomIndex
   );
 
   // Create workbook
@@ -617,19 +691,23 @@ export function generateQuotationExcel({
       const unitPricing = pricing.units[idx];
       if (!unitPricing) return;
 
+      // Combined carcass + shutter pricing
+      const totalRate = unitPricing.carcassRate + unitPricing.shutterRate;
+      const totalPrice = unitPricing.carcassPrice + unitPricing.shutterPrice;
       itemsData.push([
         itemNo++,
         room.name,
         UNIT_TYPE_LABELS[unit.unitType] || unit.unitType,
         formatDimension(unit.widthMm),
         formatDimension(unit.heightMm),
-        unitPricing.wardrobeSqft,
-        sqftRate,
-        unitPricing.wardrobePrice,
+        unitPricing.shutterSqft,
+        totalRate,
+        totalPrice,
       ]);
 
-      // Add loft if enabled
+      // Add loft if enabled (loft uses combined carcass + shutter rate)
       if (unit.loftEnabled && unit.loftWidthMm > 0 && unit.loftHeightMm > 0) {
+        const loftRate = unitPricing.carcassRate + unitPricing.shutterRate;
         itemsData.push([
           itemNo++,
           room.name,
@@ -637,7 +715,7 @@ export function generateQuotationExcel({
           formatDimension(unit.loftWidthMm),
           formatDimension(unit.loftHeightMm),
           unitPricing.loftSqft,
-          sqftRate,
+          loftRate,
           unitPricing.loftPrice,
         ]);
       }
@@ -680,14 +758,12 @@ export function generateShareData({
   quotationRooms,
   currentDrawnUnits,
   activeRoomIndex,
-  sqftRate,
 }: {
   client: ClientInfo;
   meta: QuoteMeta;
   quotationRooms: QuotationRoom[];
   currentDrawnUnits: DrawnUnit[];
   activeRoomIndex: number;
-  sqftRate: number;
 }): string {
   const sharePayload = {
     v: 1, // version
@@ -717,7 +793,6 @@ export function generateShareData({
       loft: u.loftEnabled,
     })),
     ai: activeRoomIndex,
-    rate: sqftRate,
   };
 
   return btoa(JSON.stringify(sharePayload));
@@ -732,21 +807,18 @@ export async function copyQuotationToClipboard({
   quotationRooms,
   currentDrawnUnits,
   activeRoomIndex,
-  sqftRate,
 }: {
   client: ClientInfo;
   meta: QuoteMeta;
   quotationRooms: QuotationRoom[];
   currentDrawnUnits: DrawnUnit[];
   activeRoomIndex: number;
-  sqftRate: number;
 }): Promise<boolean> {
-  // Calculate all pricing
+  // Calculate all pricing using Unit Setup rates
   const { roomPricings, grandTotal } = calculateAllRoomsPricing(
     quotationRooms,
     currentDrawnUnits,
-    activeRoomIndex,
-    sqftRate
+    activeRoomIndex
   );
 
   let text = `*QUOTATION*\n`;
@@ -769,7 +841,9 @@ export async function copyQuotationToClipboard({
       if (!unitPricing) return;
 
       const dimensions = `${formatDimension(unit.widthMm)} x ${formatDimension(unit.heightMm)}`;
-      text += `- ${UNIT_TYPE_LABELS[unit.unitType] || unit.unitType} (${dimensions}): Rs. ${unitPricing.wardrobePrice.toLocaleString("en-IN")}\n`;
+      // Combined carcass + shutter price
+      const totalPrice = unitPricing.carcassPrice + unitPricing.shutterPrice;
+      text += `- ${UNIT_TYPE_LABELS[unit.unitType] || unit.unitType} (${dimensions}): Rs. ${totalPrice.toLocaleString("en-IN")}\n`;
 
       if (unit.loftEnabled && unitPricing.loftPrice > 0) {
         const loftDimensions = `${formatDimension(unit.loftWidthMm)} x ${formatDimension(unit.loftHeightMm)}`;

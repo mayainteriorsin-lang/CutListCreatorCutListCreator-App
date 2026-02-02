@@ -6,18 +6,30 @@ import {
   Mail,
   Link2,
   MessageCircle,
-  Clock
+  Clock,
+  Send,
+  FileText,
+  IndianRupee,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { useVisualQuotationStore } from "../../store/visualQuotationStore";
-import { calculatePricing } from "../../engine/pricingEngine";
-import { logActivity } from "@/modules/crm/storage";
+import { useDesignCanvasStore } from "../../store/v2/useDesignCanvasStore";
+import { useQuotationMetaStore } from "../../store/v2/useQuotationMetaStore";
+import { useServices } from "../../services/useServices";
+import { logger } from "../../services/logger";
+
+// Lazy import CRM to avoid bundling with visual-quotation
+const getCrmStorage = () => import("@/modules/crm/storage");
 
 const ApprovalBar: React.FC = () => {
-  const { status, approveQuote, resetDraft, client, meta, units, leadId, quoteId } =
-    useVisualQuotationStore();
+  const { status, setStatus, client, meta, leadId, quoteId } = useQuotationMetaStore();
+  const { drawnUnits } = useDesignCanvasStore();
+
+  const approveQuote = () => setStatus("APPROVED");
+  const resetDraft = () => setStatus("DRAFT");
+
+  const { pricingService } = useServices();
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
 
@@ -32,7 +44,7 @@ const ApprovalBar: React.FC = () => {
     "";
   const customerMobile = (phoneParam || client?.phone || "").replace(/\D/g, "");
 
-  const pricing = useMemo(() => calculatePricing(units || []), [units]);
+  const pricing = useMemo(() => pricingService.calculate(drawnUnits || []), [drawnUnits, pricingService]);
   const totalAmount = pricing.total || 0;
 
   const quotationLink =
@@ -42,11 +54,14 @@ const ApprovalBar: React.FC = () => {
 
   const logShare = (channel: "whatsapp" | "email" | "copy_link") => {
     if (!leadId) return;
-    logActivity({
-      leadId,
-      type: "QUOTE_SHARED",
-      message: `Quote shared via ${channel}.`,
-      meta: { channel, quoteId: quoteId ?? undefined },
+    // Lazy load CRM and log activity
+    getCrmStorage().then((crm) => {
+      crm.logActivity({
+        leadId,
+        type: "QUOTE_SHARED",
+        message: `Quote shared via ${channel}.`,
+        meta: { channel, quoteId: quoteId ?? undefined },
+      });
     });
   };
 
@@ -81,30 +96,47 @@ View here: ${quotationLink}`;
         description: "Quotation link copied to clipboard.",
       });
     } catch (error) {
-      console.error("Copy failed", error);
+      logger.error('Clipboard copy failed', { error: String(error), context: 'approval-bar' });
     }
   };
 
   return (
-    <div className="flex-shrink-0 h-10 bg-white border-t border-slate-200 shadow-lg">
-      <div className="h-full px-3 flex items-center justify-between gap-2">
-        {/* Status */}
-        <div className="flex items-center gap-2">
+    <div className="flex-shrink-0 h-14 bg-white border-t border-gray-200 shadow-lg">
+      <div className="h-full px-4 flex items-center justify-between">
+        {/* Left: Status & Quote Info */}
+        <div className="flex items-center gap-4">
           {isApproved ? (
-            <Badge className="bg-green-100 text-green-700 border-green-200 gap-1 h-6 text-[10px]">
-              <CheckCircle2 className="h-3 w-3" />
+            <Badge className="bg-green-50 text-green-700 border border-green-200 gap-1.5 h-7 px-3 text-xs font-medium">
+              <CheckCircle2 className="h-3.5 w-3.5" />
               Approved
             </Badge>
           ) : (
-            <Badge variant="secondary" className="gap-1 h-6 text-[10px]">
-              <Clock className="h-3 w-3" />
+            <Badge variant="secondary" className="bg-gray-100 text-gray-600 border border-gray-200 gap-1.5 h-7 px-3 text-xs font-medium">
+              <Clock className="h-3.5 w-3.5" />
               Draft
             </Badge>
           )}
+
+          {/* Quote ID */}
+          <div className="flex items-center gap-2 text-sm">
+            <FileText className="h-4 w-4 text-gray-400" />
+            <span className="text-gray-500">Quote:</span>
+            <span className="font-medium text-gray-900">{quotationId}</span>
+          </div>
+
+          {/* Total Amount */}
+          {totalAmount > 0 && (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 rounded-lg border border-emerald-200">
+              <IndianRupee className="h-4 w-4 text-emerald-600" />
+              <span className="text-sm font-bold text-emerald-700">
+                {totalAmount.toLocaleString("en-IN")}
+              </span>
+            </div>
+          )}
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center gap-1">
+        {/* Right: Actions */}
+        <div className="flex items-center gap-2">
           {/* Share buttons (only when approved) */}
           {isApproved && (
             <>
@@ -113,28 +145,30 @@ View here: ${quotationLink}`;
                 size="sm"
                 onClick={handleWhatsappShare}
                 disabled={!customerMobile}
-                className="h-7 text-[10px] px-2 bg-green-50 border-green-200 text-green-700"
+                className="h-9 px-3 text-xs font-medium bg-green-50 border-green-200 text-green-700 hover:bg-green-100 hover:border-green-300"
               >
-                <MessageCircle className="h-3 w-3 mr-1" />
+                <MessageCircle className="h-4 w-4 mr-1.5" />
                 WhatsApp
               </Button>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleEmailShare}
-                className="h-7 text-[10px] px-2"
+                className="h-9 px-3 text-xs font-medium border-gray-200 text-gray-600 hover:bg-gray-50"
               >
-                <Mail className="h-3 w-3 mr-1" />
+                <Mail className="h-4 w-4 mr-1.5" />
                 Email
               </Button>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleCopyLink}
-                className="h-7 text-[10px] px-2"
+                className="h-9 w-9 p-0 border-gray-200 text-gray-500 hover:bg-gray-50"
+                title="Copy link"
               >
-                <Link2 className="h-3 w-3" />
+                <Link2 className="h-4 w-4" />
               </Button>
+              <div className="w-px h-6 bg-gray-200 mx-1" />
             </>
           )}
 
@@ -143,19 +177,19 @@ View here: ${quotationLink}`;
             <Button
               onClick={approveQuote}
               size="sm"
-              className="h-7 text-[10px] px-3 bg-green-600 hover:bg-green-700"
+              className="h-9 px-4 text-xs font-semibold bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white shadow-md"
             >
-              <CheckCircle2 className="h-3 w-3 mr-1" />
-              Approve
+              <CheckCircle2 className="h-4 w-4 mr-1.5" />
+              Approve Quotation
             </Button>
           ) : (
             <Button
               variant="outline"
               size="sm"
               onClick={resetDraft}
-              className="h-7 text-[10px] px-2"
+              className="h-9 px-3 text-xs font-medium border-gray-200 text-gray-600 hover:bg-gray-50"
             >
-              <Copy className="h-3 w-3 mr-1" />
+              <Copy className="h-4 w-4 mr-1.5" />
               Duplicate
             </Button>
           )}

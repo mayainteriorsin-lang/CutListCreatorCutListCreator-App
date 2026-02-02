@@ -1,5 +1,5 @@
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import DesignCenter from "@/components/ui/DesignCenter";
+import DesignCenter from "@/modules/design";
 
 // PATCH 18: Strict prop typing
 export interface DesignCenterSectionProps {

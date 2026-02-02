@@ -1,6 +1,7 @@
 // ===============================================
-// GADDI MARK - MATCHES PREVIEW EXACTLY
-// Simple edge-aligned lines (TOP edge horizontal, LEFT edge vertical)
+// GADDI MARK - Indicates panel has cavity/groove
+// Draws edge-aligned lines (TOP edge horizontal, LEFT edge vertical)
+// to show where the cavity is located on the panel
 // ===============================================
 
 export function drawGaddiMark(

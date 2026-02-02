@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import {
-  LayoutDashboard,
+  Home,
   Settings,
   Palette,
   Table2,
@@ -11,6 +11,8 @@ import {
   Users,
   ChevronLeft,
   ChevronRight,
+  Zap,
+  BookOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
@@ -25,8 +27,8 @@ interface NavItem {
 const navItems: NavItem[] = [
   {
     path: "/",
-    label: "Dashboard",
-    icon: <LayoutDashboard className="w-5 h-5" />,
+    label: "Home",
+    icon: <Home className="w-5 h-5" />,
     gradient: "from-blue-500 to-indigo-500",
   },
   {
@@ -53,12 +55,24 @@ const navItems: NavItem[] = [
     icon: <Table2 className="w-5 h-5" />,
     gradient: "from-emerald-500 to-teal-500",
   },
+  {
+    path: "/library",
+    label: "Library",
+    icon: <BookOpen className="w-5 h-5" />,
+    gradient: "from-indigo-500 to-blue-600",
+  },
 ];
 
 const secondaryNavItems: NavItem[] = [
   {
-    path: "/quotations",
-    label: "Quotations",
+    path: "/quick-quotation",
+    label: "Quick Quote",
+    icon: <Zap className="w-5 h-5" />,
+    gradient: "from-green-500 to-emerald-500",
+  },
+  {
+    path: "/client-info",
+    label: "Client Info",
     icon: <FileText className="w-5 h-5" />,
     gradient: "from-cyan-500 to-blue-500",
   },

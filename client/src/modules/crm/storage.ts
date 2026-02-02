@@ -1,6 +1,13 @@
 import type { ActivityEvent, ActivityType, Appointment, AppointmentStatus, LeadRecord, LeadStatus, QuoteStatus, QuoteSummary } from "./types";
 import { generateUUID } from "@/lib/uuid";
-import { encryptedRead, encryptedWrite, isEncryptionReady } from "./crypto";
+import {
+  encryptedRead,
+  encryptedWrite,
+  isEncryptionReady,
+  initializeEncryption,
+  migrateToEncrypted,
+  needsMigration,
+} from "./crypto";
 
 const API_BASE = "/api/crm";
 const STORAGE_KEYS = {
@@ -122,8 +129,6 @@ function writeJson<T>(key: string, value: T): void {
 
 // Initialize cache from encrypted storage (call after PIN unlock)
 export async function initializeCrmData(pin: string): Promise<void> {
-  const { initializeEncryption, migrateToEncrypted, needsMigration } = await import("./crypto");
-
   const success = await initializeEncryption(pin);
   if (!success) {
     console.warn("Encryption not available, using plain storage");

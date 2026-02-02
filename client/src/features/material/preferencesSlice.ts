@@ -21,6 +21,8 @@ interface PreferencesState {
   loading: boolean;
   error: string | null;
   fetch: (force?: boolean) => Promise<void>;
+  /** Update a single wood grain preference */
+  setWoodGrain: (laminateCode: string, enabled: boolean) => void;
 }
 
 export const usePreferencesStore = create<PreferencesState>((set, get) => ({
@@ -79,5 +81,14 @@ export const usePreferencesStore = create<PreferencesState>((set, get) => ({
         error: e.message,
       });
     }
+  },
+
+  setWoodGrain(laminateCode: string, enabled: boolean) {
+    set((state) => ({
+      woodGrains: {
+        ...state.woodGrains,
+        [laminateCode]: enabled
+      }
+    }));
   },
 }));

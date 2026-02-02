@@ -75,6 +75,7 @@ class MaxRectsBin {
       const fr = this.free[i];
 
       // Try NORMAL orientation
+      // FIT CHECK: Raw dimension must fit
       if (piece.w <= fr.w && piece.h <= fr.h) {
         const aWaste = fr.w * fr.h - piece.w * piece.h;
         const s1 = Math.min(fr.w - piece.w, fr.h - piece.h);
@@ -89,7 +90,8 @@ class MaxRectsBin {
       }
 
       // Try ROTATED orientation (only if rotation allowed)
-      if (piece.rotate && piece.h <= fr.w && piece.w <= fr.h) {
+      // FIT CHECK: Raw dimension must fit
+      if (piece.rotateAllowed && piece.h <= fr.w && piece.w <= fr.h) {
         const rotW = piece.h, rotH = piece.w;  // Swap dimensions
         const aWaste = fr.w * fr.h - rotW * rotH;
         const s1 = Math.min(fr.w - rotW, fr.h - rotH);
@@ -106,24 +108,39 @@ class MaxRectsBin {
 
     if (!best) return null;
 
+    const pieceW = best.rot ? piece.h : piece.w;
+    const pieceH = best.rot ? piece.w : piece.h;
+
+    // Calculate actual consumed space (including kerf, unless at edge)
+    // Same logic as Genetic optimizer
+    const usedW = (pieceW + this.kerf <= best.rect.w + EPS) ? pieceW + this.kerf : best.rect.w;
+    const usedH = (pieceH + this.kerf <= best.rect.h + EPS) ? pieceH + this.kerf : best.rect.h;
+
+    const consumedRect = {
+      x: best.rect.x,
+      y: best.rect.y,
+      w: usedW,
+      h: usedH
+    };
+
     const placed: PlacedPiece = {
       id: piece.id,
       origId: piece.origId ?? piece.id,
-      x: best.rect.x + this.kerf / 2,
-      y: best.rect.y + this.kerf / 2,
-      w: best.rect.w - this.kerf,
-      h: best.rect.h - this.kerf,
+      x: consumedRect.x,
+      y: consumedRect.y,
+      w: pieceW,
+      h: pieceH,
       rotated: best.rot,
-      rotateAllowed: !!piece.rotate,
+      rotateAllowed: !!piece.rotateAllowed,
       gaddi: !!piece.gaddi,
       laminateCode: piece.laminateCode || '',
       nomW: (piece as any).nomW || piece.w,
       nomH: (piece as any).nomH || piece.h
     };
 
-    this.splitAll(best.rect);
+    this.splitAll(consumedRect);
     this.placed.push(placed);
-    this.usedArea += best.rect.w * best.rect.h;
+    this.usedArea += area(consumedRect);
     return placed;
   }
 
@@ -274,8 +291,8 @@ function packOnce(pieces: any[], W: number, H: number, kerf: number, strategy: s
   for (const p of pieces) {
     const tryP = {
       id: p.id,
-      w: p.w + kerf,
-      h: p.h + kerf,
+      w: p.w, // RAW (tryPlace handles kerf)
+      h: p.h, // RAW
       rotate: p.rotate,
       rotateAllowed: p.rotate,  // 📐 Axis-lock determines rotation
       gaddi: p.gaddi,

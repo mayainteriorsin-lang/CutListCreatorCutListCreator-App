@@ -5,9 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useVisualQuotationStore } from "../../store/visualQuotationStore";
+import { useDesignCanvasStore } from "../../store/v2/useDesignCanvasStore";
+import { useQuotationMetaStore } from "../../store/v2/useQuotationMetaStore";
 
 const ScaleCalibrationPanel: React.FC = () => {
+  const { status } = useQuotationMetaStore();
   const {
     roomPhoto,
     scale,
@@ -17,8 +19,7 @@ const ScaleCalibrationPanel: React.FC = () => {
     setScaleLine,
     setScale,
     clearScale,
-    status,
-  } = useVisualQuotationStore();
+  } = useDesignCanvasStore();
 
   const locked = status === "APPROVED";
   const [refMm, setRefMm] = useState<number>(scale?.mm ?? 0);
