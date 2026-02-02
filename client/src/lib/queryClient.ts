@@ -1,5 +1,6 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import { ENV } from "@/lib/system/env";
+import { useAuthStore } from "@/stores/authStore";
 
 // API Base URL - uses environment variable, falls back to relative paths
 // In production, use relative paths (empty string) so requests go to same origin
@@ -41,17 +42,24 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
-  // No-op when API_BASE is not configured
-  if (!API_BASE && url.startsWith('/api')) {
-    return new Response(JSON.stringify(null), { status: 200 });
-  }
+  // Get auth token
+  const { accessToken } = useAuthStore.getState();
 
-  // Auto-prefix with API_BASE if url starts with /api
-  const fullUrl = url.startsWith('/api') ? `${API_BASE}${url}` : url;
+  // Build URL - use API_BASE if set, otherwise just the URL
+  const fullUrl = API_BASE ? `${API_BASE}${url}` : url;
+
+  // Build headers with auth token
+  const headers: Record<string, string> = {};
+  if (data) {
+    headers["Content-Type"] = "application/json";
+  }
+  if (accessToken) {
+    headers["Authorization"] = `Bearer ${accessToken}`;
+  }
 
   const res = await fetch(fullUrl, {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
+    headers,
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });
@@ -68,16 +76,21 @@ export const getQueryFn: <T>(options: {
     async ({ queryKey }) => {
       const url = queryKey.join("/") as string;
 
-      // No-op when API_BASE is not configured
-      if (!API_BASE && url.startsWith('/api')) {
-        return null;
-      }
+      // Get auth token
+      const { accessToken } = useAuthStore.getState();
 
-      // Auto-prefix with API_BASE if url starts with /api
-      const fullUrl = url.startsWith('/api') ? `${API_BASE}${url}` : url;
+      // Build URL - use API_BASE if set, otherwise just the URL
+      const fullUrl = API_BASE ? `${API_BASE}${url}` : url;
+
+      // Build headers with auth token
+      const headers: Record<string, string> = {};
+      if (accessToken) {
+        headers["Authorization"] = `Bearer ${accessToken}`;
+      }
 
       const res = await fetch(fullUrl, {
         credentials: "include",
+        headers,
       });
 
       if (unauthorizedBehavior === "returnNull" && res.status === 401) {
