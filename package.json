@@ -17,7 +17,7 @@
     "test:frontend": "vitest run --config client/vitest.config.ts",
     "test:e2e:smoke": "vitest run --config tests/vitest.e2e.config.ts",
     "test:regression": "npm run test:server && npm run test:frontend",
-    "prepare": "husky"
+    "prepare": "husky || echo 'Husky skipped'"
   },
   "dependencies": {
     "@google-cloud/storage": "^7.17.3",
