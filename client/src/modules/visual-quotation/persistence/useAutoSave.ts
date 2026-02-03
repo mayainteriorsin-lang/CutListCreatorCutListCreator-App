@@ -2,7 +2,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { useQuotationMetaStore } from '../store/v2/useQuotationMetaStore';
 import { useDesignCanvasStore } from '../store/v2/useDesignCanvasStore';
 import { usePricingStore } from '../store/v2/usePricingStore';
-import { quotationService } from '../services/QuotationService';
+import { quotationService } from '../services/quotationService';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '../services/logger';
 
