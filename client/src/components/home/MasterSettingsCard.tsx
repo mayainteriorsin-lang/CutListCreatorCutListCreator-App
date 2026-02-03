@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/tooltip";
 import { PlywoodSelectorPanel, LaminateSelectorPanel } from "@/components/selectors";
 import { useToast } from "@/hooks/use-toast";
-import { toastError } from "@/lib/toastUtils";
+import { toastError } from "@/lib/errors/toastError";
 import { apiRequest } from "@/lib/queryClient";
 
 export interface MasterSettingsCardProps {
