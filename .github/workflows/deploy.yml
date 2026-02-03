@@ -1,20 +1,70 @@
+# =============================================================================
+# Production Deploy Workflow (PHASE 5: SINGLE CANONICAL DEPLOY PATH)
+# =============================================================================
+#
+# GATE MODEL:
+# - This is the ONLY production deployment workflow
+# - Triggers ONLY after CI workflow completes successfully
+# - Fail-closed: If CI fails, deploy does not run
+#
+# DEPENDENCY CHAIN:
+# Push to main -> CI workflow (test.yml) -> Deploy workflow (this file)
+#
+# QUALITY GATES (enforced by CI):
+# - npm ci (dependency install)
+# - npm run check (TypeScript)
+# - npm test -- --run (unit tests)
+#
+# REMOVED BYPASS PATHS:
+# - main.yml.disabled (was: direct push deploy without CI gate)
+# =============================================================================
+
 name: Deploy
 
 on:
   workflow_run:
     workflows: ["CI"]
     branches: [main]
-    types: 
+    types:
       - completed
 
+# Concurrency protection: only one deploy at a time, cancel in-progress on new trigger
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false  # Don't cancel running deploys, queue instead
+
 jobs:
-  on-success:
+  deploy:
+    name: Deploy to Production
     runs-on: ubuntu-latest
+    # CRITICAL: Only deploy if CI succeeded (fail-closed gate)
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
     steps:
+      - name: Log deployment trigger
+        run: |
+          echo "Deploying after successful CI run"
+          echo "CI workflow: ${{ github.event.workflow_run.name }}"
+          echo "CI conclusion: ${{ github.event.workflow_run.conclusion }}"
+          echo "Commit: ${{ github.event.workflow_run.head_sha }}"
+
       - name: Trigger Render Deployment
         uses: sws2apps/render-deployment@main
         with:
           serviceId: ${{ secrets.RENDER_SERVICE_ID }}
           apiKey: ${{ secrets.RENDER_API_KEY }}
           multipleDeployment: false
+
+  # Explicit job for CI failure case (informational only)
+  on-failure:
+    name: CI Failed - No Deploy
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    steps:
+      - name: Log skipped deployment
+        run: |
+          echo "Deploy SKIPPED - CI workflow failed"
+          echo "CI workflow: ${{ github.event.workflow_run.name }}"
+          echo "CI conclusion: ${{ github.event.workflow_run.conclusion }}"
+          echo "Commit: ${{ github.event.workflow_run.head_sha }}"
+          exit 0  # Don't fail the workflow, just log

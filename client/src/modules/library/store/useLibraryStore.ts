@@ -1,14 +1,25 @@
 /**
- * Library Store - Persistent Auto-Save
+ * Library Store - Persistent Auto-Save (PHASE 4: CANONICAL STATE OWNER)
  *
- * Zustand store with automatic persistence to localStorage.
- * Survives app crashes, browser refresh, and page navigation.
+ * OWNERSHIP MODEL:
+ * - This Zustand store is the SINGLE SOURCE OF TRUTH for library modules
+ * - All UI reads should come from this store
+ * - All writes should go through store actions (addModule, updateModule, etc.)
+ *
+ * PERSISTENCE STRATEGY:
+ * - Primary: Zustand persist middleware -> localStorage 'library-store-v1'
+ * - Secondary: syncToLegacyStorage() -> localStorage 'library:modules' for compat
+ * - Server: api.ts functions called separately for persistent storage
+ *
+ * CONFLICT RESOLUTION:
+ * - On rehydration, merges with legacy storage (newer modules take precedence)
+ * - API responses should update store via setModules() or individual actions
  *
  * Features:
  * - Auto-save on every change
  * - Persisted to localStorage
- * - Debounced saves to prevent excessive writes
  * - Automatic migration for schema changes
+ * - Syncs to legacy storage key for backwards compatibility
  */
 
 import { create } from 'zustand';

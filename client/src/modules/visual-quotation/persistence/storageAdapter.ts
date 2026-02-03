@@ -1,5 +1,13 @@
 /**
- * Storage Adapter
+ * Storage Adapter - Visual Quotation Module (PHASE 4)
+ *
+ * ROLE: Low-level persistence adapter for Visual Quotation module.
+ * This is NOT a state owner - it's a utility layer.
+ *
+ * USAGE POLICY:
+ * - Use through QuotationRepository for quotation persistence
+ * - Use through Zustand slices (rateCardSlice) for other VQ state
+ * - Direct usage allowed only in isolated persistence adapters
  *
  * Wraps localStorage with error handling and type safety.
  * Provides a consistent interface for persistence across the module.

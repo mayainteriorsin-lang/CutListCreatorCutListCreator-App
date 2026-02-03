@@ -1,21 +1,23 @@
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from './auth';
-import { auditService } from '../services/auditService';
+import { auditService, AuditLogParams } from '../services/auditService';
+import { getRequestId } from './requestId';
 
 /**
- * Audit Logging Middleware
- * Automatically logs actions to audit trail
+ * PHASE 8: Enhanced Audit Logging Middleware
+ * Automatically logs actions to audit trail with request correlation
  */
 export function auditLog(action: string, resourceType?: string) {
     return async (req: AuthRequest, res: Response, next: NextFunction) => {
         // Store original send function
         const originalSend = res.send;
+        const requestId = getRequestId(req);
 
         // Override send to capture response
         res.send = function (data: any) {
             // Only log successful responses
             if (res.statusCode < 400 && req.user) {
-                auditService.log({
+                const auditParams: AuditLogParams = {
                     tenantId: req.user.tenantId,
                     userId: req.user.userId,
                     action,
@@ -23,8 +25,11 @@ export function auditLog(action: string, resourceType?: string) {
                     resourceId: req.params.id || req.body?.id,
                     ipAddress: req.ip,
                     userAgent: req.get('user-agent'),
-                }).catch(err => {
-                    console.error('[AuditMiddleware] Failed to log:', err);
+                    requestId, // PHASE 8: Include requestId for correlation
+                };
+
+                auditService.log(auditParams).catch(err => {
+                    console.error(`[AuditMiddleware] requestId=${requestId} Failed to log:`, err);
                 });
             }
 
@@ -37,16 +42,17 @@ export function auditLog(action: string, resourceType?: string) {
 }
 
 /**
- * Audit with changes tracking
- * Logs the changes made to a resource
+ * PHASE 8: Audit with changes tracking
+ * Logs the changes made to a resource with request correlation
  */
 export function auditWithChanges(action: string, resourceType: string) {
     return async (req: AuthRequest, res: Response, next: NextFunction) => {
         const originalSend = res.send;
+        const requestId = getRequestId(req);
 
         res.send = function (data: any) {
             if (res.statusCode < 400 && req.user) {
-                auditService.log({
+                const auditParams: AuditLogParams = {
                     tenantId: req.user.tenantId,
                     userId: req.user.userId,
                     action,
@@ -55,8 +61,11 @@ export function auditWithChanges(action: string, resourceType: string) {
                     changes: req.body,
                     ipAddress: req.ip,
                     userAgent: req.get('user-agent'),
-                }).catch(err => {
-                    console.error('[AuditMiddleware] Failed to log:', err);
+                    requestId, // PHASE 8: Include requestId for correlation
+                };
+
+                auditService.log(auditParams).catch(err => {
+                    console.error(`[AuditMiddleware] requestId=${requestId} Failed to log:`, err);
                 });
             }
 

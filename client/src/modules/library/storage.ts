@@ -1,3 +1,32 @@
+/**
+ * Library Module - State & Persistence Ownership (PHASE 4)
+ *
+ * OWNERSHIP MODEL:
+ * - State Owner: useLibraryStore (Zustand) - single source of truth for UI
+ * - Write Owner: useLibraryStore actions - all mutations should go through store
+ * - Persistence Adapter: Zustand persist middleware + api.ts for server sync
+ * - Fallback Behavior: API-first when enabled, localStorage fallback for offline
+ *
+ * SOURCE-OF-TRUTH POLICY:
+ * - Authenticated mode: Server is authoritative (via api.ts)
+ * - Zustand store is the canonical client-side state
+ * - localStorage 'library-store-v1' is managed by Zustand persist middleware
+ * - Legacy 'library:modules' key maintained for backwards compatibility read-only
+ *
+ * WRITE PATH (single canonical entrypoint):
+ * - PREFERRED: useLibraryStore.addModule/updateModule/deleteModule
+ * - These sync to legacy storage automatically via syncToLegacyStorage()
+ * - API sync happens via saveDesignToLibraryAsync() which uses store + api.ts
+ *
+ * DEPRECATED DIRECT FUNCTIONS (use store instead):
+ * - addLibraryModule(), updateLibraryModule(), deleteLibraryModule()
+ * - These exist for backwards compatibility but should not be primary path
+ *
+ * READ PATH:
+ * - useLibraryStore.modules - canonical UI state
+ * - loadLibraryModules() - reads from legacy key, used for migration
+ */
+
 import type { LibraryModule, LibraryWardrobeSection, LibraryCategory } from "./types";
 import type { ModuleConfig, WardrobeSection } from "@/modules/design/engine/shapeGenerator";
 import { generateUUID } from "@/lib/uuid";
@@ -17,6 +46,7 @@ import { createRateCard } from "@/modules/visual-quotation/services/rateCardServ
 import { DEFAULT_WARDROBE_CONFIG } from "@/modules/visual-quotation/types/pricing";
 import type { RateCardUnitType } from "@/modules/visual-quotation/types/rateCard";
 
+// Legacy storage key - reads maintained for migration, writes go through Zustand
 const STORAGE_KEY = "library:modules";
 
 // Flag to enable/disable API syncing
@@ -384,6 +414,11 @@ export function saveDesignToLibrary(
   return module;
 }
 
+/**
+ * Load modules from legacy localStorage key.
+ * Used for migration and backwards compatibility reads.
+ * For UI state, prefer useLibraryStore.modules
+ */
 export function loadLibraryModules(): LibraryModule[] {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -403,6 +438,11 @@ export function loadLibraryModules(): LibraryModule[] {
   return [];
 }
 
+/**
+ * Save modules to legacy localStorage key.
+ * @deprecated PHASE 4: Prefer useLibraryStore actions which auto-sync to legacy storage.
+ * This function exists for backwards compatibility only.
+ */
 export function saveLibraryModules(modules: LibraryModule[]): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(modules));
@@ -412,6 +452,11 @@ export function saveLibraryModules(modules: LibraryModule[]): void {
   }
 }
 
+/**
+ * Add module to legacy localStorage.
+ * @deprecated PHASE 4: Prefer useLibraryStore.getState().addModule() for canonical writes.
+ * This function exists for backwards compatibility only.
+ */
 export function addLibraryModule(mod: LibraryModule): LibraryModule[] {
   const modules = loadLibraryModules();
   modules.push(mod);
@@ -420,6 +465,11 @@ export function addLibraryModule(mod: LibraryModule): LibraryModule[] {
   return modules;
 }
 
+/**
+ * Update module in legacy localStorage.
+ * @deprecated PHASE 4: Prefer useLibraryStore.getState().updateModule() for canonical writes.
+ * This function exists for backwards compatibility only.
+ */
 export function updateLibraryModule(
   id: string,
   updates: Partial<LibraryModule>
@@ -437,6 +487,11 @@ export function updateLibraryModule(
   return modules;
 }
 
+/**
+ * Delete module from legacy localStorage.
+ * @deprecated PHASE 4: Prefer useLibraryStore.getState().deleteModule() for canonical writes.
+ * This function exists for backwards compatibility only.
+ */
 export function deleteLibraryModule(id: string): LibraryModule[] {
   const modules = loadLibraryModules().filter((m) => m.id !== id);
   saveLibraryModules(modules);

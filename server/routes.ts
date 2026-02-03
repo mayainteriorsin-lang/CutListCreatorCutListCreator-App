@@ -120,8 +120,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.error("Migration error:", e);
   }
 
-  // PATCH 7: Health check endpoint
-  // PATCH 7: Health check endpoint
+  // ==========================================================================
+  // PHASE 8: Health/Liveness/Readiness Endpoints
+  // ==========================================================================
+
+  /**
+   * Liveness probe - Is the process alive?
+   * - Returns 200 if process is running
+   * - Used by orchestrators (K8s, ECS) to detect zombie processes
+   */
+  app.get("/api/health/live", (_req, res) => {
+    res.status(200).json({
+      status: "alive",
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+    });
+  });
+
+  /**
+   * Readiness probe - Can the service handle requests?
+   * - Checks database connectivity
+   * - Returns 503 if dependencies are unavailable
+   * - Used by load balancers to route traffic
+   */
+  app.get("/api/health/ready", async (_req, res) => {
+    const timestamp = new Date().toISOString();
+    let dbReady = false;
+
+    try {
+      await safeQuery(() => db.execute(sql`SELECT 1`), [], { timeoutMs: 2000 });
+      dbReady = true;
+    } catch (e) {
+      console.error("[READINESS] Database check failed:", e);
+    }
+
+    const ready = dbReady;
+
+    res.status(ready ? 200 : 503).json({
+      status: ready ? "ready" : "not_ready",
+      timestamp,
+      checks: {
+        database: dbReady ? "connected" : "disconnected",
+      },
+    });
+  });
+
+  /**
+   * Combined health endpoint (legacy compatibility + detailed info)
+   * - Returns overall system health
+   * - Includes all dependency statuses
+   */
   app.get("/api/health", async (_req, res) => {
     const uptime = process.uptime();
     const timestamp = new Date().toISOString();
@@ -143,7 +191,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       timestamp,
       uptime,
       database: dbStatus,
-      message: status === "ok" ? "System operational" : "System degraded"
+      message: status === "ok" ? "System operational" : "System degraded",
+      version: process.env.npm_package_version || "unknown",
     });
   });
 
@@ -363,7 +412,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json(ok(cached));
       }
 
-      const tenantId = (req as AuthRequest).tenantId || 'default';
+
 
       const memory = await safeQuery(
         () => db.select()

@@ -1,5 +1,20 @@
 /**
- * Rate Card Slice
+ * Rate Card Slice (PHASE 4: STATE OWNER FOR RATE CARDS)
+ *
+ * OWNERSHIP MODEL:
+ * - State Owner: This Zustand slice - single source of truth for rate cards
+ * - Write Owner: Slice actions (addRateCard, updateRateCard, etc.)
+ * - Persistence Adapter: Direct localStorage (no API currently)
+ * - Fallback Behavior: N/A - localStorage is primary store
+ *
+ * SOURCE-OF-TRUTH POLICY:
+ * - localStorage 'vq_rate_cards' is the persistence layer
+ * - Zustand state is the canonical runtime state
+ * - No server sync currently - purely local storage
+ *
+ * WRITE PATH:
+ * - All mutations go through slice actions -> saveToStorage()
+ * - Single canonical write path via this slice
  *
  * State management for Rate Cards.
  * Handles CRUD operations and persistence to localStorage.
@@ -16,7 +31,7 @@ import { DEFAULT_WARDROBE_CONFIG } from "../../types/pricing";
 import { logger } from "../../services/logger";
 
 // ============================================================================
-// Constants
+// Constants - localStorage keys for rate card persistence
 // ============================================================================
 
 const STORAGE_KEY = "vq_rate_cards";

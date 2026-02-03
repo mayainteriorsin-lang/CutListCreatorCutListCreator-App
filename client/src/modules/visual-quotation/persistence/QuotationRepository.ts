@@ -1,5 +1,24 @@
 /**
- * QuotationRepository - Database persistence for 3D quotations
+ * QuotationRepository - Database persistence for 3D quotations (PHASE 4)
+ *
+ * OWNERSHIP MODEL:
+ * - State Owner: Zustand stores (useQuotationMetaStore, etc.) for UI state
+ * - Write Owner: This repository - all persistence goes through here
+ * - Persistence Adapter: API endpoints + storageAdapter for localStorage backup
+ * - Fallback Behavior: API-first, localStorage as offline backup
+ *
+ * SOURCE-OF-TRUTH POLICY:
+ * - Authenticated mode: Server is authoritative (/api/quotations endpoints)
+ * - localStorage 'vq-quotation-{id}' is backup/cache for offline access
+ * - Conflict resolution: API response takes precedence on merge
+ *
+ * WRITE PATH (single canonical entrypoint):
+ * - save() -> API POST -> saveToLocal() as backup
+ * - delete() -> API DELETE
+ *
+ * READ PATH:
+ * - findById() -> API GET, falls back to loadFromLocal()
+ * - findAll() -> API GET, merges with findAllLocal()
  *
  * Client-side repository that calls server API endpoints.
  * Falls back gracefully if API is unavailable (localStorage continues to work).
@@ -13,7 +32,7 @@ import { PersistedQuotationState } from '../services/types';
 // Repository now deals with robust PersistedQuotationState
 type VisualQuotationState = PersistedQuotationState;
 
-// LocalStorage configuration
+// LocalStorage configuration - backup/cache only (API is primary)
 const QUOTATION_STORAGE_PREFIX = 'vq-quotation-';
 
 /**

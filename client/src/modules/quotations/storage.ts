@@ -1,10 +1,36 @@
-// Quotation storage module - localStorage based
+/**
+ * Quotations Module - State & Persistence Ownership (PHASE 4)
+ *
+ * OWNERSHIP MODEL:
+ * - State Owner: This module (storage.ts) - localStorage is sole persistence
+ * - Write Owner: Exported functions (createQuotation, updateQuotation, etc.)
+ * - Persistence Adapter: Direct localStorage (no API integration yet)
+ * - Fallback Behavior: N/A - localStorage is primary and only store
+ *
+ * SOURCE-OF-TRUTH POLICY:
+ * - localStorage 'quotations:data' is the single source of truth
+ * - No server sync currently - purely local storage
+ * - Quick Quote entries (mayaClients) are read-only merged for display
+ *
+ * WRITE PATH (single canonical entrypoint):
+ * - createQuotation() -> writeQuotations() -> localStorage
+ * - updateQuotation() -> writeQuotations() -> localStorage
+ * - deleteQuotation() -> writeQuotations() OR deleteQuickQuoteEntry()
+ *
+ * READ PATH:
+ * - readQuotations() merges native + Quick Quote entries
+ * - Native quotations from 'quotations:data'
+ * - Quick Quote entries from 'mayaClients' (legacy, read-only merge)
+ *
+ * FUTURE: When API integration is added, this module should follow
+ * the pattern used by CRM (localStorage-first with API sync).
+ */
 
 import type { Quotation, PaymentEntry, QuotationStatus } from './types';
 import { generateUUID } from '@/lib/uuid';
 
 const STORAGE_KEY = 'quotations:data';
-const QUICK_QUOTE_KEY = 'mayaClients';
+const QUICK_QUOTE_KEY = 'mayaClients';  // Legacy Quick Quote - read-only merge
 const UPDATE_EVENT = 'quotations:update';
 
 function isBrowser(): boolean {

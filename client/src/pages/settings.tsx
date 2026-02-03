@@ -20,6 +20,13 @@ import { PlywoodSelectorPanel, LaminateSelectorPanel } from "@/components/select
 import { LaminateLibrary } from "@/components/master-settings/LaminateLibrary";
 import { useMasterSettingsStore, useGodownStore } from "@/features/material";
 import {
+  loadSheetSettings,
+  saveSheetSettings,
+  loadLaminateMemory,
+  fetchCatalogues as fetchCataloguesApi,
+  type Catalogue,
+} from "@/features/settings";
+import {
   Ruler,
   Scissors,
   Layers,
@@ -35,36 +42,6 @@ import {
   FileText,
 } from "lucide-react";
 
-// Local storage key for sheet settings (shared with cabinets page)
-const SHEET_SETTINGS_KEY = "cutlist_sheet_settings_v1";
-
-// Load sheet settings from localStorage
-function loadSheetSettings() {
-  try {
-    const stored = localStorage.getItem(SHEET_SETTINGS_KEY);
-    if (stored) {
-      const data = JSON.parse(stored);
-      return {
-        sheetWidth: data.sheetWidth ?? 1210,
-        sheetHeight: data.sheetHeight ?? 2420,
-        kerf: data.kerf ?? 5,
-      };
-    }
-  } catch (err) {
-    console.error("Error loading sheet settings:", err);
-  }
-  return { sheetWidth: 1210, sheetHeight: 2420, kerf: 5 };
-}
-
-// Save sheet settings to localStorage
-function saveSheetSettings(settings: { sheetWidth: number; sheetHeight: number; kerf: number }) {
-  try {
-    localStorage.setItem(SHEET_SETTINGS_KEY, JSON.stringify(settings));
-  } catch (err) {
-    console.error("Error saving sheet settings:", err);
-  }
-}
-
 // Tab configuration
 const TABS = [
   { id: "materials", label: "Materials", icon: Layers, color: "blue" },
@@ -73,14 +50,6 @@ const TABS = [
 ] as const;
 
 type TabId = typeof TABS[number]["id"];
-
-// Catalogue type
-interface Catalogue {
-  filename: string;
-  size: number;
-  uploadedAt: string;
-  originalName?: string;
-}
 
 export default function SettingsPage() {
   const { toast } = useToast();
@@ -127,15 +96,12 @@ export default function SettingsPage() {
     ]);
   }, []);
 
-  // Fetch catalogues
+  // Fetch catalogues - PHASE 3: Uses feature service
   async function fetchCatalogues() {
     setIsLoadingCatalogues(true);
     try {
-      const response = await fetch(`${API_BASE}/api/laminate-catalogues`);
-      const data = await response.json();
-      if (data.data && Array.isArray(data.data)) {
-        setCatalogues(data.data);
-      }
+      const data = await fetchCataloguesApi();
+      setCatalogues(data);
     } catch (error) {
       console.error("Error fetching catalogues:", error);
     } finally {
@@ -282,29 +248,15 @@ export default function SettingsPage() {
     saveSheetSettings({ sheetWidth, sheetHeight, kerf });
   }, [sheetWidth, sheetHeight, kerf]);
 
-  // Get laminate codes from localStorage memory - reactive with state
+  // Get laminate codes from storage - PHASE 3: Uses feature service
   const [globalLaminateMemory, setGlobalLaminateMemory] = useState<string[]>([]);
 
   // Load laminate memory on mount and when window focuses
   useEffect(() => {
-    const loadLaminateMemory = () => {
-      try {
-        const stored = localStorage.getItem("globalLaminateMemory_v1");
-        if (stored) {
-          const data = JSON.parse(stored);
-          if (Array.isArray(data)) {
-            setGlobalLaminateMemory(data);
-          }
-        }
-      } catch (err) {
-        console.error("Error loading laminate memory:", err);
-      }
-    };
-
-    loadLaminateMemory();
-    const handleFocus = () => loadLaminateMemory();
-    window.addEventListener("focus", handleFocus);
-    return () => window.removeEventListener("focus", handleFocus);
+    const reloadMemory = () => setGlobalLaminateMemory(loadLaminateMemory());
+    reloadMemory();
+    window.addEventListener("focus", reloadMemory);
+    return () => window.removeEventListener("focus", reloadMemory);
   }, []);
 
   const uniqueLaminateCodes = useMemo(() => {

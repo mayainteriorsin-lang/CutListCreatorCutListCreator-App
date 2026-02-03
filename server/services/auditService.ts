@@ -11,6 +11,7 @@ export interface AuditLogParams {
     changes?: any;
     ipAddress?: string;
     userAgent?: string;
+    requestId?: string; // PHASE 8: Request correlation
 }
 
 export interface AuditLogQuery {

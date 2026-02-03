@@ -1,3 +1,29 @@
+/**
+ * CRM Module - State & Persistence Ownership (PHASE 4)
+ *
+ * OWNERSHIP MODEL:
+ * - State Owner: This module (storage.ts) via in-memory cache + localStorage
+ * - Write Owner: This module - all mutations flow through exported functions
+ * - Persistence Adapter: writeJson() for localStorage, requestAsync() for API
+ * - Fallback Behavior: localStorage-first, API sync is async fire-and-forget
+ *
+ * SOURCE-OF-TRUTH POLICY:
+ * - Authenticated mode: Server is authoritative for cross-device sync
+ * - localStorage acts as optimistic cache for immediate UI response
+ * - Conflict resolution: Server response merges into local state (mergeLead)
+ * - Offline: localStorage continues to work, syncs when online
+ *
+ * WRITE PATH (single canonical entrypoint per entity):
+ * - Leads: upsertLead() -> writeJson() -> requestAsync() [async]
+ * - Activity: logActivity() -> writeJson() -> requestAsync() [async]
+ * - Quotes: upsertQuoteSummary() -> writeJson() -> requestAsync() [async]
+ * - Appointments: upsertAppointment() -> writeJson() [local-only currently]
+ *
+ * READ PATH:
+ * - getLeads() returns local immediately, triggers background API sync
+ * - TTL-based sync prevents excessive API calls (15-30s)
+ */
+
 import type { ActivityEvent, ActivityType, Appointment, AppointmentStatus, LeadRecord, LeadStatus, QuoteStatus, QuoteSummary } from "./types";
 import { generateUUID } from "@/lib/uuid";
 import {

@@ -6,6 +6,7 @@ import { db } from "../db";
 import { activities, leads, quotes } from "../db/crmSchema";
 import { ok, err } from "../lib/apiEnvelope"; // PATCH 17: Standardized error parsing
 import { requireAuth, tenantContext, AuthRequest } from "../middleware/auth";
+import { auditLog, auditWithChanges } from "../middleware/audit"; // PHASE 8: Audit logging
 
 const crmRouter = Router();
 
@@ -112,7 +113,8 @@ function safeParseJson(value: string) {
   }
 }
 
-crmRouter.post("/leads", async (req: AuthRequest, res) => {
+// PHASE 8: Audit create/update lead operations
+crmRouter.post("/leads", auditWithChanges('lead.upsert', 'lead'), async (req: AuthRequest, res) => {
   try {
     const tenantId = requireTenantId(req);
 
@@ -198,7 +200,8 @@ crmRouter.get("/leads", async (req: AuthRequest, res) => {
   }
 });
 
-crmRouter.patch("/leads/:id/status", async (req: AuthRequest, res) => {
+// PHASE 8: Audit status changes
+crmRouter.patch("/leads/:id/status", auditWithChanges('lead.status_update', 'lead'), async (req: AuthRequest, res) => {
   try {
     const tenantId = requireTenantId(req);
 
@@ -232,7 +235,8 @@ crmRouter.patch("/leads/:id/status", async (req: AuthRequest, res) => {
   }
 });
 
-crmRouter.post("/activities", async (req: AuthRequest, res) => {
+// PHASE 8: Audit activity creation
+crmRouter.post("/activities", auditLog('activity.create', 'activity'), async (req: AuthRequest, res) => {
   try {
     const tenantId = requireTenantId(req);
 
@@ -303,7 +307,8 @@ crmRouter.get("/activities/:leadId", async (req: AuthRequest, res) => {
   }
 });
 
-crmRouter.post("/quotes", async (req: AuthRequest, res) => {
+// PHASE 8: Audit quote creation/update
+crmRouter.post("/quotes", auditWithChanges('quote.upsert', 'quote'), async (req: AuthRequest, res) => {
   try {
     const tenantId = requireTenantId(req);
 

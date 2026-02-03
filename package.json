@@ -13,6 +13,10 @@
     "check:homePage": "tsc -p client/tsconfig.homePage.json",
     "db:push": "drizzle-kit push",
     "test": "vitest",
+    "test:server": "vitest run --config vitest.config.ts",
+    "test:frontend": "vitest run --config client/vitest.config.ts",
+    "test:e2e:smoke": "vitest run --config tests/vitest.e2e.config.ts",
+    "test:regression": "npm run test:server && npm run test:frontend",
     "prepare": "husky"
   },
   "dependencies": {

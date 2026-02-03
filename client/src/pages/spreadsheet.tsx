@@ -7,6 +7,11 @@ import { runOptimizerEngine } from "@/lib/optimizer";
 import { exportCutlistPDF } from "@/lib/pdf";
 import { toast } from "@/hooks/use-toast";
 import {
+  loadSpreadsheetRows,
+  saveOptimizationTransfer,
+  type SpreadsheetRow,
+} from "@/features/spreadsheet";
+import {
   Layers,
   Box,
   Table2,
@@ -20,21 +25,6 @@ import {
   ExternalLink,
   FileText,
 } from "lucide-react";
-
-const STORAGE_KEY = "cutlist_spreadsheet_v1";
-
-type SpreadsheetRow = {
-  id: string;
-  height?: string;
-  width?: string;
-  qty?: string;
-  plywoodBrand?: string;
-  frontLaminate?: string;
-  innerLaminate?: string;
-  panelType?: string;
-  roomName?: string;
-  cabinetName?: string;
-};
 
 type OptimizationSheet = {
   sheetId: string;
@@ -68,36 +58,17 @@ export default function SpreadsheetPage() {
   const [sheetHeight, setSheetHeight] = useState(2440);
   const [kerf, setKerf] = useState(4);
 
-  // Load spreadsheet data
+  // Load spreadsheet data - PHASE 3: Uses feature service
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const data = JSON.parse(stored);
-        if (Array.isArray(data)) {
-          setRows(data);
-          setRowCount(data.length);
-        }
-      }
-    } catch (err) {
-      console.error("Error reading spreadsheet data:", err);
-    }
+    const data = loadSpreadsheetRows();
+    setRows(data);
+    setRowCount(data.length);
   }, [activeTab]);
 
+  // PHASE 3: Uses feature service
   const handleRowCountChange = useCallback((count: number) => {
     setRowCount(count);
-    // Reload rows when count changes
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const data = JSON.parse(stored);
-        if (Array.isArray(data)) {
-          setRows(data);
-        }
-      }
-    } catch (err) {
-      console.error("Error reading spreadsheet data:", err);
-    }
+    setRows(loadSpreadsheetRows());
   }, []);
 
   // Convert spreadsheet rows to panels for optimizer
@@ -456,15 +427,15 @@ export default function SpreadsheetPage() {
                           variant="outline"
                           size="sm"
                           onClick={() => {
-                            // Save optimization result to localStorage for cabinets to use
-                            localStorage.setItem("spreadsheet_optimization_transfer", JSON.stringify({
+                            // PHASE 3: Uses feature service
+                            saveOptimizationTransfer({
                               brandResults: optimizationResult.brandResults,
                               panels: panelsFromSpreadsheet,
                               sheetWidth,
                               sheetHeight,
                               kerf,
                               timestamp: Date.now(),
-                            }));
+                            });
                             toast({ title: "Data ready for Cabinets", description: "Go to Cabinets to view full preview" });
                             navigate("/cabinets");
                           }}

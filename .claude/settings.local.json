@@ -60,7 +60,10 @@
       "Bash(git status:*)",
       "Bash(git push:*)",
       "Bash(git remote set-url:*)",
-      "Bash(gh pr create:*)"
+      "Bash(gh pr create:*)",
+      "Bash(npm run test:server:*)",
+      "Bash(npm run test:frontend:*)",
+      "Bash(npm audit:*)"
     ],
     "additionalDirectories": [
       "c:\\Users\\hi\\workspace\\CutListCreator"

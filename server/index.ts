@@ -7,9 +7,17 @@ if (process.env.DATABASE_URL && (process.env.DATABASE_URL.startsWith('"') || pro
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { db } from "./db";
+import { db, pool } from "./db";
 import { createDBAdapter } from "./db/adapter";
 import { err } from "./lib/apiEnvelope";
+
+// PHASE 8: Enterprise Hardening Imports
+import { requestIdMiddleware, getRequestId, REQUEST_ID_HEADER } from "./middleware/requestId";
+import { runStartupValidation } from "./lib/startupValidation";
+import { setupGracefulShutdown, isShutdownInProgress } from "./lib/gracefulShutdown";
+
+// PHASE 8: Run startup config validation (fail-fast in production)
+runStartupValidation();
 
 // PATCH 14: Create centralized DB adapter with retry logic
 export const DB = createDBAdapter(db);
@@ -22,6 +30,10 @@ app.use(helmet({
 }));
 
 app.set("trust proxy", 1);
+
+// PHASE 8: Request correlation middleware (must be early in chain)
+app.use(requestIdMiddleware);
+
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: false, limit: "50mb" }));
 // Raw binary for DWG uploads
@@ -55,6 +67,7 @@ app.use((req, res, next) => {
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
+  const requestId = getRequestId(req);
   let capturedJsonResponse: Record<string, any> | undefined = undefined;
 
   const originalResJson = res.json;
@@ -66,8 +79,9 @@ app.use((req, res, next) => {
   res.on("finish", () => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
+      // PHASE 8: Include requestId in structured logs
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      console.log(`[METRICS] request_duration_ms=${duration} method=${req.method} path=${path} status=${res.statusCode}`);
+      console.log(`[METRICS] requestId=${requestId} request_duration_ms=${duration} method=${req.method} path=${path} status=${res.statusCode}`);
 
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
@@ -103,14 +117,19 @@ app.get('/test', (req, res) => {
 (async () => {
   const server = await registerRoutes(app);
 
-  // PATCH 16: Global error handler - ALWAYS returns JSON with ok/error envelope
-  app.use((e: any, _req: Request, res: Response, _next: NextFunction) => {
+  // PATCH 16 + PHASE 8: Global error handler - ALWAYS returns JSON with ok/error envelope
+  // Includes requestId for correlation
+  app.use((e: any, req: Request, res: Response, _next: NextFunction) => {
     const status = e.status || e.statusCode || 500;
     const message = e?.message || "Internal Server Error";
+    const requestId = getRequestId(req);
     const details = process.env.NODE_ENV === "development" ? (e?.stack || e) : undefined;
 
-    console.error("[GLOBAL ERROR]", message, details);
-    res.status(status).json(err(message, details));
+    console.error(`[GLOBAL ERROR] requestId=${requestId}`, message, details);
+    res.status(status).json({
+      ...err(message, details),
+      requestId, // Include for client-side correlation
+    });
   });
 
   // importantly only setup vite in development and after
@@ -133,6 +152,21 @@ app.get('/test', (req, res) => {
     host: "0.0.0.0",
   }, () => {
     log(`serving on port ${port}`);
+  });
+
+  // PHASE 8: Setup graceful shutdown
+  setupGracefulShutdown({
+    server,
+    timeoutMs: 30000,
+    onShutdown: async () => {
+      console.log('[SHUTDOWN] Closing database pool...');
+      try {
+        await pool.end();
+        console.log('[SHUTDOWN] Database pool closed');
+      } catch (e) {
+        console.error('[SHUTDOWN] Error closing database pool:', e);
+      }
+    },
   });
 })().catch(err => {
   console.error("FATAL SERVER STARTUP ERROR:", err);
