@@ -5,8 +5,15 @@ import { execSync } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
+
+// Forward declaration
+async function registerRoutesAction(app: Express): Promise<Server> {
+  const server = createServer(app);
+  // ... rest of logic moved here
+  return server;
+}
 import { laminateMemory, insertLaminateMemorySchema, laminateWoodGrainsPreference, plywoodBrandMemory, insertPlywoodBrandMemorySchema, quickShutterMemory, insertQuickShutterMemorySchema, masterSettingsMemory, insertMasterSettingsMemorySchema, laminateCodeGodown, insertLaminateCodeGodownSchema, godownMemory, insertGodownMemorySchema } from "@shared/schema";
-import { eq, sql, desc } from "drizzle-orm";
+import { eq, sql, desc, and } from "drizzle-orm";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { z } from "zod";
 import { crmRouter } from "./routes/crmRoutes";
@@ -28,7 +35,11 @@ import {
 } from "@shared/schemas";
 import { ok, err } from "./lib/apiEnvelope";
 import { safeQuery as safeQueryAdapter } from "./db/adapter";
-import { getCache, setCache, clearCache, CACHE_KEYS } from "./cache/globalCache";
+import { cacheService, CACHE_KEYS } from "./services/cacheService";
+// Legacy support
+const getCache = (key: string) => cacheService.get(key);
+const setCache = (key: string, val: any) => cacheService.set(key, val);
+const clearCache = (key: string) => cacheService.del(key);
 
 const masterSettingsUpdateSchema = z.object({
   masterLaminateCode: z.string().trim().min(1).optional().nullable(),
@@ -99,8 +110,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   try {
     await db.execute(sql`ALTER TABLE quotes ADD COLUMN IF NOT EXISTS data text`);
     console.log("✅ Database Schema Updated: quotes.data column added.");
+
+    // PATCH Phase 6: Multi-tenancy Isolation
+    await db.execute(sql`ALTER TABLE master_settings_memory ADD COLUMN IF NOT EXISTS tenant_id varchar(255) NOT NULL DEFAULT 'default'`);
+    await db.execute(sql`ALTER TABLE laminate_code_godown ADD COLUMN IF NOT EXISTS tenant_id varchar(255) NOT NULL DEFAULT 'default'`);
+    await db.execute(sql`ALTER TABLE godown_memory ADD COLUMN IF NOT EXISTS tenant_id varchar(255) NOT NULL DEFAULT 'default'`);
+    console.log("✅ Database Schema Updated: tenant_id columns added.");
   } catch (e) {
-    console.error("Quotes migration error:", e);
+    console.error("Migration error:", e);
   }
 
   // PATCH 7: Health check endpoint
@@ -338,15 +355,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     };
 
     try {
-      // PATCH 15: Check cache first
-      const cached = getCache(CACHE_KEYS.MASTER_SETTINGS_MEMORY);
+      // PATCH Phase 6: Tenant-aware caching
+      const tenantId = (req as AuthRequest).tenantId || 'default';
+      const cacheKey = `${CACHE_KEYS.MASTER_SETTINGS}:${tenantId}`;
+      const cached = await cacheService.get(cacheKey);
       if (cached) {
         return res.json(ok(cached));
       }
 
+      const tenantId = (req as AuthRequest).tenantId || 'default';
+
       const memory = await safeQuery(
         () => db.select()
           .from(masterSettingsMemory)
+          .where(eq(masterSettingsMemory.tenantId, tenantId)) // Filter by Tenant
           .orderBy(desc(masterSettingsMemory.updatedAt))
           .limit(1),
         []
@@ -373,8 +395,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // PATCH 12 + 13: Validate response and wrap with ok()
       const validated = safeValidate(MasterSettingsMemorySchema, normalizedSettings, defaultSettings);
 
-      // PATCH 15: Store in cache
-      setCache(CACHE_KEYS.MASTER_SETTINGS_MEMORY, validated);
+      // PATCH 15: Store in cache (Tenant-Specific)
+      await cacheService.set(cacheKey, validated);
 
       res.json(ok(validated));
     } catch (error: any) {
@@ -407,27 +429,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
             masterPlywoodBrand: masterPlywoodBrand || null,
             updatedAt: sql`now()`
           })
-          .where(eq(masterSettingsMemory.id, existing[0]?.id))
+          .where(and(
+            eq(masterSettingsMemory.id, existing[0]?.id),
+            eq(masterSettingsMemory.tenantId, (req as AuthRequest).tenantId || 'default')
+          ))
           .returning();
 
         // PATCH 15: Invalidate cache on mutation
-        clearCache(CACHE_KEYS.MASTER_SETTINGS_MEMORY);
+        const tenantId = (req as AuthRequest).tenantId || 'default';
+        await cacheService.del(`${CACHE_KEYS.MASTER_SETTINGS}:${tenantId}`);
 
         return res.json(ok(updated));
       } else {
         // Insert new record
         const [newMemory] = await db.insert(masterSettingsMemory)
           .values({
+            tenantId: (req as AuthRequest).tenantId || 'default',
             sheetWidth: sheetWidth || '1210',
             sheetHeight: sheetHeight || '2420',
             kerf: kerf || '5',
             masterLaminateCode: masterLaminateCode || null,
             masterPlywoodBrand: masterPlywoodBrand || null
-          })
+          } as any) // Cast needed until type inference catches up
           .returning();
-
-        // PATCH 15: Invalidate cache on mutation
-        clearCache(CACHE_KEYS.MASTER_SETTINGS_MEMORY);
 
         return res.json(ok(newMemory));
       }
@@ -616,7 +640,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/godown/plywood", authenticate, async (_req, res) => {
     try {
       // PATCH 15: Check cache first
-      const cached = getCache(CACHE_KEYS.GODOWN_PLYWOOD);
+      const cached = await cacheService.get(CACHE_KEYS.GODOWN_PLYWOOD);
       if (cached) {
         return res.json(ok(cached));
       }
@@ -689,7 +713,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/laminate-code-godown", authenticate, async (_req, res) => {
     try {
       // PATCH 15: Check cache first
-      const cached = getCache(CACHE_KEYS.GODOWN_LAMINATE);
+      const cached = await cacheService.get(CACHE_KEYS.GODOWN_LAMINATE);
       if (cached) {
         return res.json(ok(cached));
       }

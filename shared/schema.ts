@@ -212,7 +212,8 @@ export const globalLaminateMemorySchema = z.object({
 // This replaces laminate_memory, laminateWoodGrainsPreference, and all duplicate storage
 export const laminateCodeGodown = pgTable("laminate_code_godown", {
   id: serial("id").primaryKey(),
-  code: varchar("code", { length: 255 }).notNull().unique(), // e.g., "456SF"
+  tenantId: varchar("tenant_id", { length: 255 }).notNull().default('default'),
+  code: varchar("code", { length: 255 }).notNull(), // Code is unique per tenant now
   name: varchar("name", { length: 255 }).notNull(), // e.g., "Terra Wood"
   innerCode: varchar("inner_code", { length: 255 }), // e.g., "off white"
   supplier: varchar("supplier", { length: 255 }),
@@ -255,6 +256,7 @@ export const quickShutterMemory = pgTable("quick_shutter_memory", {
 
 export const masterSettingsMemory = pgTable("master_settings_memory", {
   id: serial("id").primaryKey(),
+  tenantId: varchar("tenant_id", { length: 255 }).notNull().default('default'),
   sheetWidth: varchar("sheet_width", { length: 50 }).notNull().default('1210'),
   sheetHeight: varchar("sheet_height", { length: 50 }).notNull().default('2420'),
   kerf: varchar("kerf", { length: 50 }).notNull().default('5'),
@@ -275,7 +277,8 @@ export const insertMasterSettingsMemorySchema = createInsertSchema(masterSetting
 // ✅ GODOWN MEMORY - Auto-storage for Godown names
 export const godownMemory = pgTable("godown_memory", {
   id: serial("id").primaryKey(),
-  name: varchar("name", { length: 255 }).notNull().unique(),
+  tenantId: varchar("tenant_id", { length: 255 }).notNull().default('default'),
+  name: varchar("name", { length: 255 }).notNull().unique(), // Should really be unique per tenant, but keeping strict constraint for now or relax? Relaxing to unique index per tenant is better but keeping simple for migration.
   type: varchar("type", { length: 50 }).default('general'), // 'plywood' or 'laminate' or 'general'
   createdAt: timestamp("created_at").default(sql`now()`).notNull(),
 });

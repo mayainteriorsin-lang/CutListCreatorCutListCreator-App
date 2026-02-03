@@ -154,11 +154,25 @@ router.get('/quotations/lead/:leadId', async (req: AuthRequest, res) => {
 
 /**
  * GET /api/quotations
- * List all quotations (admin only - TODO: add auth check)
+ * List all quotations (tenant-scoped)
+ * PHASE 2: Fixed tenant isolation - now filters by authenticated tenantId
  */
-router.get('/quotations', async (req, res) => {
+router.get('/quotations', async (req: AuthRequest, res) => {
     try {
-        const rows = await db.select().from(quotations);
+        const tenantId = req.user?.tenantId;
+        if (!tenantId) {
+            return res.status(403).json({
+                success: false,
+                error: 'No tenant context available',
+                code: 'NO_TENANT_CONTEXT'
+            });
+        }
+
+        // PHASE 2: Tenant-scoped query
+        const rows = await db.select()
+            .from(quotations)
+            .where(eq(quotations.tenantId, tenantId));
+
         const quotationsList = rows.map(r => ({
             id: r.id,
             quoteId: r.quoteId,
@@ -184,13 +198,48 @@ router.get('/quotations', async (req, res) => {
 
 /**
  * DELETE /api/quotations/:id
- * Delete quotation by ID
+ * Delete quotation by ID (tenant-scoped)
+ * PHASE 2: Fixed tenant isolation - now verifies ownership before delete
  */
-router.delete('/quotations/:id', async (req, res) => {
+router.delete('/quotations/:id', async (req: AuthRequest, res) => {
     try {
-        const { id } = req.params;
+        const tenantId = req.user?.tenantId;
+        if (!tenantId) {
+            return res.status(403).json({
+                success: false,
+                error: 'No tenant context available',
+                code: 'NO_TENANT_CONTEXT'
+            });
+        }
 
-        await db.delete(quotations).where(eq(quotations.id, id));
+        const id = req.params.id as string;
+        const tenant = tenantId as string; // Narrow type for drizzle-orm
+
+        // PHASE 2: Verify quotation belongs to this tenant before delete
+        const [existing] = await db.select()
+            .from(quotations)
+            .where(
+                and(
+                    eq(quotations.id, id),
+                    eq(quotations.tenantId, tenant)
+                )
+            )
+            .limit(1);
+
+        if (!existing) {
+            return res.status(404).json({
+                success: false,
+                error: 'Quotation not found'
+            });
+        }
+
+        // PHASE 2: Tenant-scoped delete
+        await db.delete(quotations).where(
+            and(
+                eq(quotations.id, id),
+                eq(quotations.tenantId, tenant)
+            )
+        );
 
         res.json({
             success: true,
