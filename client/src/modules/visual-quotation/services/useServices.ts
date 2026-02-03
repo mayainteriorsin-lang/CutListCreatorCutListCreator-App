@@ -1,5 +1,5 @@
-import { quotationService, QuotationService } from './QuotationService';
-import { pricingService, PricingService } from './PricingService';
+import { quotationService, QuotationService } from './quotationService';
+import { pricingService, PricingService } from './pricingService';
 
 /**
  * useServices Hook
