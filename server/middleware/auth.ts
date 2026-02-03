@@ -1,5 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { authService } from '../services/authService';
+import { db } from '../db';
+import { tenants } from '../db/authSchema';
+import { eq } from 'drizzle-orm';
 
 /**
  * Extended Request with user context
@@ -15,10 +18,54 @@ export interface AuthRequest extends Request {
 }
 
 /**
+ * PHASE 14: Tenant status cache for performance
+ * TTL: 5 minutes to balance freshness with performance
+ */
+const tenantStatusCache = new Map<string, { status: string; cachedAt: number }>();
+const TENANT_STATUS_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * PHASE 14: Get tenant status with caching (GAP-TEN-001 fix)
+ */
+async function getTenantStatus(tenantId: string): Promise<string | null> {
+    const now = Date.now();
+    const cached = tenantStatusCache.get(tenantId);
+
+    if (cached && (now - cached.cachedAt) < TENANT_STATUS_TTL_MS) {
+        return cached.status;
+    }
+
+    try {
+        const tenant = await db.query.tenants.findFirst({
+            where: eq(tenants.id, tenantId),
+            columns: { status: true }
+        });
+
+        if (tenant) {
+            tenantStatusCache.set(tenantId, { status: tenant.status || 'active', cachedAt: now });
+            return tenant.status || 'active';
+        }
+        return null;
+    } catch (error) {
+        console.error('[AUTH] Error fetching tenant status:', error);
+        // On error, allow request to proceed (fail-open for availability)
+        return 'active';
+    }
+}
+
+/**
+ * PHASE 14: Clear tenant status cache (for suspension/activation)
+ */
+export function invalidateTenantStatusCache(tenantId: string): void {
+    tenantStatusCache.delete(tenantId);
+}
+
+/**
  * Authentication Middleware
  * Verifies JWT token and attaches user to request
+ * PHASE 14: Added tenant status check (GAP-TEN-001 fix)
  */
-export function authenticate(req: AuthRequest, res: Response, next: NextFunction) {
+export async function authenticate(req: AuthRequest, res: Response, next: NextFunction) {
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -33,6 +80,38 @@ export function authenticate(req: AuthRequest, res: Response, next: NextFunction
 
     try {
         const payload = authService.verifyToken(token);
+
+        // PHASE 14: Check tenant status on every request (GAP-TEN-001)
+        if (payload.tenantId) {
+            const tenantStatus = await getTenantStatus(payload.tenantId);
+
+            if (tenantStatus === null) {
+                return res.status(403).json({
+                    success: false,
+                    error: 'Tenant not found',
+                    code: 'TENANT_NOT_FOUND'
+                });
+            }
+
+            if (tenantStatus === 'suspended') {
+                console.log(`[AUTH] Blocked request for suspended tenant: ${payload.tenantId}`);
+                return res.status(403).json({
+                    success: false,
+                    error: 'Account has been suspended. Please contact support.',
+                    code: 'TENANT_SUSPENDED'
+                });
+            }
+
+            if (tenantStatus === 'offboarded') {
+                console.log(`[AUTH] Blocked request for offboarded tenant: ${payload.tenantId}`);
+                return res.status(403).json({
+                    success: false,
+                    error: 'Account has been terminated.',
+                    code: 'TENANT_OFFBOARDED'
+                });
+            }
+        }
+
         req.user = payload;
         req.tenantId = payload.tenantId;
         next();

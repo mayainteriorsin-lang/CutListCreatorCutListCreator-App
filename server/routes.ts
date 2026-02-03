@@ -23,6 +23,7 @@ import quotationRouter from "./routes/quotationRoutes";
 import libraryRouter from "./routes/libraryRoutes";
 import authRouter from "./routes/authRoutes";
 import { authenticate, AuthRequest } from "./middleware/auth";
+import { tenantRateLimit } from "./middleware/tenantRateLimit";
 import { normString, normNumber, normBoolean, normArray, normDate, normDateISO } from "./normalize";
 import {
   MasterSettingsResponseSchema,
@@ -247,8 +248,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Global laminate memory routes
   app.use("/api/auth", authRouter); // Authentication API (public - handles its own auth)
   app.use("/api/crm", crmRouter); // CRM routes - protected (has internal auth middleware)
-  app.use("/api/ai", authenticate, aiInteriorDetectRouter()); // AI routes - protected
-  app.use("/api/ai", authenticate, aiWardrobeLayoutRouter()); // AI routes - protected
+  // PHASE 14: Added per-tenant rate limiting to authenticated routes (GAP-SCL-001)
+  app.use("/api/ai", authenticate, tenantRateLimit, aiInteriorDetectRouter()); // AI routes - protected + rate limited
+  app.use("/api/ai", authenticate, tenantRateLimit, aiWardrobeLayoutRouter()); // AI routes - protected + rate limited
   app.use("/api", quotationRouter); // Quotation persistence API - protected (has internal auth middleware)
   app.use("/api", libraryRouter); // Library module persistence API - protected (has internal auth middleware)
 

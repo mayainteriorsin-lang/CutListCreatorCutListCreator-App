@@ -16,6 +16,9 @@ import { requestIdMiddleware, getRequestId, REQUEST_ID_HEADER } from "./middlewa
 import { runStartupValidation } from "./lib/startupValidation";
 import { setupGracefulShutdown, isShutdownInProgress } from "./lib/gracefulShutdown";
 
+// PHASE 14: Per-Tenant Rate Limiting (GAP-SCL-001)
+import { tenantRateLimit } from "./middleware/tenantRateLimit";
+
 // PHASE 8: Run startup config validation (fail-fast in production)
 runStartupValidation();
 
