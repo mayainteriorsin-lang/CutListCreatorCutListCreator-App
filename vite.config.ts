@@ -20,66 +20,12 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       output: {
-        manualChunks: (id) => {
-          // Core vendor libraries
-          if (id.includes('node_modules')) {
-            // React core
-            if (id.includes('react-dom') || id.includes('react/')) {
-              return 'vendor-react';
-            }
-            // Router
-            if (id.includes('react-router')) {
-              return 'vendor-router';
-            }
-            // Heavy export libraries - separate chunks
-            if (id.includes('xlsx')) {
-              return 'vendor-xlsx';
-            }
-            if (id.includes('jspdf')) {
-              return 'vendor-jspdf';
-            }
-            if (id.includes('html2canvas')) {
-              return 'vendor-html2canvas';
-            }
-            // Charts
-            if (id.includes('recharts') || id.includes('d3-')) {
-              return 'vendor-charts';
-            }
-            // UI components
-            if (id.includes('@radix-ui')) {
-              return 'vendor-radix';
-            }
-            // Zustand state management
-            if (id.includes('zustand')) {
-              return 'vendor-zustand';
-            }
-            // Tanstack query
-            if (id.includes('@tanstack')) {
-              return 'vendor-tanstack';
-            }
-            // Icons
-            if (id.includes('lucide-react')) {
-              return 'vendor-icons';
-            }
-            // Other node_modules
-            return 'vendor-misc';
-          }
-          // Application modules - split by feature
-          if (id.includes('/modules/visual-quotation/')) {
-            if (id.includes('/store/')) {
-              return 'app-vq-store';
-            }
-            if (id.includes('/engine/')) {
-              return 'app-vq-engine';
-            }
-            return 'app-visual-quotation';
-          }
-          if (id.includes('/modules/crm/')) {
-            return 'app-crm';
-          }
-          if (id.includes('/modules/design/')) {
-            return 'app-design';
-          }
+        // Use object-based manualChunks to avoid circular dependency issues
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-xlsx': ['xlsx'],
+          'vendor-jspdf': ['jspdf', 'jspdf-autotable'],
+          'vendor-html2canvas': ['html2canvas'],
         },
       },
     },
