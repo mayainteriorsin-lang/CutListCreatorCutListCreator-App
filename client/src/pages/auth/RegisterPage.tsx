@@ -46,7 +46,8 @@ export default function RegisterPage() {
                 setAuth({ accessToken, refreshToken }, user);
                 navigate('/'); // Redirect to dashboard
             } else {
-                setError('Registration failed. Please try again.');
+                // Show actual error from API
+                setError((res as any)?.error || 'Registration failed. Please try again.');
             }
         } catch (err: any) {
             setError(err.message || 'Registration failed');

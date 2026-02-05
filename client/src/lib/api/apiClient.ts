@@ -256,9 +256,14 @@ export async function apiPost<T>(
                 body: JSON.stringify(body),
             });
 
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
             const json = await res.json();
+
+            // Handle error responses (4xx) - throw with actual error message
+            if (!res.ok) {
+                const errorMsg = json?.error || json?.message || `HTTP ${res.status}`;
+                throw new Error(errorMsg);
+            }
+
             const data = json?.data ?? json;
 
             if (schema) {
