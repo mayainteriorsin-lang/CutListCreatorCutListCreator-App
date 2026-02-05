@@ -36,12 +36,14 @@ export default function RegisterPage() {
                 success: boolean;
                 data: {
                     user: any;
-                    tokens: { accessToken: string; refreshToken: string }
+                    accessToken: string;
+                    refreshToken: string;
                 }
             }>('/auth/register', formData);
 
             if (res && res.success) {
-                setAuth(res.data.tokens, res.data.user);
+                const { accessToken, refreshToken, user } = res.data;
+                setAuth({ accessToken, refreshToken }, user);
                 navigate('/'); // Redirect to dashboard
             } else {
                 setError('Registration failed. Please try again.');
