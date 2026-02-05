@@ -2,7 +2,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
-import { apiPost } from '@/lib/api/apiClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,25 +31,25 @@ export default function RegisterPage() {
         setError(null);
 
         try {
-            const res = await apiPost<{
-                success: boolean;
-                data: {
-                    user: any;
-                    accessToken: string;
-                    refreshToken: string;
-                }
-            }>('/auth/register', formData);
+            // Use fetch directly for better error handling
+            const response = await fetch('/api/auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData),
+            });
 
-            if (res && res.success) {
-                const { accessToken, refreshToken, user } = res.data;
+            const json = await response.json();
+
+            if (response.ok && json.success) {
+                const { accessToken, refreshToken, user } = json.data;
                 setAuth({ accessToken, refreshToken }, user);
                 navigate('/'); // Redirect to dashboard
             } else {
                 // Show actual error from API
-                setError((res as any)?.error || 'Registration failed. Please try again.');
+                setError(json.error || json.message || `Registration failed (${response.status})`);
             }
         } catch (err: any) {
-            setError(err.message || 'Registration failed');
+            setError(err.message || 'Network error. Please try again.');
         } finally {
             setIsLoading(false);
         }
