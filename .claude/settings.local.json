@@ -64,7 +64,9 @@
       "Bash(npm run test:server:*)",
       "Bash(npm run test:frontend:*)",
       "Bash(npm audit:*)",
-      "Bash(git rm:*)"
+      "Bash(git rm:*)",
+      "Bash(npm run db:push:*)",
+      "Bash(npx drizzle-kit push:*)"
     ],
     "additionalDirectories": [
       "c:\\Users\\hi\\workspace\\CutListCreator"
