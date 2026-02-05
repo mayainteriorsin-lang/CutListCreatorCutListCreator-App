@@ -121,13 +121,17 @@ export default function LoginPage() {
                         </Button>
                     </form>
                 </CardContent>
-                {/*
-        <CardFooter className="flex justify-center">
-          <p className="text-sm text-muted-foreground">
-            Don't have an account? <span className="text-primary hover:underline cursor-pointer" onClick={() => navigate('/auth/register')}>Sign up</span>
-          </p>
-        </CardFooter>
-        */}
+                <CardFooter className="flex justify-center">
+                    <p className="text-sm text-muted-foreground">
+                        Don't have an account?{' '}
+                        <span
+                            className="text-primary hover:underline cursor-pointer"
+                            onClick={() => navigate('/auth/register')}
+                        >
+                            Sign up
+                        </span>
+                    </p>
+                </CardFooter>
             </Card>
         </div>
     );
