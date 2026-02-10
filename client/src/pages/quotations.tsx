@@ -77,6 +77,10 @@ export default function QuotationsPage() {
   const [editMode, setEditMode] = useState(false);
   const [showVersions, setShowVersions] = useState(false);
 
+  // Sort state
+  const [sortColumn, setSortColumn] = useState<'client' | 'date' | 'total' | 'pending'>('date');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
   // Form state
   const [formData, setFormData] = useState<Partial<Quotation>>({});
 
@@ -93,7 +97,7 @@ export default function QuotationsPage() {
   // Stats
   const stats = useMemo(() => getQuotationsStats(), [quotations]);
 
-  // Filtered quotations
+  // Filtered and sorted quotations
   const filteredQuotations = useMemo(() => {
     let result = quotations;
 
@@ -111,8 +115,28 @@ export default function QuotationsPage() {
       );
     }
 
+    // Sort
+    result = [...result].sort((a, b) => {
+      let comparison = 0;
+      switch (sortColumn) {
+        case 'client':
+          comparison = (a.clientName || '').localeCompare(b.clientName || '');
+          break;
+        case 'date':
+          comparison = a.date.localeCompare(b.date);
+          break;
+        case 'total':
+          comparison = a.finalTotal - b.finalTotal;
+          break;
+        case 'pending':
+          comparison = a.pendingAmount - b.pendingAmount;
+          break;
+      }
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
+
     return result;
-  }, [quotations, statusFilter, search]);
+  }, [quotations, statusFilter, search, sortColumn, sortDirection]);
 
   // Selected quotation
   const selected = selectedId ? quotations.find(q => q.id === selectedId) : null;
@@ -236,6 +260,16 @@ export default function QuotationsPage() {
     }
   };
 
+  // Handle sort column click
+  const handleSort = (column: 'client' | 'date' | 'total' | 'pending') => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection(column === 'client' ? 'asc' : 'desc'); // Default: A-Z for client, newest first for others
+    }
+  };
+
   // Format currency
   const formatCurrency = (value: number) => `₹${value.toLocaleString('en-IN')}`;
 
@@ -337,11 +371,57 @@ export default function QuotationsPage() {
               <table className="w-full">
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Client</th>
+                    <th
+                      onClick={() => handleSort('client')}
+                      className="px-4 py-3 text-left text-xs font-semibold text-slate-600 cursor-pointer hover:bg-slate-100 transition-colors select-none"
+                    >
+                      <span className="flex items-center gap-1">
+                        Client
+                        <ArrowUpDown className={cn('h-3 w-3', sortColumn === 'client' ? 'text-indigo-600' : 'text-slate-400')} />
+                        {sortColumn === 'client' && (
+                          <span className="text-[10px] text-indigo-600">{sortDirection === 'asc' ? 'A-Z' : 'Z-A'}</span>
+                        )}
+                      </span>
+                    </th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Quote #</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Date</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-slate-600">Total</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-slate-600">Pending</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Phone</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Location</th>
+                    <th
+                      onClick={() => handleSort('date')}
+                      className="px-4 py-3 text-left text-xs font-semibold text-slate-600 cursor-pointer hover:bg-slate-100 transition-colors select-none"
+                    >
+                      <span className="flex items-center gap-1">
+                        Date
+                        <ArrowUpDown className={cn('h-3 w-3', sortColumn === 'date' ? 'text-indigo-600' : 'text-slate-400')} />
+                        {sortColumn === 'date' && (
+                          <span className="text-[10px] text-indigo-600">{sortDirection === 'desc' ? 'New' : 'Old'}</span>
+                        )}
+                      </span>
+                    </th>
+                    <th
+                      onClick={() => handleSort('total')}
+                      className="px-4 py-3 text-right text-xs font-semibold text-slate-600 cursor-pointer hover:bg-slate-100 transition-colors select-none"
+                    >
+                      <span className="flex items-center justify-end gap-1">
+                        Total
+                        <ArrowUpDown className={cn('h-3 w-3', sortColumn === 'total' ? 'text-indigo-600' : 'text-slate-400')} />
+                        {sortColumn === 'total' && (
+                          <span className="text-[10px] text-indigo-600">{sortDirection === 'desc' ? 'Hi' : 'Lo'}</span>
+                        )}
+                      </span>
+                    </th>
+                    <th
+                      onClick={() => handleSort('pending')}
+                      className="px-4 py-3 text-right text-xs font-semibold text-slate-600 cursor-pointer hover:bg-slate-100 transition-colors select-none"
+                    >
+                      <span className="flex items-center justify-end gap-1">
+                        Pending
+                        <ArrowUpDown className={cn('h-3 w-3', sortColumn === 'pending' ? 'text-indigo-600' : 'text-slate-400')} />
+                        {sortColumn === 'pending' && (
+                          <span className="text-[10px] text-indigo-600">{sortDirection === 'desc' ? 'Hi' : 'Lo'}</span>
+                        )}
+                      </span>
+                    </th>
                     <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600">Status</th>
                     <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600">Actions</th>
                   </tr>
@@ -372,6 +452,12 @@ export default function QuotationsPage() {
                         </td>
                         <td className="px-4 py-3">
                           <span className="text-xs font-mono text-slate-500">{q.quotationNumber}</span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="text-xs text-slate-600">{q.clientMobile || '-'}</span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="text-xs text-slate-500">{q.clientLocation || '-'}</span>
                         </td>
                         <td className="px-4 py-3">
                           <span className="text-xs text-slate-500">{q.date}</span>

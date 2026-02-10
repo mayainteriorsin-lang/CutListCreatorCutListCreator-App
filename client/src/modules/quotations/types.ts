@@ -2,11 +2,16 @@
 
 export type QuotationStatus = 'DRAFT' | 'SENT' | 'APPROVED' | 'REJECTED';
 
+export type PaymentMethod = 'cash' | 'upi' | 'bank' | 'cheque' | 'card';
+
 export interface PaymentEntry {
   id: string;
   amount: number;
   date: string;
   note: string;
+  method: PaymentMethod;
+  reference?: string;        // Transaction ID, Cheque number, etc.
+  receiptNumber?: string;    // Auto-generated receipt number
 }
 
 // Version change tracking

@@ -26,7 +26,7 @@
  * the pattern used by CRM (localStorage-first with API sync).
  */
 
-import type { Quotation, PaymentEntry, QuotationStatus, QuotationVersion, VersionChange } from './types';
+import type { Quotation, PaymentEntry, PaymentMethod, QuotationStatus, QuotationVersion, VersionChange } from './types';
 import { generateUUID } from '@/lib/uuid';
 
 // Maximum versions per quotation
@@ -107,7 +107,7 @@ function readQuickQuoteEntries(): Quotation[] {
       // Payment
       const paidAmount = Number(d.paidAmount) || 0;
       const payments: PaymentEntry[] = paidAmount > 0
-        ? [{ id: `qq-pay-${quoteNumber}`, amount: paidAmount, date: String(d.quoteDate || ''), note: 'Quick Quote payment' }]
+        ? [{ id: `qq-pay-${quoteNumber}`, amount: paidAmount, date: String(d.quoteDate || ''), note: 'Quick Quote payment', method: 'cash' }]
         : [];
       const totalPaid = paidAmount;
 
@@ -331,16 +331,36 @@ export function deleteQuotation(id: string): boolean {
   return true;
 }
 
+// Generate receipt number
+function generateReceiptNumber(quotationNumber: string, paymentCount: number): string {
+  const year = new Date().getFullYear();
+  return `RCP-${year}-${quotationNumber.replace(/[^0-9]/g, '')}-${String(paymentCount + 1).padStart(2, '0')}`;
+}
+
 // Add payment to quotation
-export function addPaymentToQuotation(quotationId: string, amount: number, note: string = ''): Quotation | null {
+export function addPaymentToQuotation(
+  quotationId: string,
+  amount: number,
+  options: {
+    note?: string;
+    method?: PaymentMethod;
+    reference?: string;
+    date?: string;
+  } = {}
+): Quotation | null {
   const quotation = getQuotationById(quotationId);
   if (!quotation || amount <= 0) return null;
+
+  const receiptNumber = generateReceiptNumber(quotation.quotationNumber, quotation.payments.length);
 
   const newPayment: PaymentEntry = {
     id: `pay-${Date.now()}`,
     amount,
-    date: nowISO().split('T')[0],
-    note,
+    date: options.date || nowISO().split('T')[0],
+    note: options.note || '',
+    method: options.method || 'cash',
+    reference: options.reference,
+    receiptNumber,
   };
 
   const payments = [...quotation.payments, newPayment];
