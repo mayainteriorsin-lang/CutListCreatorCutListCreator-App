@@ -387,13 +387,12 @@ router.post('/wood-grains-preferences', async (req: AuthRequest, res) => {
         // Upsert preference
         await db.insert(laminateWoodGrainsPreference)
             .values({
-                tenantId,
                 laminateCode,
-                hasWoodGrains
+                woodGrainsEnabled: hasWoodGrains ? 'true' : 'false'
             })
             .onConflictDoUpdate({
-                target: [laminateWoodGrainsPreference.tenantId, laminateWoodGrainsPreference.laminateCode],
-                set: { hasWoodGrains }
+                target: [laminateWoodGrainsPreference.laminateCode],
+                set: { woodGrainsEnabled: hasWoodGrains ? 'true' : 'false' }
             });
 
         res.json(ok({ message: 'Wood grains preference saved successfully' }));
@@ -407,17 +406,14 @@ router.post('/wood-grains-preferences', async (req: AuthRequest, res) => {
  * Plywood List (Aggregated)
  */
 router.get('/plywood-list', async (req: AuthRequest, res) => {
-    const tenantId = req.user?.tenantId;
-
-    if (!tenantId) {
-        return res.status(401).json(err('Unauthorized'));
-    }
+    // Tenant filtering temporarily disabled as plywoodBrandMemory lacks tenantId
+    // const tenantId = req.user?.tenantId; 
 
     try {
         const brands = await safeQuery(
             () => db.select()
                 .from(plywoodBrandMemory)
-                .where(eq(plywoodBrandMemory.tenantId, tenantId))
+                // .where(eq(plywoodBrandMemory.tenantId, tenantId)) 
                 .orderBy(plywoodBrandMemory.createdAt),
             []
         );
