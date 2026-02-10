@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, Fragment } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,16 +17,11 @@ import {
   ChevronLeft,
   ChevronDown,
   ChevronUp,
-  ChevronRight,
-  FolderOpen,
-  Folder,
   Phone,
   MapPin,
   Calendar,
-  Clock,
   Trash2,
   Edit3,
-  IndianRupee,
   Percent,
   X,
   Check,
@@ -34,10 +29,23 @@ import {
   XCircle,
   Zap,
   GitBranch,
-  ArrowUpRight,
-  ArrowDownRight,
   Save,
-  ArrowUpDown,
+  FolderOpen,
+  CreditCard,
+  FileSpreadsheet,
+  User,
+  Clock,
+  IndianRupee,
+  Receipt,
+  History,
+  FileImage,
+  MessageSquare,
+  Layers,
+  ArrowRight,
+  ArrowLeftRight,
+  Camera,
+  Upload,
+  StickyNote,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Quotation, QuotationStatus, PaymentMethod } from '@/modules/quotations/types';
@@ -55,8 +63,9 @@ import {
   saveVersionToQuotation,
   deleteVersionFromQuotation,
 } from '@/modules/quotations/storage';
-import type { QuotationVersion } from '@/modules/quotations/types';
 import QuickQuotationPage from '@/pages/quick-quotation';
+
+type FolderTab = 'payment' | 'quote' | 'info';
 
 const STATUS_CONFIG: Record<QuotationStatus, { label: string; color: string; bg: string; icon: typeof FileText }> = {
   DRAFT: { label: 'Draft', color: 'text-slate-600', bg: 'bg-slate-100', icon: Edit3 },
@@ -65,6 +74,12 @@ const STATUS_CONFIG: Record<QuotationStatus, { label: string; color: string; bg:
   REJECTED: { label: 'Rejected', color: 'text-red-600', bg: 'bg-red-100', icon: XCircle },
 };
 
+const FOLDER_TABS = [
+  { id: 'payment' as FolderTab, label: 'Payment', icon: CreditCard, color: 'emerald' },
+  { id: 'quote' as FolderTab, label: 'Quick Quote', icon: FileSpreadsheet, color: 'amber' },
+  { id: 'info' as FolderTab, label: 'Client Info', icon: User, color: 'indigo' },
+];
+
 export default function QuotationsPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -72,17 +87,15 @@ export default function QuotationsPage() {
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<QuotationStatus | 'ALL'>('ALL');
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [openFolderId, setOpenFolderId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<FolderTab>('payment');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteError, setDeleteError] = useState('');
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [showVersions, setShowVersions] = useState(false);
-
-  // Sort state
-  const [sortColumn, setSortColumn] = useState<'client' | 'date' | 'total' | 'pending'>('date');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   // Form state
   const [formData, setFormData] = useState<Partial<Quotation>>({});
@@ -100,7 +113,7 @@ export default function QuotationsPage() {
   // Stats
   const stats = useMemo(() => getQuotationsStats(), [quotations]);
 
-  // Filtered and sorted quotations
+  // Filtered quotations
   const filteredQuotations = useMemo(() => {
     let result = quotations;
 
@@ -118,31 +131,17 @@ export default function QuotationsPage() {
       );
     }
 
-    // Sort
-    result = [...result].sort((a, b) => {
-      let comparison = 0;
-      switch (sortColumn) {
-        case 'client':
-          comparison = (a.clientName || '').localeCompare(b.clientName || '');
-          break;
-        case 'date':
-          comparison = a.date.localeCompare(b.date);
-          break;
-        case 'total':
-          comparison = a.finalTotal - b.finalTotal;
-          break;
-        case 'pending':
-          comparison = a.pendingAmount - b.pendingAmount;
-          break;
-      }
-      return sortDirection === 'asc' ? comparison : -comparison;
-    });
+    // Sort by date descending (newest first)
+    result = [...result].sort((a, b) => b.date.localeCompare(a.date));
 
     return result;
-  }, [quotations, statusFilter, search, sortColumn, sortDirection]);
+  }, [quotations, statusFilter, search]);
 
-  // Selected quotation
-  const selected = selectedId ? quotations.find(q => q.id === selectedId) : null;
+  // Get open folder quotation
+  const openFolder = openFolderId ? quotations.find(q => q.id === openFolderId) : null;
+
+  // Check if quotation is from Quick Quote
+  const isQuickQuote = (q: Quotation | null | undefined) => q?.source === 'quick-quote';
 
   // Handle create
   const handleCreate = () => {
@@ -164,44 +163,41 @@ export default function QuotationsPage() {
     setShowCreateDialog(true);
   };
 
-  // Check if a quotation is from Quick Quote
-  const isQuickQuote = (q: Quotation | null | undefined) => q?.source === 'quick-quote';
-
   // Handle edit
   const handleEdit = () => {
-    if (!selected) return;
-    // Quick Quote entries are edited inline via embedded QuickQuotationPage
-    if (isQuickQuote(selected)) {
-      return; // Already showing the editor
-    }
-    setFormData({ ...selected });
+    if (!openFolder) return;
+    if (isQuickQuote(openFolder)) return;
+    setFormData({ ...openFolder });
     setEditMode(true);
     setShowCreateDialog(true);
   };
 
   // Handle save
   const handleSave = () => {
-    if (editMode && selectedId) {
-      updateQuotation(selectedId, formData);
+    if (editMode && openFolderId) {
+      updateQuotation(openFolderId, formData);
       toast({ title: 'Client updated' });
     } else {
       const newQuot = createQuotation(formData);
-      setSelectedId(newQuot.id);
+      setOpenFolderId(newQuot.id);
       toast({ title: 'Client created', description: newQuot.quotationNumber });
     }
     setShowCreateDialog(false);
     refreshQuotations();
   };
 
-  // Handle delete with password verification
+  // Handle delete
   const handleDelete = () => {
-    if (!selectedId) return;
+    if (!deleteTargetId) return;
     if (deletePassword !== '4321') {
       setDeleteError('Incorrect password');
       return;
     }
-    deleteQuotation(selectedId);
-    setSelectedId(null);
+    deleteQuotation(deleteTargetId);
+    if (openFolderId === deleteTargetId) {
+      setOpenFolderId(null);
+    }
+    setDeleteTargetId(null);
     setShowDeleteDialog(false);
     setDeletePassword('');
     setDeleteError('');
@@ -209,14 +205,14 @@ export default function QuotationsPage() {
     toast({ title: 'Client deleted' });
   };
 
-  // Reset delete dialog state when closing
   const closeDeleteDialog = () => {
     setShowDeleteDialog(false);
     setDeletePassword('');
     setDeleteError('');
+    setDeleteTargetId(null);
   };
 
-  // Handle add payment (used by PaymentSection)
+  // Handle add payment
   const handleAddPayment = (data: {
     amount: number;
     method: PaymentMethod;
@@ -224,8 +220,8 @@ export default function QuotationsPage() {
     note?: string;
     date?: string;
   }) => {
-    if (!selectedId) return;
-    addPaymentToQuotation(selectedId, data.amount, {
+    if (!openFolderId) return;
+    addPaymentToQuotation(openFolderId, data.amount, {
       method: data.method,
       reference: data.reference,
       note: data.note,
@@ -237,25 +233,25 @@ export default function QuotationsPage() {
 
   // Handle remove payment
   const handleRemovePayment = (paymentId: string) => {
-    if (!selectedId) return;
-    removePaymentFromQuotation(selectedId, paymentId);
+    if (!openFolderId) return;
+    removePaymentFromQuotation(openFolderId, paymentId);
     refreshQuotations();
     toast({ title: 'Payment removed' });
   };
 
   // Handle status change
   const handleStatusChange = (status: QuotationStatus) => {
-    if (!selectedId) return;
-    updateQuotation(selectedId, { status });
+    if (!openFolderId) return;
+    updateQuotation(openFolderId, { status });
     refreshQuotations();
     toast({ title: `Status changed to ${status}` });
   };
 
   // Handle save version
   const handleSaveVersion = () => {
-    if (!selectedId || isQuickQuote(selected)) return;
+    if (!openFolderId || isQuickQuote(openFolder)) return;
     const note = prompt('Version note (optional):') || undefined;
-    const version = saveVersionToQuotation(selectedId, note);
+    const version = saveVersionToQuotation(openFolderId, note);
     if (version) {
       refreshQuotations();
       toast({ title: `Version v${version.version} saved` });
@@ -264,29 +260,31 @@ export default function QuotationsPage() {
 
   // Handle delete version
   const handleDeleteVersion = (versionId: string) => {
-    if (!selectedId) return;
+    if (!openFolderId) return;
     if (confirm('Delete this version?')) {
-      deleteVersionFromQuotation(selectedId, versionId);
+      deleteVersionFromQuotation(openFolderId, versionId);
       refreshQuotations();
       toast({ title: 'Version deleted' });
-    }
-  };
-
-  // Handle sort column click
-  const handleSort = (column: 'client' | 'date' | 'total' | 'pending') => {
-    if (sortColumn === column) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortColumn(column);
-      setSortDirection(column === 'client' ? 'asc' : 'desc'); // Default: A-Z for client, newest first for others
     }
   };
 
   // Format currency
   const formatCurrency = (value: number) => `₹${value.toLocaleString('en-IN')}`;
 
+  // Open a folder
+  const openClientFolder = (id: string) => {
+    setOpenFolderId(id);
+    setActiveTab('payment');
+    setShowVersions(false);
+  };
+
+  // Close folder
+  const closeFolder = () => {
+    setOpenFolderId(null);
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30">
+    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-slate-50 to-indigo-50/30">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-lg border-b border-slate-200/60 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-3">
@@ -299,10 +297,10 @@ export default function QuotationsPage() {
                 <ChevronLeft className="h-5 w-5 text-slate-600" />
               </button>
               <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-                <FileText className="h-5 w-5 text-white" />
+                <FolderOpen className="h-5 w-5 text-white" />
               </div>
               <div>
-                <h1 className="text-lg font-bold text-slate-900">Client Info</h1>
+                <h1 className="text-lg font-bold text-slate-900">Client Folders</h1>
                 <p className="text-xs text-slate-500">{stats.total} clients</p>
               </div>
             </div>
@@ -311,7 +309,7 @@ export default function QuotationsPage() {
               className="h-9 px-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl shadow-lg shadow-indigo-500/20"
             >
               <Plus className="h-4 w-4 mr-1.5" />
-              New
+              New Client
             </Button>
           </div>
         </div>
@@ -367,12 +365,16 @@ export default function QuotationsPage() {
           </div>
         </div>
 
-        <div className="space-y-4">
-          {/* Clients Table */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        {/* Main Content Area */}
+        <div className="flex gap-4">
+          {/* Folders List - Left Side */}
+          <div className={cn(
+            'transition-all duration-300',
+            openFolderId ? 'w-80 flex-shrink-0' : 'w-full'
+          )}>
             {filteredQuotations.length === 0 ? (
-              <div className="p-8 text-center">
-                <FileText className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+              <div className="bg-white rounded-xl border border-slate-200 p-8 text-center shadow-sm">
+                <FolderOpen className="h-12 w-12 text-slate-300 mx-auto mb-3" />
                 <p className="text-slate-500">No clients found</p>
                 <Button onClick={handleCreate} variant="outline" className="mt-3">
                   <Plus className="h-4 w-4 mr-1" />
@@ -380,321 +382,429 @@ export default function QuotationsPage() {
                 </Button>
               </div>
             ) : (
-              <table className="w-full">
-                <thead className="bg-slate-50 border-b border-slate-200">
-                  <tr>
-                    <th
-                      onClick={() => handleSort('client')}
-                      className="px-4 py-3 text-left text-xs font-semibold text-slate-600 cursor-pointer hover:bg-slate-100 transition-colors select-none"
+              <div className={cn(
+                'grid gap-3',
+                openFolderId ? 'grid-cols-1' : 'grid-cols-3'
+              )}>
+                {filteredQuotations.map((q) => {
+                  const statusConfig = STATUS_CONFIG[q.status];
+                  const StatusIcon = statusConfig.icon;
+                  const isOpen = openFolderId === q.id;
+                  const isQQ = isQuickQuote(q);
+                  const paymentProgress = q.finalTotal > 0 ? Math.min(100, (q.totalPaid / q.finalTotal) * 100) : 0;
+
+                  return (
+                    <div
+                      key={q.id}
+                      onClick={() => !isOpen && openClientFolder(q.id)}
+                      className={cn(
+                        'group relative cursor-pointer transition-all duration-200',
+                        isOpen && 'ring-2 ring-indigo-500 ring-offset-2'
+                      )}
                     >
-                      <span className="flex items-center gap-1">
-                        Client
-                        <ArrowUpDown className={cn('h-3 w-3', sortColumn === 'client' ? 'text-indigo-600' : 'text-slate-400')} />
-                        {sortColumn === 'client' && (
-                          <span className="text-[10px] text-indigo-600">{sortDirection === 'asc' ? 'A-Z' : 'Z-A'}</span>
-                        )}
-                      </span>
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Quote #</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Phone</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Location</th>
-                    <th
-                      onClick={() => handleSort('date')}
-                      className="px-4 py-3 text-left text-xs font-semibold text-slate-600 cursor-pointer hover:bg-slate-100 transition-colors select-none"
-                    >
-                      <span className="flex items-center gap-1">
-                        Date
-                        <ArrowUpDown className={cn('h-3 w-3', sortColumn === 'date' ? 'text-indigo-600' : 'text-slate-400')} />
-                        {sortColumn === 'date' && (
-                          <span className="text-[10px] text-indigo-600">{sortDirection === 'desc' ? 'New' : 'Old'}</span>
-                        )}
-                      </span>
-                    </th>
-                    <th
-                      onClick={() => handleSort('total')}
-                      className="px-4 py-3 text-right text-xs font-semibold text-slate-600 cursor-pointer hover:bg-slate-100 transition-colors select-none"
-                    >
-                      <span className="flex items-center justify-end gap-1">
-                        Total
-                        <ArrowUpDown className={cn('h-3 w-3', sortColumn === 'total' ? 'text-indigo-600' : 'text-slate-400')} />
-                        {sortColumn === 'total' && (
-                          <span className="text-[10px] text-indigo-600">{sortDirection === 'desc' ? 'Hi' : 'Lo'}</span>
-                        )}
-                      </span>
-                    </th>
-                    <th
-                      onClick={() => handleSort('pending')}
-                      className="px-4 py-3 text-right text-xs font-semibold text-slate-600 cursor-pointer hover:bg-slate-100 transition-colors select-none"
-                    >
-                      <span className="flex items-center justify-end gap-1">
-                        Pending
-                        <ArrowUpDown className={cn('h-3 w-3', sortColumn === 'pending' ? 'text-indigo-600' : 'text-slate-400')} />
-                        {sortColumn === 'pending' && (
-                          <span className="text-[10px] text-indigo-600">{sortDirection === 'desc' ? 'Hi' : 'Lo'}</span>
-                        )}
-                      </span>
-                    </th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600">Status</th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredQuotations.map((q) => {
-                    const statusConfig = STATUS_CONFIG[q.status];
-                    const StatusIcon = statusConfig.icon;
-                    const isExpanded = selectedId === q.id;
-                    const isQQ = isQuickQuote(q);
-                    return (
-                      <Fragment key={q.id}>
-                        {/* Main Row - Folder Header */}
-                        <tr
-                          onClick={() => setSelectedId(isExpanded ? null : q.id)}
-                          className={cn(
-                            'cursor-pointer transition-all border-b border-slate-100',
-                            isExpanded
-                              ? 'bg-indigo-50 border-indigo-200'
-                              : 'hover:bg-slate-50'
-                          )}
-                        >
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              {/* Folder Icon */}
-                              {isExpanded ? (
-                                <FolderOpen className="h-4 w-4 text-indigo-500" />
-                              ) : (
-                                <Folder className="h-4 w-4 text-slate-400" />
+                      {/* Folder Tab */}
+                      <div className={cn(
+                        'absolute -top-3 left-4 px-3 py-1 rounded-t-lg text-xs font-medium z-10 transition-colors',
+                        isOpen
+                          ? 'bg-indigo-500 text-white'
+                          : 'bg-amber-100 text-amber-700 group-hover:bg-amber-200'
+                      )}>
+                        {q.quotationNumber}
+                        {isQQ && <Zap className="h-3 w-3 inline ml-1" />}
+                      </div>
+
+                      {/* Folder Body */}
+                      <div className={cn(
+                        'bg-white rounded-xl border-2 shadow-sm overflow-hidden transition-all',
+                        isOpen
+                          ? 'border-indigo-200 bg-indigo-50/30'
+                          : 'border-slate-200 hover:border-indigo-300 hover:shadow-md'
+                      )}>
+                        {/* Folder Header */}
+                        <div className="p-4 pt-5">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-semibold text-slate-900 truncate">
+                                {q.clientName || 'Unnamed Client'}
+                              </h3>
+                              <div className="flex items-center gap-2 mt-1 text-xs text-slate-500">
+                                <Phone className="h-3 w-3" />
+                                <span>{q.clientMobile || 'No phone'}</span>
+                              </div>
+                              {!openFolderId && q.clientLocation && (
+                                <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-400">
+                                  <MapPin className="h-3 w-3" />
+                                  <span className="truncate">{q.clientLocation}</span>
+                                </div>
                               )}
-                              {isQQ && <Zap className="h-3 w-3 text-amber-500" />}
-                              <span className="font-medium text-slate-900 text-sm">{q.clientName || 'Unnamed'}</span>
                             </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className="text-xs font-mono text-slate-500">{q.quotationNumber}</span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className="text-xs text-slate-600">{q.clientMobile || '-'}</span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className="text-xs text-slate-500">{q.clientLocation || '-'}</span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className="text-xs text-slate-500">{q.date}</span>
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <span className="text-sm font-semibold text-slate-800">₹{q.finalTotal.toLocaleString('en-IN')}</span>
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            {q.pendingAmount > 0 ? (
-                              <span className="text-sm font-medium text-amber-600">₹{q.pendingAmount.toLocaleString('en-IN')}</span>
-                            ) : (
-                              <span className="text-sm text-emerald-600">Paid</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            <span className={cn('inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium', statusConfig.bg, statusConfig.color)}>
+                            <span className={cn(
+                              'flex-shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium',
+                              statusConfig.bg, statusConfig.color
+                            )}>
                               <StatusIcon className="h-3 w-3" />
                               {statusConfig.label}
                             </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center justify-center gap-1">
-                              <div className={cn('h-6 w-6 rounded flex items-center justify-center transition-transform', isExpanded && 'rotate-90')}>
-                                <ChevronRight className="h-4 w-4 text-slate-400" />
-                              </div>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setSelectedId(q.id); setShowDeleteDialog(true); }}
-                                className="h-7 w-7 rounded-lg hover:bg-red-50 flex items-center justify-center text-slate-400 hover:text-red-500 transition-colors"
-                                title="Delete"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
+                          </div>
+
+                          {/* Amount Bar */}
+                          <div className="mt-3">
+                            <div className="flex items-center justify-between text-sm mb-1">
+                              <span className="font-bold text-slate-800">
+                                {formatCurrency(q.finalTotal)}
+                              </span>
+                              {q.pendingAmount > 0 ? (
+                                <span className="text-amber-600 font-medium text-xs">
+                                  {formatCurrency(q.pendingAmount)} pending
+                                </span>
+                              ) : (
+                                <span className="text-emerald-600 font-medium text-xs flex items-center gap-1">
+                                  <Check className="h-3 w-3" />
+                                  Fully Paid
+                                </span>
+                              )}
                             </div>
-                          </td>
-                        </tr>
-
-                        {/* Expanded Content Row - Folder Contents */}
-                        {isExpanded && (
-                          <tr className="bg-slate-50/50">
-                            <td colSpan={9} className="p-0">
-                              <div className="border-b-2 border-indigo-200 bg-white">
-                                {isQQ ? (
-                                  /* Quick Quote Editor */
-                                  <div className="p-4">
-                                    <QuickQuotationPage />
-                                  </div>
-                                ) : (
-                                  /* Native Client Details */
-                                  <div className="p-4 space-y-4">
-                                    {/* Amount Stats Bar */}
-                                    <div className="grid grid-cols-4 gap-3">
-                                      <div className="bg-slate-50 rounded-lg p-3 text-center">
-                                        <p className="text-[10px] text-slate-500">Subtotal</p>
-                                        <p className="text-sm font-bold text-slate-800">₹{q.subtotal.toLocaleString('en-IN')}</p>
-                                      </div>
-                                      <div className="bg-indigo-50 rounded-lg p-3 text-center">
-                                        <p className="text-[10px] text-slate-500">Final Total</p>
-                                        <p className="text-sm font-bold text-indigo-600">₹{q.finalTotal.toLocaleString('en-IN')}</p>
-                                      </div>
-                                      <div className="bg-emerald-50 rounded-lg p-3 text-center">
-                                        <p className="text-[10px] text-slate-500">Received</p>
-                                        <p className="text-sm font-bold text-emerald-600">₹{q.totalPaid.toLocaleString('en-IN')}</p>
-                                      </div>
-                                      <div className={cn('rounded-lg p-3 text-center', q.pendingAmount > 0 ? 'bg-amber-50' : 'bg-emerald-50')}>
-                                        <p className="text-[10px] text-slate-500">Pending</p>
-                                        <p className={cn('text-sm font-bold', q.pendingAmount > 0 ? 'text-amber-600' : 'text-emerald-600')}>
-                                          ₹{Math.max(0, q.pendingAmount).toLocaleString('en-IN')}
-                                        </p>
-                                      </div>
-                                    </div>
-
-                                    {/* Client Info + Discount */}
-                                    <div className="flex items-center gap-4 text-xs text-slate-600">
-                                      <div className="flex items-center gap-1">
-                                        <Phone className="h-3.5 w-3.5 text-slate-400" />
-                                        {q.clientMobile || '-'}
-                                      </div>
-                                      <div className="flex items-center gap-1">
-                                        <MapPin className="h-3.5 w-3.5 text-slate-400" />
-                                        {q.clientLocation || '-'}
-                                      </div>
-                                      <div className="flex items-center gap-1">
-                                        <Calendar className="h-3.5 w-3.5 text-slate-400" />
-                                        Valid till {q.validityDate}
-                                      </div>
-                                      {(q.discountPercent > 0 || q.discountFlat > 0) && (
-                                        <div className="flex items-center gap-1 text-orange-600">
-                                          <Percent className="h-3.5 w-3.5" />
-                                          Discount: {q.discountPercent > 0 && `${q.discountPercent}%`}
-                                          {q.discountPercent > 0 && q.discountFlat > 0 && ' + '}
-                                          {q.discountFlat > 0 && `₹${q.discountFlat.toLocaleString('en-IN')}`}
-                                        </div>
-                                      )}
-                                    </div>
-
-                                    {/* Two Column Layout: Payment + Version History */}
-                                    <div className="grid grid-cols-2 gap-4">
-                                      {/* Payment Section */}
-                                      <PaymentSection
-                                        quotation={q}
-                                        onAddPayment={handleAddPayment}
-                                        onRemovePayment={handleRemovePayment}
-                                      />
-
-                                      {/* Version History */}
-                                      <div className="bg-indigo-50/50 rounded-xl p-3 space-y-2 h-fit">
-                                        <div className="flex items-center justify-between">
-                                          <button
-                                            onClick={(e) => { e.stopPropagation(); setShowVersions(!showVersions); }}
-                                            className="text-xs font-medium text-indigo-700 flex items-center gap-1 hover:text-indigo-800 transition-colors"
-                                          >
-                                            <GitBranch className="h-3.5 w-3.5" />
-                                            Version History ({q.versions?.length || 0})
-                                            {showVersions ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                                          </button>
-                                          <Button
-                                            onClick={(e) => { e.stopPropagation(); handleSaveVersion(); }}
-                                            size="sm"
-                                            className="h-7 px-2 text-xs bg-indigo-500 hover:bg-indigo-600"
-                                          >
-                                            <Save className="h-3 w-3 mr-1" />
-                                            Save
-                                          </Button>
-                                        </div>
-                                        {showVersions && (
-                                          <div className="space-y-2 max-h-48 overflow-y-auto">
-                                            {(q.versions?.length || 0) > 0 ? (
-                                              [...(q.versions || [])].reverse().map((v, idx) => (
-                                                <div key={v.id} className="bg-white rounded-lg p-2 border border-indigo-100 text-xs">
-                                                  <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-2">
-                                                      <span className="px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 text-[10px] font-bold">v{v.version}</span>
-                                                      <span className="text-slate-500">{v.date}</span>
-                                                    </div>
-                                                    <div className="flex items-center gap-1">
-                                                      <span className="font-bold text-indigo-600">{formatCurrency(v.finalTotal)}</span>
-                                                      <button
-                                                        onClick={(e) => { e.stopPropagation(); handleDeleteVersion(v.id); }}
-                                                        className="h-5 w-5 text-slate-400 hover:text-red-500 rounded flex items-center justify-center"
-                                                      >
-                                                        <X className="h-3 w-3" />
-                                                      </button>
-                                                    </div>
-                                                  </div>
-                                                  {v.note && <p className="text-slate-500 italic mt-1">"{v.note}"</p>}
-                                                </div>
-                                              ))
-                                            ) : (
-                                              <p className="text-xs text-slate-400 text-center py-2">No versions saved</p>
-                                            )}
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-
-                                    {/* Notes */}
-                                    {q.notes && (
-                                      <div className="bg-slate-50 rounded-lg p-3">
-                                        <p className="text-xs text-slate-500 mb-1">Notes</p>
-                                        <p className="text-sm text-slate-700">{q.notes}</p>
-                                      </div>
-                                    )}
-
-                                    {/* Action Buttons */}
-                                    <div className="flex gap-2 pt-2 border-t border-slate-100">
-                                      <Button
-                                        onClick={(e) => { e.stopPropagation(); handleEdit(); }}
-                                        variant="outline"
-                                        size="sm"
-                                      >
-                                        <Edit3 className="h-3.5 w-3.5 mr-1" />
-                                        Edit
-                                      </Button>
-                                      {q.status !== 'SENT' && (
-                                        <Button
-                                          onClick={(e) => { e.stopPropagation(); handleStatusChange('SENT'); }}
-                                          variant="outline"
-                                          size="sm"
-                                        >
-                                          <Send className="h-3.5 w-3.5 mr-1" />
-                                          Mark Sent
-                                        </Button>
-                                      )}
-                                      {q.status !== 'APPROVED' && (
-                                        <Button
-                                          onClick={(e) => { e.stopPropagation(); handleStatusChange('APPROVED'); }}
-                                          size="sm"
-                                          className="bg-emerald-500 hover:bg-emerald-600"
-                                        >
-                                          <Check className="h-3.5 w-3.5 mr-1" />
-                                          Approve
-                                        </Button>
-                                      )}
-                                      {q.status !== 'REJECTED' && (
-                                        <Button
-                                          onClick={(e) => { e.stopPropagation(); handleStatusChange('REJECTED'); }}
-                                          variant="outline"
-                                          size="sm"
-                                          className="text-red-600 border-red-200 hover:bg-red-50"
-                                        >
-                                          <XCircle className="h-3.5 w-3.5 mr-1" />
-                                          Reject
-                                        </Button>
-                                      )}
-                                    </div>
-                                  </div>
+                            {/* Progress bar */}
+                            <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                              <div
+                                className={cn(
+                                  'h-full rounded-full transition-all',
+                                  paymentProgress >= 100
+                                    ? 'bg-emerald-500'
+                                    : 'bg-gradient-to-r from-emerald-400 to-teal-500'
                                 )}
+                                style={{ width: `${paymentProgress}%` }}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Quick Stats (when collapsed) */}
+                          {!openFolderId && (
+                            <div className="flex items-center gap-3 mt-3 pt-3 border-t border-slate-100 text-xs text-slate-500">
+                              <div className="flex items-center gap-1">
+                                <Calendar className="h-3 w-3" />
+                                {q.date}
                               </div>
-                            </td>
-                          </tr>
-                        )}
-                      </Fragment>
-                    );
-                  })}
-                </tbody>
-              </table>
+                              <div className="flex items-center gap-1">
+                                <Receipt className="h-3 w-3" />
+                                {q.payments.length} payments
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Delete button on hover */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteTargetId(q.id);
+                            setShowDeleteDialog(true);
+                          }}
+                          className="absolute top-2 right-2 h-6 w-6 rounded-lg bg-white shadow-sm border border-slate-200 flex items-center justify-center text-slate-400 hover:text-red-500 hover:border-red-200 opacity-0 group-hover:opacity-100 transition-all"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
 
+          {/* Open Folder Content - Right Side */}
+          {openFolderId && openFolder && (
+            <div className="flex-1 bg-white rounded-xl border-2 border-indigo-200 shadow-lg overflow-hidden">
+              {/* Folder Content Header */}
+              <div className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-lg font-bold">{openFolder.clientName || 'Unnamed Client'}</h2>
+                      {isQuickQuote(openFolder) && (
+                        <span className="px-2 py-0.5 rounded-full bg-amber-400 text-amber-900 text-[10px] font-bold">
+                          Quick Quote
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-indigo-100 text-sm">{openFolder.quotationNumber}</p>
+                  </div>
+                  <button
+                    onClick={closeFolder}
+                    className="h-8 w-8 rounded-lg bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+
+                {/* Tabs */}
+                <div className="flex gap-1 mt-4 bg-white/10 p-1 rounded-lg">
+                  {FOLDER_TABS.map((tab) => {
+                    const TabIcon = tab.icon;
+                    const isActive = activeTab === tab.id;
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id)}
+                        className={cn(
+                          'flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all',
+                          isActive
+                            ? 'bg-white text-indigo-600 shadow-sm'
+                            : 'text-white/80 hover:bg-white/10'
+                        )}
+                      >
+                        <TabIcon className="h-4 w-4" />
+                        {tab.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Tab Content */}
+              <div className="p-4 max-h-[calc(100vh-300px)] overflow-y-auto">
+                {/* Payment Tab */}
+                {activeTab === 'payment' && (
+                  <div className="space-y-4">
+                    {/* Amount Summary Cards */}
+                    <div className="grid grid-cols-4 gap-3">
+                      <div className="bg-slate-50 rounded-lg p-3 text-center">
+                        <p className="text-[10px] text-slate-500">Subtotal</p>
+                        <p className="text-sm font-bold text-slate-800">{formatCurrency(openFolder.subtotal)}</p>
+                      </div>
+                      <div className="bg-indigo-50 rounded-lg p-3 text-center">
+                        <p className="text-[10px] text-slate-500">Final Total</p>
+                        <p className="text-sm font-bold text-indigo-600">{formatCurrency(openFolder.finalTotal)}</p>
+                      </div>
+                      <div className="bg-emerald-50 rounded-lg p-3 text-center">
+                        <p className="text-[10px] text-slate-500">Received</p>
+                        <p className="text-sm font-bold text-emerald-600">{formatCurrency(openFolder.totalPaid)}</p>
+                      </div>
+                      <div className={cn('rounded-lg p-3 text-center', openFolder.pendingAmount > 0 ? 'bg-amber-50' : 'bg-emerald-50')}>
+                        <p className="text-[10px] text-slate-500">Pending</p>
+                        <p className={cn('text-sm font-bold', openFolder.pendingAmount > 0 ? 'text-amber-600' : 'text-emerald-600')}>
+                          {formatCurrency(Math.max(0, openFolder.pendingAmount))}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Discount info */}
+                    {(openFolder.discountPercent > 0 || openFolder.discountFlat > 0) && (
+                      <div className="flex items-center gap-2 text-xs text-orange-600 bg-orange-50 p-2 rounded-lg">
+                        <Percent className="h-3.5 w-3.5" />
+                        Discount Applied: {openFolder.discountPercent > 0 && `${openFolder.discountPercent}%`}
+                        {openFolder.discountPercent > 0 && openFolder.discountFlat > 0 && ' + '}
+                        {openFolder.discountFlat > 0 && formatCurrency(openFolder.discountFlat)}
+                      </div>
+                    )}
+
+                    {/* Payment Section Component */}
+                    <PaymentSection
+                      quotation={openFolder}
+                      onAddPayment={handleAddPayment}
+                      onRemovePayment={handleRemovePayment}
+                    />
+                  </div>
+                )}
+
+                {/* Quick Quote Tab */}
+                {activeTab === 'quote' && (
+                  <div>
+                    {isQuickQuote(openFolder) ? (
+                      <QuickQuotationPage />
+                    ) : (
+                      <div className="text-center py-12">
+                        <FileSpreadsheet className="h-16 w-16 text-slate-300 mx-auto mb-4" />
+                        <p className="text-slate-500 mb-2">This is a native client entry</p>
+                        <p className="text-sm text-slate-400">Use Quick Quotation page to create detailed quotes</p>
+                        <Button
+                          onClick={() => navigate('/quick-quotation')}
+                          variant="outline"
+                          className="mt-4"
+                        >
+                          <Zap className="h-4 w-4 mr-1" />
+                          Open Quick Quotation
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Client Info Tab */}
+                {activeTab === 'info' && (
+                  <div className="space-y-4">
+                    {/* Client Details Card */}
+                    <div className="bg-slate-50 rounded-xl p-4 space-y-4">
+                      <h3 className="font-semibold text-slate-800 flex items-center gap-2">
+                        <User className="h-4 w-4 text-indigo-500" />
+                        Client Details
+                      </h3>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-xs text-slate-500">Name</p>
+                          <p className="font-medium text-slate-800">{openFolder.clientName || '-'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-500">Phone</p>
+                          <div className="flex items-center gap-2">
+                            <Phone className="h-3.5 w-3.5 text-slate-400" />
+                            <p className="font-medium text-slate-800">{openFolder.clientMobile || '-'}</p>
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-500">Location</p>
+                          <div className="flex items-center gap-2">
+                            <MapPin className="h-3.5 w-3.5 text-slate-400" />
+                            <p className="font-medium text-slate-800">{openFolder.clientLocation || '-'}</p>
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-500">Email</p>
+                          <p className="font-medium text-slate-800">{openFolder.clientEmail || '-'}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Quotation Details Card */}
+                    <div className="bg-slate-50 rounded-xl p-4 space-y-4">
+                      <h3 className="font-semibold text-slate-800 flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-indigo-500" />
+                        Quotation Details
+                      </h3>
+                      <div className="grid grid-cols-3 gap-4">
+                        <div>
+                          <p className="text-xs text-slate-500">Quotation Number</p>
+                          <p className="font-mono font-medium text-slate-800">{openFolder.quotationNumber}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-500">Date</p>
+                          <div className="flex items-center gap-2">
+                            <Calendar className="h-3.5 w-3.5 text-slate-400" />
+                            <p className="font-medium text-slate-800">{openFolder.date}</p>
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-500">Valid Till</p>
+                          <div className="flex items-center gap-2">
+                            <Clock className="h-3.5 w-3.5 text-slate-400" />
+                            <p className="font-medium text-slate-800">{openFolder.validityDate}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Notes */}
+                    {openFolder.notes && (
+                      <div className="bg-slate-50 rounded-xl p-4">
+                        <h3 className="font-semibold text-slate-800 mb-2">Notes</h3>
+                        <p className="text-sm text-slate-600">{openFolder.notes}</p>
+                      </div>
+                    )}
+
+                    {/* Version History */}
+                    <div className="bg-indigo-50/50 rounded-xl p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <button
+                          onClick={() => setShowVersions(!showVersions)}
+                          className="text-sm font-medium text-indigo-700 flex items-center gap-2 hover:text-indigo-800 transition-colors"
+                        >
+                          <GitBranch className="h-4 w-4" />
+                          Version History ({openFolder.versions?.length || 0})
+                          {showVersions ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        </button>
+                        {!isQuickQuote(openFolder) && (
+                          <Button
+                            onClick={handleSaveVersion}
+                            size="sm"
+                            className="h-8 bg-indigo-500 hover:bg-indigo-600"
+                          >
+                            <Save className="h-3.5 w-3.5 mr-1" />
+                            Save Version
+                          </Button>
+                        )}
+                      </div>
+                      {showVersions && (
+                        <div className="space-y-2 max-h-48 overflow-y-auto">
+                          {(openFolder.versions?.length || 0) > 0 ? (
+                            [...(openFolder.versions || [])].reverse().map((v) => (
+                              <div key={v.id} className="bg-white rounded-lg p-3 border border-indigo-100">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <span className="px-2 py-0.5 rounded bg-indigo-100 text-indigo-700 text-xs font-bold">v{v.version}</span>
+                                    <span className="text-xs text-slate-500">{v.date}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-bold text-indigo-600 text-sm">{formatCurrency(v.finalTotal)}</span>
+                                    <button
+                                      onClick={() => handleDeleteVersion(v.id)}
+                                      className="h-6 w-6 text-slate-400 hover:text-red-500 rounded flex items-center justify-center"
+                                    >
+                                      <X className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
+                                {v.note && <p className="text-xs text-slate-500 italic mt-1">"{v.note}"</p>}
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-sm text-slate-400 text-center py-4">No versions saved</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Status Actions */}
+                    <div className="bg-slate-50 rounded-xl p-4">
+                      <h3 className="font-semibold text-slate-800 mb-3">Status & Actions</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {!isQuickQuote(openFolder) && (
+                          <Button
+                            onClick={handleEdit}
+                            variant="outline"
+                            size="sm"
+                          >
+                            <Edit3 className="h-3.5 w-3.5 mr-1" />
+                            Edit
+                          </Button>
+                        )}
+                        {openFolder.status !== 'SENT' && (
+                          <Button
+                            onClick={() => handleStatusChange('SENT')}
+                            variant="outline"
+                            size="sm"
+                          >
+                            <Send className="h-3.5 w-3.5 mr-1" />
+                            Mark Sent
+                          </Button>
+                        )}
+                        {openFolder.status !== 'APPROVED' && (
+                          <Button
+                            onClick={() => handleStatusChange('APPROVED')}
+                            size="sm"
+                            className="bg-emerald-500 hover:bg-emerald-600"
+                          >
+                            <Check className="h-3.5 w-3.5 mr-1" />
+                            Approve
+                          </Button>
+                        )}
+                        {openFolder.status !== 'REJECTED' && (
+                          <Button
+                            onClick={() => handleStatusChange('REJECTED')}
+                            variant="outline"
+                            size="sm"
+                            className="text-red-600 border-red-200 hover:bg-red-50"
+                          >
+                            <XCircle className="h-3.5 w-3.5 mr-1" />
+                            Reject
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </main>
 
@@ -833,7 +943,7 @@ export default function QuotationsPage() {
           </DialogHeader>
           <div className="py-4 space-y-4">
             <p className="text-sm text-slate-600">
-              This will permanently delete client <strong>{selected?.quotationNumber}</strong> and all payment records.
+              This will permanently delete this client and all payment records.
             </p>
             <div>
               <label className="text-xs font-medium text-slate-600 mb-1 block">
