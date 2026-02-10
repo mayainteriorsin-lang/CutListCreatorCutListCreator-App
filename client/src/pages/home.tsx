@@ -13,10 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 // import { useApiGuard } from '@/lib/api/useApiGuard'; // Replaced by useHomeState
 // import { useFeature } from '@/lib/system/useFeature'; // Replaced by useHomeState
 import DesignCenter from "@/modules/design";
-import PreviewDialog from "@/components/cutlist-preview/PreviewDialog";
-import ManualPanelDialog from "@/components/cutlist-preview/ManualPanelDialog";
-import ClearConfirmDialog from "@/components/cutlist-preview/ClearConfirmDialog";
-import MaterialValidationDialog from "@/components/cutlist-preview/MaterialValidationDialog";
+// PATCH Phase 2: Dialog components replaced by containers
 import SpreadsheetSection from "@/components/cutlist-preview/SpreadsheetSection";
 import DesignCenterSection from "@/components/cutlist-preview/DesignCenterSection";
 import CabinetForm from "@/components/cabinet-form/CabinetForm";
@@ -26,7 +23,14 @@ import { ProjectDetailsCard } from "@/components/home/ProjectDetailsCard";
 import { ActionButtonsSection } from "@/components/home/ActionButtonsSection";
 import { CollapsibleCard } from "@/components/home/CollapsibleCard";
 import { UndoRedoButtons } from "@/components/home/UndoRedoButtons";
-import PanelDeleteDialog from "@/components/cutlist-preview/PanelDeleteDialog";
+// PATCH Phase 2: Dialog containers
+import {
+  PanelDeleteDialogContainer,
+  MaterialConfirmDialogContainer,
+  ClearConfirmDialogContainer,
+  ManualPanelDialogContainer,
+  PreviewDialogContainer,
+} from "@/features/home/components/dialogs";
 import { EmptyBlock } from "@/components/system/StatusBlocks";
 import { Cabinet, cabinetSchema } from '@shared/schema';
 
@@ -130,7 +134,7 @@ export default function Home({ homePageMock }: HomeProps) {
     clientName, setClientName,
     isOptimizing, setIsOptimizing,
     pendingMaterialAction, setPendingMaterialAction,
-    pdfOrientation,
+    // PATCH Phase 2: pdfOrientation now managed by PreviewDialogContainer
     masterSettingsVisible, setMasterSettingsVisible,
     masterPlywoodBrand, setMasterPlywoodBrand,
     masterLaminateCode, setMasterLaminateCode,
@@ -155,25 +159,18 @@ export default function Home({ homePageMock }: HomeProps) {
   const {
     cabinetConfigMode,
     panelsLinked,
-    showPreviewDialog,
-    showManualPanelDialog,
-    showClearConfirmDialog,
-    showMaterialConfirmDialog,
-    panelToDelete,
+    // PATCH Phase 2: Dialog state now accessed by containers
+    // showPreviewDialog, showManualPanelDialog, showClearConfirmDialog, showMaterialConfirmDialog, panelToDelete
     isPreviewActive,
     setCabinetConfigMode,
     setPanelsLinked,
     openPreview,
-    closePreview,
-    openManualPanel,
-    closeManualPanel,
-    openClearConfirm,
-    closeClearConfirm,
-    openMaterialConfirm,
-    closeMaterialConfirm,
-    setPanelToDelete,
+    // PATCH Phase 2: Dialog actions now accessed by containers
+    // closePreview, openManualPanel, closeManualPanel, openClearConfirm, closeClearConfirm, openMaterialConfirm, closeMaterialConfirm
     setIsPreviewActive,
   } = useUIStore();
+  // PATCH Phase 2: pdfOrientation now managed by PreviewDialogContainer
+  // const [pdfOrientation, setPdfOrientation] = useState<'portrait' | 'landscape'>('portrait');
 
   const currentSyncOrigin = useRef<string | null>(null);
 
@@ -184,11 +181,10 @@ export default function Home({ homePageMock }: HomeProps) {
   const [projectDetailsVisible, setProjectDetailsVisible] = useState(false);
   const [designCenterVisible, setDesignCenterVisible] = useState(false);
 
-  // Deleted Preview State
-  const deletedPreviewSheets = usePreviewStore((s) => s.deletedSheets);
-  const deletedPreviewPanels = usePreviewStore((s) => s.deletedPanels);
-  const selectedSheetContext = usePreviewStore((s) => s.selectedSheetContext);
-  const setSelectedSheetContext = usePreviewStore((s) => s.setSelectedSheetContext);
+  // PATCH Phase 2: Preview/Sheet state now managed by dialog containers
+  // const { deletedSheets, deletedPanels } = usePreviewStore();
+  // const selectedSheetContext = usePreviewStore((s) => s.selectedSheetContext);
+  // const setSelectedSheetContext = usePreviewStore((s) => s.setSelectedSheetContext);
 
 
   // Load stored form memory for initialization
@@ -559,8 +555,8 @@ export default function Home({ homePageMock }: HomeProps) {
 
 
   // ✅ ASYNC OPTIMIZATION: Logic moved to useOptimization hook
+  // PATCH Phase 2: previewBrandResults now accessed by PreviewDialogContainer
   const {
-    previewBrandResults,
     liveMaterialSummary,
     cuttingListSummary,
   } = useOptimization({
@@ -1034,67 +1030,47 @@ export default function Home({ homePageMock }: HomeProps) {
         </div>
       </main >
 
-      {/* Preview Dialog */}
-      <PreviewDialog
-        open={showPreviewDialog}
-        onOpenChange={(v: boolean) => (v ? openPreview() : closePreview())}
+      {/* PATCH Phase 2: Dialog Containers - Step 5/5 */}
+      <PreviewDialogContainer
         cabinets={cabinets}
-        brandResults={previewBrandResults}
-        deletedPreviewSheets={deletedPreviewSheets}
-        deletedPreviewPanels={deletedPreviewPanels}
-        woodGrainsReady={woodGrainsReady}
+        manualPanels={manualPanels}
         sheetWidth={sheetWidth}
         sheetHeight={sheetHeight}
         kerf={kerf}
-        pdfOrientation={pdfOrientation}
         clientName={clientName}
-        liveMaterialSummary={liveMaterialSummary}
         colourFrameEnabled={colourFrameEnabled}
         colourFrameForm={colourFrameForm}
-        manualPanels={manualPanels}
+        woodGrainsPreferences={woodGrainsPreferences}
       />
 
-      {/* Manual Panel Dialog */}
-      <ManualPanelDialog
-        open={showManualPanelDialog}
-        onOpenChange={(v: boolean) => (v ? openManualPanel() : closeManualPanel())}
+      {/* PATCH Phase 2: Dialog Containers - Step 4/5 */}
+      <ManualPanelDialogContainer
         manualPanelForm={manualPanelForm}
         setManualPanelForm={setManualPanelForm}
         globalPlywoodBrandMemory={globalPlywoodBrandMemory}
         laminateCodes={laminateCodes}
         woodGrainsPreferences={woodGrainsPreferences}
-        selectedSheetContext={selectedSheetContext}
-        setSelectedSheetContext={setSelectedSheetContext}
         setManualPanels={setManualPanels}
       />
 
-      {/* Clear Preview Confirmation Dialog - PATCH 28: Removed deleted state props (now uses store) */}
-      <ClearConfirmDialog
-        open={showClearConfirmDialog}
-        onOpenChange={(v: boolean) => (v ? openClearConfirm() : closeClearConfirm())}
+      {/* PATCH Phase 2: Dialog Containers - Step 3/5 */}
+      <ClearConfirmDialogContainer
         form={form}
         updateCabinets={updateCabinets}
-        setManualPanels={setManualPanels as any}
-        closePreview={closePreview}
-        setIsPreviewActive={setIsPreviewActive}
+        setManualPanels={setManualPanels}
         masterPlywoodBrand={masterPlywoodBrand}
         masterLaminateCode={masterLaminateCode}
         onClearAutosave={clearAutosave}
       />
 
-      {/* Material Validation Error Dialog */}
-      <MaterialValidationDialog
-        open={showMaterialConfirmDialog}
-        onOpenChange={(v: boolean) => (v ? openMaterialConfirm() : closeMaterialConfirm())}
+      {/* PATCH Phase 2: Dialog Containers - Step 2/5 */}
+      <MaterialConfirmDialogContainer
         pendingMaterialAction={pendingMaterialAction}
         setPendingMaterialAction={setPendingMaterialAction}
       />
 
-      {/* Panel Delete Confirmation Dialog - PATCH 28: Removed deleted state prop (now uses store) */}
-      <PanelDeleteDialog
-        panelToDelete={panelToDelete}
-        setPanelToDelete={setPanelToDelete}
-      />
+      {/* PATCH Phase 2: Dialog Containers - Step 1/5 */}
+      <PanelDeleteDialogContainer />
 
       {/* Panel Spreadsheet Section */}
       <SpreadsheetSection

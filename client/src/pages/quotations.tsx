@@ -46,6 +46,8 @@ import {
   Camera,
   Upload,
   StickyNote,
+  Tag,
+  Heart,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Quotation, QuotationStatus, PaymentMethod } from '@/modules/quotations/types';
@@ -83,6 +85,102 @@ const FOLDER_TABS = [
   { id: 'notes' as FolderTab, label: 'Notes', icon: MessageSquare },
   { id: 'info' as FolderTab, label: 'Info', icon: User },
 ];
+
+// Compact Discount Section for Payment tab
+const THANK_YOU_TEMPLATES = ['Thank you for choosing us!', 'We appreciate your business!', 'Looking forward to serving you!'];
+
+function DiscountSection({ quotation, onUpdate }: { quotation: Quotation; onUpdate: (data: Partial<Quotation>) => void }) {
+  const [discountPercent, setDiscountPercent] = useState(quotation.discountPercent || 0);
+  const [discountFlat, setDiscountFlat] = useState(quotation.discountFlat || 0);
+  const [thankYouMessage, setThankYouMessage] = useState(quotation.thankYouMessage || '');
+  const [hasChanges, setHasChanges] = useState(false);
+
+  const discountFromPercent = (quotation.subtotal * discountPercent) / 100;
+  const totalDiscount = discountFromPercent + discountFlat;
+  const newFinalTotal = Math.max(0, quotation.subtotal - totalDiscount);
+
+  useEffect(() => {
+    setHasChanges(
+      discountPercent !== quotation.discountPercent ||
+      discountFlat !== quotation.discountFlat ||
+      thankYouMessage !== (quotation.thankYouMessage || '')
+    );
+  }, [discountPercent, discountFlat, thankYouMessage, quotation]);
+
+  const handleApply = () => {
+    onUpdate({
+      discountPercent, discountFlat, thankYouMessage,
+      finalTotal: newFinalTotal,
+      pendingAmount: Math.max(0, newFinalTotal - quotation.totalPaid),
+    });
+    setHasChanges(false);
+  };
+
+  return (
+    <div className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-xl p-3 space-y-2">
+      <div className="flex items-center gap-2">
+        <Tag className="h-4 w-4 text-orange-500" />
+        <span className="text-xs font-semibold text-slate-700">Discount & Message</span>
+        {totalDiscount > 0 && (
+          <span className="ml-auto text-xs font-bold text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded">
+            Save ₹{totalDiscount.toLocaleString('en-IN')}
+          </span>
+        )}
+      </div>
+
+      {/* Two column: Percentage & Flat */}
+      <div className="grid grid-cols-2 gap-2">
+        <div className="bg-white/80 rounded-lg p-2">
+          <span className="text-[10px] text-slate-500 flex items-center gap-1 mb-1"><Percent className="h-3 w-3" />Percentage</span>
+          <div className="flex flex-wrap gap-1">
+            {[0, 5, 10, 15, 20].map((pct) => (
+              <button key={pct} onClick={() => setDiscountPercent(pct)}
+                className={cn('px-2 py-1 rounded text-[10px] font-medium', discountPercent === pct ? 'bg-orange-500 text-white' : 'bg-slate-100 hover:bg-orange-100')}>
+                {pct}%
+              </button>
+            ))}
+            <Input type="number" value={discountPercent || ''} onChange={(e) => setDiscountPercent(Math.min(100, Math.max(0, Number(e.target.value) || 0)))}
+              className="w-12 h-6 text-[10px] px-1" placeholder="..." min={0} max={100} />
+          </div>
+        </div>
+        <div className="bg-white/80 rounded-lg p-2">
+          <span className="text-[10px] text-slate-500 flex items-center gap-1 mb-1"><IndianRupee className="h-3 w-3" />Flat Amount</span>
+          <div className="flex flex-wrap gap-1">
+            {[0, 1000, 2000, 5000].map((amt) => (
+              <button key={amt} onClick={() => setDiscountFlat(amt)}
+                className={cn('px-2 py-1 rounded text-[10px] font-medium', discountFlat === amt ? 'bg-orange-500 text-white' : 'bg-slate-100 hover:bg-orange-100')}>
+                {amt === 0 ? '0' : `${amt/1000}k`}
+              </button>
+            ))}
+            <Input type="number" value={discountFlat || ''} onChange={(e) => setDiscountFlat(Math.max(0, Number(e.target.value) || 0))}
+              className="w-14 h-6 text-[10px] px-1" placeholder="..." min={0} />
+          </div>
+        </div>
+      </div>
+
+      {/* Thank You + Apply */}
+      <div className="flex gap-2 items-center">
+        <div className="flex-1 bg-white/80 rounded-lg p-2 flex items-center gap-2">
+          <Heart className="h-3 w-3 text-pink-500 flex-shrink-0" />
+          <div className="flex gap-1">
+            {THANK_YOU_TEMPLATES.map((t, i) => (
+              <button key={i} onClick={() => setThankYouMessage(t)}
+                className={cn('w-5 h-5 rounded text-[9px]', thankYouMessage === t ? 'bg-pink-400 text-white' : 'bg-slate-100 hover:bg-pink-100')}>
+                {i+1}
+              </button>
+            ))}
+          </div>
+          <Input value={thankYouMessage} onChange={(e) => setThankYouMessage(e.target.value)} placeholder="Thank you message..." className="h-6 text-[10px] flex-1" />
+        </div>
+        {hasChanges && (
+          <Button onClick={handleApply} size="sm" className="h-7 px-3 bg-orange-500 hover:bg-orange-600 text-[10px]">
+            <Check className="h-3 w-3 mr-1" />Apply
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function QuotationsPage() {
   const navigate = useNavigate();
@@ -288,29 +386,29 @@ export default function QuotationsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-slate-50 to-indigo-50/30">
+    <div className="h-screen overflow-hidden bg-gradient-to-br from-slate-100 via-slate-50 to-indigo-50/30 flex flex-col">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-lg border-b border-slate-200/60 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-3">
+      <header className="flex-shrink-0 bg-white/80 backdrop-blur-lg border-b border-slate-200/60 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 py-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <button
                 onClick={() => navigate('/')}
-                className="h-9 w-9 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors"
+                className="h-8 w-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors"
               >
                 <ChevronLeft className="h-5 w-5 text-slate-600" />
               </button>
-              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+              <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
                 <FolderOpen className="h-5 w-5 text-white" />
               </div>
               <div>
-                <h1 className="text-lg font-bold text-slate-900">Client Folders</h1>
+                <h1 className="text-base font-bold text-slate-900">Client Folders</h1>
                 <p className="text-xs text-slate-500">{stats.total} clients</p>
               </div>
             </div>
             <Button
               onClick={handleCreate}
-              className="h-9 px-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl shadow-lg shadow-indigo-500/20"
+              className="h-8 px-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-lg shadow-lg shadow-indigo-500/20"
             >
               <Plus className="h-4 w-4 mr-1.5" />
               New Client
@@ -319,45 +417,45 @@ export default function QuotationsPage() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-4">
+      <main className="flex-1 overflow-hidden max-w-7xl mx-auto w-full px-4 py-3 flex flex-col">
         {/* Stats Row */}
-        <div className="grid grid-cols-4 gap-3 mb-4">
-          <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-sm">
-            <p className="text-[10px] text-slate-500 mb-0.5">Total Value</p>
-            <p className="text-lg font-bold text-slate-800">₹{stats.totalValue.toLocaleString('en-IN')}</p>
+        <div className="flex-shrink-0 grid grid-cols-4 gap-3 mb-3">
+          <div className="bg-white rounded-xl border border-slate-200 px-3 py-2 shadow-sm">
+            <p className="text-[10px] text-slate-500">Total Value</p>
+            <p className="text-base font-bold text-slate-800">₹{stats.totalValue.toLocaleString('en-IN')}</p>
           </div>
-          <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-sm">
-            <p className="text-[10px] text-slate-500 mb-0.5">Received</p>
-            <p className="text-lg font-bold text-emerald-600">₹{stats.totalReceived.toLocaleString('en-IN')}</p>
+          <div className="bg-white rounded-xl border border-slate-200 px-3 py-2 shadow-sm">
+            <p className="text-[10px] text-slate-500">Received</p>
+            <p className="text-base font-bold text-emerald-600">₹{stats.totalReceived.toLocaleString('en-IN')}</p>
           </div>
-          <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-sm">
-            <p className="text-[10px] text-slate-500 mb-0.5">Pending</p>
-            <p className="text-lg font-bold text-amber-600">₹{stats.totalPending.toLocaleString('en-IN')}</p>
+          <div className="bg-white rounded-xl border border-slate-200 px-3 py-2 shadow-sm">
+            <p className="text-[10px] text-slate-500">Pending</p>
+            <p className="text-base font-bold text-amber-600">₹{stats.totalPending.toLocaleString('en-IN')}</p>
           </div>
-          <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-sm">
-            <p className="text-[10px] text-slate-500 mb-0.5">Approved</p>
-            <p className="text-lg font-bold text-indigo-600">{stats.approved}/{stats.total}</p>
+          <div className="bg-white rounded-xl border border-slate-200 px-3 py-2 shadow-sm">
+            <p className="text-[10px] text-slate-500">Approved</p>
+            <p className="text-base font-bold text-indigo-600">{stats.approved}/{stats.total}</p>
           </div>
         </div>
 
         {/* Search & Filters */}
-        <div className="flex gap-2 mb-4">
+        <div className="flex-shrink-0 flex gap-2 mb-3">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <Input
-              placeholder="Search by name, mobile, or quotation no..."
+              placeholder="Search by name, mobile, or quotation..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 h-10 bg-white border-slate-200"
+              className="pl-9 h-9 bg-white border-slate-200"
             />
           </div>
-          <div className="flex gap-1 bg-white border border-slate-200 rounded-xl p-1">
+          <div className="flex gap-1 bg-white border border-slate-200 rounded-lg p-1">
             {(['ALL', 'DRAFT', 'SENT', 'APPROVED', 'REJECTED'] as const).map((status) => (
               <button
                 key={status}
                 onClick={() => setStatusFilter(status)}
                 className={cn(
-                  'px-3 py-1.5 text-xs font-medium rounded-lg transition-colors',
+                  'px-3 py-1 text-xs font-medium rounded transition-colors',
                   statusFilter === status
                     ? 'bg-indigo-100 text-indigo-700'
                     : 'text-slate-600 hover:bg-slate-50'
@@ -369,16 +467,16 @@ export default function QuotationsPage() {
           </div>
         </div>
 
-        {/* Main Content Area */}
-        <div className="flex gap-4">
+        {/* Main Content Area - Fill remaining height */}
+        <div className="flex-1 flex gap-4 min-h-0 overflow-hidden">
           {/* Folders List - Left Side */}
           <div className={cn(
-            'transition-all duration-300',
+            'transition-all duration-300 overflow-y-auto',
             openFolderId ? 'w-80 flex-shrink-0' : 'w-full'
           )}>
             {filteredQuotations.length === 0 ? (
-              <div className="bg-white rounded-xl border border-slate-200 p-8 text-center shadow-sm">
-                <FolderOpen className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+              <div className="bg-white rounded-xl border border-slate-200 p-6 text-center shadow-sm">
+                <FolderOpen className="h-10 w-10 text-slate-300 mx-auto mb-3" />
                 <p className="text-slate-500">No clients found</p>
                 <Button onClick={handleCreate} variant="outline" className="mt-3">
                   <Plus className="h-4 w-4 mr-1" />
@@ -425,8 +523,8 @@ export default function QuotationsPage() {
                           : 'border-slate-200 hover:border-indigo-300 hover:shadow-md'
                       )}>
                         {/* Folder Header */}
-                        <div className="p-4 pt-5">
-                          <div className="flex items-start justify-between">
+                        <div className="p-3 pt-4">
+                          <div className="flex items-start justify-between gap-2">
                             <div className="flex-1 min-w-0">
                               <h3 className="font-semibold text-slate-900 truncate">
                                 {q.clientName || 'Unnamed Client'}
@@ -435,12 +533,6 @@ export default function QuotationsPage() {
                                 <Phone className="h-3 w-3" />
                                 <span>{q.clientMobile || 'No phone'}</span>
                               </div>
-                              {!openFolderId && q.clientLocation && (
-                                <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-400">
-                                  <MapPin className="h-3 w-3" />
-                                  <span className="truncate">{q.clientLocation}</span>
-                                </div>
-                              )}
                             </div>
                             <span className={cn(
                               'flex-shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium',
@@ -459,16 +551,15 @@ export default function QuotationsPage() {
                               </span>
                               {q.pendingAmount > 0 ? (
                                 <span className="text-amber-600 font-medium text-xs">
-                                  {formatCurrency(q.pendingAmount)} pending
+                                  {formatCurrency(q.pendingAmount)} due
                                 </span>
                               ) : (
                                 <span className="text-emerald-600 font-medium text-xs flex items-center gap-1">
                                   <Check className="h-3 w-3" />
-                                  Fully Paid
+                                  Paid
                                 </span>
                               )}
                             </div>
-                            {/* Progress bar */}
                             <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
                               <div
                                 className={cn(
@@ -493,6 +584,12 @@ export default function QuotationsPage() {
                                 <Receipt className="h-3 w-3" />
                                 {q.payments.length} payments
                               </div>
+                              {q.clientLocation && (
+                                <div className="flex items-center gap-1 truncate">
+                                  <MapPin className="h-3 w-3 flex-shrink-0" />
+                                  <span className="truncate">{q.clientLocation}</span>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
@@ -518,127 +615,103 @@ export default function QuotationsPage() {
 
           {/* Open Folder Content - Right Side */}
           {openFolderId && openFolder && (
-            <div className="flex-1 bg-white rounded-xl border-2 border-indigo-200 shadow-lg overflow-hidden">
+            <div className="flex-1 bg-white rounded-xl border-2 border-indigo-200 shadow-lg overflow-hidden flex flex-col min-h-0">
               {/* Folder Content Header */}
-              <div className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-lg font-bold">{openFolder.clientName || 'Unnamed Client'}</h2>
-                      {isQuickQuote(openFolder) && (
-                        <span className="px-2 py-0.5 rounded-full bg-amber-400 text-amber-900 text-[10px] font-bold">
-                          Quick Quote
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-indigo-100 text-sm">{openFolder.quotationNumber}</p>
+              <div className="flex-shrink-0 bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-4 py-3">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <h2 className="text-base font-bold truncate">{openFolder.clientName || 'Unnamed Client'}</h2>
+                    {isQuickQuote(openFolder) && (
+                      <span className="flex-shrink-0 px-2 py-0.5 rounded-full bg-amber-400 text-amber-900 text-[10px] font-bold">
+                        Quick Quote
+                      </span>
+                    )}
+                    <span className="text-indigo-200 text-xs">• {openFolder.quotationNumber}</span>
                   </div>
                   <button
                     onClick={closeFolder}
-                    className="h-8 w-8 rounded-lg bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
+                    className="h-7 w-7 rounded-lg flex-shrink-0 bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
                   >
-                    <X className="h-5 w-5" />
+                    <X className="h-4 w-4" />
                   </button>
                 </div>
 
-                {/* Tabs - Two Rows */}
-                <div className="mt-4 space-y-1">
-                  <div className="flex gap-1 bg-white/10 p-1 rounded-lg">
-                    {FOLDER_TABS.slice(0, 4).map((tab) => {
-                      const TabIcon = tab.icon;
-                      const isActive = activeTab === tab.id;
-                      const badge = tab.id === 'versions' ? (openFolder.versions?.length || 0) : null;
-                      return (
-                        <button
-                          key={tab.id}
-                          onClick={() => setActiveTab(tab.id)}
-                          className={cn(
-                            'flex-1 flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg text-xs font-medium transition-all relative',
-                            isActive
-                              ? 'bg-white text-indigo-600 shadow-sm'
-                              : 'text-white/80 hover:bg-white/10'
-                          )}
-                        >
-                          <TabIcon className="h-3.5 w-3.5" />
-                          {tab.label}
-                          {badge !== null && badge > 0 && (
-                            <span className={cn(
-                              'ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold',
-                              isActive ? 'bg-indigo-100 text-indigo-700' : 'bg-white/20 text-white'
-                            )}>
-                              {badge}
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <div className="flex gap-1 bg-white/10 p-1 rounded-lg">
-                    {FOLDER_TABS.slice(4).map((tab) => {
-                      const TabIcon = tab.icon;
-                      const isActive = activeTab === tab.id;
-                      return (
-                        <button
-                          key={tab.id}
-                          onClick={() => setActiveTab(tab.id)}
-                          className={cn(
-                            'flex-1 flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg text-xs font-medium transition-all',
-                            isActive
-                              ? 'bg-white text-indigo-600 shadow-sm'
-                              : 'text-white/80 hover:bg-white/10'
-                          )}
-                        >
-                          <TabIcon className="h-3.5 w-3.5" />
-                          {tab.label}
-                        </button>
-                      );
-                    })}
-                  </div>
+                {/* Single Row Tabs */}
+                <div className="flex gap-1 bg-white/10 p-1 rounded-lg">
+                  {FOLDER_TABS.map((tab) => {
+                    const TabIcon = tab.icon;
+                    const isActive = activeTab === tab.id;
+                    const badge = tab.id === 'versions' ? (openFolder.versions?.length || 0) : null;
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id)}
+                        className={cn(
+                          'flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-md text-xs font-medium transition-all relative',
+                          isActive
+                            ? 'bg-white text-indigo-600 shadow-sm'
+                            : 'text-white/80 hover:bg-white/10'
+                        )}
+                      >
+                        <TabIcon className="h-3.5 w-3.5" />
+                        <span className="hidden sm:inline">{tab.label}</span>
+                        {badge !== null && badge > 0 && (
+                          <span className={cn(
+                            'px-1.5 py-0.5 rounded-full text-[9px] font-bold',
+                            isActive ? 'bg-indigo-100 text-indigo-700' : 'bg-white/20 text-white'
+                          )}>
+                            {badge}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* Tab Content */}
-              <div className="p-4 max-h-[calc(100vh-300px)] overflow-y-auto">
+              {/* Tab Content - Scrollable */}
+              <div className="flex-1 overflow-y-auto p-3">
                 {/* Payment Tab */}
                 {activeTab === 'payment' && (
-                  <div className="space-y-4">
-                    {/* Amount Summary Cards */}
-                    <div className="grid grid-cols-4 gap-3">
-                      <div className="bg-slate-50 rounded-lg p-3 text-center">
-                        <p className="text-[10px] text-slate-500">Subtotal</p>
-                        <p className="text-sm font-bold text-slate-800">{formatCurrency(openFolder.subtotal)}</p>
+                  <div className="space-y-3">
+                    {/* Summary Row */}
+                    <div className="flex gap-2 text-center">
+                      <div className="flex-1 bg-slate-50 rounded-lg px-2 py-1.5">
+                        <p className="text-[10px] text-slate-400">Subtotal</p>
+                        <p className="text-sm font-bold text-slate-700">{formatCurrency(openFolder.subtotal)}</p>
                       </div>
-                      <div className="bg-indigo-50 rounded-lg p-3 text-center">
-                        <p className="text-[10px] text-slate-500">Final Total</p>
+                      <div className="flex-1 bg-indigo-50 rounded-lg px-2 py-1.5">
+                        <p className="text-[10px] text-slate-400">Final</p>
                         <p className="text-sm font-bold text-indigo-600">{formatCurrency(openFolder.finalTotal)}</p>
                       </div>
-                      <div className="bg-emerald-50 rounded-lg p-3 text-center">
-                        <p className="text-[10px] text-slate-500">Received</p>
+                      <div className="flex-1 bg-emerald-50 rounded-lg px-2 py-1.5">
+                        <p className="text-[10px] text-slate-400">Paid</p>
                         <p className="text-sm font-bold text-emerald-600">{formatCurrency(openFolder.totalPaid)}</p>
                       </div>
-                      <div className={cn('rounded-lg p-3 text-center', openFolder.pendingAmount > 0 ? 'bg-amber-50' : 'bg-emerald-50')}>
-                        <p className="text-[10px] text-slate-500">Pending</p>
+                      <div className={cn('flex-1 rounded-lg px-2 py-1.5', openFolder.pendingAmount > 0 ? 'bg-amber-50' : 'bg-emerald-50')}>
+                        <p className="text-[10px] text-slate-400">Due</p>
                         <p className={cn('text-sm font-bold', openFolder.pendingAmount > 0 ? 'text-amber-600' : 'text-emerald-600')}>
                           {formatCurrency(Math.max(0, openFolder.pendingAmount))}
                         </p>
                       </div>
                     </div>
 
-                    {/* Discount info */}
-                    {(openFolder.discountPercent > 0 || openFolder.discountFlat > 0) && (
-                      <div className="flex items-center gap-2 text-xs text-orange-600 bg-orange-50 p-2 rounded-lg">
-                        <Percent className="h-3.5 w-3.5" />
-                        Discount Applied: {openFolder.discountPercent > 0 && `${openFolder.discountPercent}%`}
-                        {openFolder.discountPercent > 0 && openFolder.discountFlat > 0 && ' + '}
-                        {openFolder.discountFlat > 0 && formatCurrency(openFolder.discountFlat)}
-                      </div>
-                    )}
-
                     {/* Payment Section Component */}
                     <PaymentSection
                       quotation={openFolder}
                       onAddPayment={handleAddPayment}
                       onRemovePayment={handleRemovePayment}
+                    />
+
+                    {/* Discount Section */}
+                    <DiscountSection
+                      quotation={openFolder}
+                      onUpdate={(data) => {
+                        if (!openFolderId) return;
+                        updateQuotation(openFolderId, data);
+                        refreshQuotations();
+                        toast({ title: 'Discount updated' });
+                      }}
                     />
                   </div>
                 )}

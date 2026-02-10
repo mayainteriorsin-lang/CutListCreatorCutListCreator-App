@@ -41,6 +41,7 @@ export interface Quotation {
   clientName: string;
   clientMobile: string;
   clientLocation: string;
+  clientEmail?: string;
   // Quotation details
   quotationNumber: string;
   date: string;
@@ -57,6 +58,8 @@ export interface Quotation {
   pendingAmount: number;
   // Notes
   notes: string;
+  // Thank you message for receipts
+  thankYouMessage?: string;
   // Metadata
   createdAt: string;
   updatedAt: string;
