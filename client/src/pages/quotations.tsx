@@ -25,7 +25,6 @@ import {
   Edit3,
   IndianRupee,
   Percent,
-  History,
   X,
   Check,
   Send,
@@ -38,7 +37,8 @@ import {
   ArrowUpDown,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { Quotation, QuotationStatus } from '@/modules/quotations/types';
+import type { Quotation, QuotationStatus, PaymentMethod } from '@/modules/quotations/types';
+import { PaymentSection } from '@/modules/quotations/components';
 import {
   readQuotations,
   createQuotation,
@@ -162,7 +162,7 @@ export default function QuotationsPage() {
   };
 
   // Check if a quotation is from Quick Quote
-  const isQuickQuote = (q: Quotation | null) => q?.source === 'quick-quote';
+  const isQuickQuote = (q: Quotation | null | undefined) => q?.source === 'quick-quote';
 
   // Handle edit
   const handleEdit = () => {
@@ -213,13 +213,21 @@ export default function QuotationsPage() {
     setDeleteError('');
   };
 
-  // Handle add payment
-  const handleAddPayment = () => {
+  // Handle add payment (used by PaymentSection)
+  const handleAddPayment = (data: {
+    amount: number;
+    method: PaymentMethod;
+    reference?: string;
+    note?: string;
+    date?: string;
+  }) => {
     if (!selectedId) return;
-    const amt = prompt('Enter payment amount:');
-    if (!amt) return;
-    const note = prompt('Payment note (optional):') || '';
-    addPaymentToQuotation(selectedId, Number(amt), note);
+    addPaymentToQuotation(selectedId, data.amount, {
+      method: data.method,
+      reference: data.reference,
+      note: data.note,
+      date: data.date,
+    });
     refreshQuotations();
     toast({ title: 'Payment added' });
   };
@@ -229,6 +237,7 @@ export default function QuotationsPage() {
     if (!selectedId) return;
     removePaymentFromQuotation(selectedId, paymentId);
     refreshQuotations();
+    toast({ title: 'Payment removed' });
   };
 
   // Handle status change
@@ -605,67 +614,12 @@ export default function QuotationsPage() {
                     </div>
                   )}
 
-                  {/* Payment History */}
-                  <div className="bg-emerald-50/50 rounded-xl p-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-emerald-700 flex items-center gap-1">
-                        <History className="h-3.5 w-3.5" />
-                        Payment History ({selected.payments.length})
-                      </span>
-                      <Button
-                        onClick={handleAddPayment}
-                        size="sm"
-                        className="h-7 px-2 text-xs bg-emerald-500 hover:bg-emerald-600"
-                      >
-                        <Plus className="h-3 w-3 mr-1" />
-                        Add
-                      </Button>
-                    </div>
-                    {selected.payments.length > 0 ? (
-                      <div className="space-y-1 max-h-32 overflow-y-auto">
-                        {selected.payments.map((p) => (
-                          <div key={p.id} className="flex items-center justify-between bg-white rounded-md px-3 py-2 text-xs">
-                            <div className="flex items-center gap-3">
-                              <span className="font-medium text-emerald-600">₹{p.amount.toLocaleString('en-IN')}</span>
-                              <span className="text-slate-400">{p.date}</span>
-                              {p.note && <span className="text-slate-500 truncate max-w-32">{p.note}</span>}
-                            </div>
-                            <button
-                              onClick={() => handleRemovePayment(p.id)}
-                              className="h-6 w-6 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded flex items-center justify-center transition-colors"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-slate-400 text-center py-2">No payments recorded</p>
-                    )}
-                    {/* Pending Banner */}
-                    <div className={cn(
-                      'flex items-center justify-between px-3 py-2 rounded-lg',
-                      selected.pendingAmount > 0
-                        ? 'bg-gradient-to-r from-amber-100 to-orange-100 border border-amber-200/50'
-                        : 'bg-gradient-to-r from-emerald-100 to-green-100 border border-emerald-200/50'
-                    )}>
-                      <div className="flex items-center gap-2">
-                        <div className={cn('h-6 w-6 rounded-full flex items-center justify-center', selected.pendingAmount > 0 ? 'bg-amber-200' : 'bg-emerald-200')}>
-                          {selected.pendingAmount > 0 ? (
-                            <Clock className="h-3 w-3 text-amber-600" />
-                          ) : (
-                            <Check className="h-3 w-3 text-emerald-600" />
-                          )}
-                        </div>
-                        <span className={cn('text-xs font-medium', selected.pendingAmount > 0 ? 'text-amber-700' : 'text-emerald-700')}>
-                          {selected.pendingAmount > 0 ? 'Balance Due' : 'Fully Paid'}
-                        </span>
-                      </div>
-                      <span className={cn('text-base font-bold', selected.pendingAmount > 0 ? 'text-amber-600' : 'text-emerald-600')}>
-                        ₹{Math.max(0, selected.pendingAmount).toLocaleString('en-IN')}
-                      </span>
-                    </div>
-                  </div>
+                  {/* Payment Section */}
+                  <PaymentSection
+                    quotation={selected}
+                    onAddPayment={handleAddPayment}
+                    onRemovePayment={handleRemovePayment}
+                  />
 
                   {/* Notes */}
                   {selected.notes && (
