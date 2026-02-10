@@ -65,7 +65,7 @@ import {
 } from '@/modules/quotations/storage';
 import QuickQuotationPage from '@/pages/quick-quotation';
 
-type FolderTab = 'payment' | 'quote' | 'info';
+type FolderTab = 'payment' | 'quote' | 'info' | 'versions' | 'timeline' | 'documents' | 'notes';
 
 const STATUS_CONFIG: Record<QuotationStatus, { label: string; color: string; bg: string; icon: typeof FileText }> = {
   DRAFT: { label: 'Draft', color: 'text-slate-600', bg: 'bg-slate-100', icon: Edit3 },
@@ -75,9 +75,13 @@ const STATUS_CONFIG: Record<QuotationStatus, { label: string; color: string; bg:
 };
 
 const FOLDER_TABS = [
-  { id: 'payment' as FolderTab, label: 'Payment', icon: CreditCard, color: 'emerald' },
-  { id: 'quote' as FolderTab, label: 'Quick Quote', icon: FileSpreadsheet, color: 'amber' },
-  { id: 'info' as FolderTab, label: 'Client Info', icon: User, color: 'indigo' },
+  { id: 'payment' as FolderTab, label: 'Payment', icon: CreditCard },
+  { id: 'quote' as FolderTab, label: 'Quote', icon: FileSpreadsheet },
+  { id: 'versions' as FolderTab, label: 'Versions', icon: Layers },
+  { id: 'timeline' as FolderTab, label: 'Timeline', icon: History },
+  { id: 'documents' as FolderTab, label: 'Docs', icon: FileImage },
+  { id: 'notes' as FolderTab, label: 'Notes', icon: MessageSquare },
+  { id: 'info' as FolderTab, label: 'Info', icon: User },
 ];
 
 export default function QuotationsPage() {
@@ -537,27 +541,59 @@ export default function QuotationsPage() {
                   </button>
                 </div>
 
-                {/* Tabs */}
-                <div className="flex gap-1 mt-4 bg-white/10 p-1 rounded-lg">
-                  {FOLDER_TABS.map((tab) => {
-                    const TabIcon = tab.icon;
-                    const isActive = activeTab === tab.id;
-                    return (
-                      <button
-                        key={tab.id}
-                        onClick={() => setActiveTab(tab.id)}
-                        className={cn(
-                          'flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all',
-                          isActive
-                            ? 'bg-white text-indigo-600 shadow-sm'
-                            : 'text-white/80 hover:bg-white/10'
-                        )}
-                      >
-                        <TabIcon className="h-4 w-4" />
-                        {tab.label}
-                      </button>
-                    );
-                  })}
+                {/* Tabs - Two Rows */}
+                <div className="mt-4 space-y-1">
+                  <div className="flex gap-1 bg-white/10 p-1 rounded-lg">
+                    {FOLDER_TABS.slice(0, 4).map((tab) => {
+                      const TabIcon = tab.icon;
+                      const isActive = activeTab === tab.id;
+                      const badge = tab.id === 'versions' ? (openFolder.versions?.length || 0) : null;
+                      return (
+                        <button
+                          key={tab.id}
+                          onClick={() => setActiveTab(tab.id)}
+                          className={cn(
+                            'flex-1 flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg text-xs font-medium transition-all relative',
+                            isActive
+                              ? 'bg-white text-indigo-600 shadow-sm'
+                              : 'text-white/80 hover:bg-white/10'
+                          )}
+                        >
+                          <TabIcon className="h-3.5 w-3.5" />
+                          {tab.label}
+                          {badge !== null && badge > 0 && (
+                            <span className={cn(
+                              'ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold',
+                              isActive ? 'bg-indigo-100 text-indigo-700' : 'bg-white/20 text-white'
+                            )}>
+                              {badge}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="flex gap-1 bg-white/10 p-1 rounded-lg">
+                    {FOLDER_TABS.slice(4).map((tab) => {
+                      const TabIcon = tab.icon;
+                      const isActive = activeTab === tab.id;
+                      return (
+                        <button
+                          key={tab.id}
+                          onClick={() => setActiveTab(tab.id)}
+                          className={cn(
+                            'flex-1 flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg text-xs font-medium transition-all',
+                            isActive
+                              ? 'bg-white text-indigo-600 shadow-sm'
+                              : 'text-white/80 hover:bg-white/10'
+                          )}
+                        >
+                          <TabIcon className="h-3.5 w-3.5" />
+                          {tab.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 
@@ -630,132 +666,406 @@ export default function QuotationsPage() {
                   </div>
                 )}
 
+                {/* Versions Tab - Visual Version Cards */}
+                {activeTab === 'versions' && (
+                  <div className="space-y-4">
+                    {/* Current Version */}
+                    <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-4 border-2 border-indigo-200">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <span className="px-3 py-1 rounded-full bg-indigo-500 text-white text-sm font-bold">
+                            CURRENT
+                          </span>
+                          <span className="text-sm text-slate-500">Last updated: {openFolder.updatedAt.split('T')[0]}</span>
+                        </div>
+                        {!isQuickQuote(openFolder) && (
+                          <Button
+                            onClick={handleSaveVersion}
+                            size="sm"
+                            className="bg-indigo-500 hover:bg-indigo-600"
+                          >
+                            <Save className="h-3.5 w-3.5 mr-1" />
+                            Save as Version
+                          </Button>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-4 gap-4">
+                        <div>
+                          <p className="text-xs text-slate-500">Subtotal</p>
+                          <p className="text-lg font-bold text-slate-800">{formatCurrency(openFolder.subtotal)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-500">Discount</p>
+                          <p className="text-lg font-bold text-orange-600">
+                            {openFolder.discountPercent > 0 ? `${openFolder.discountPercent}%` : ''}
+                            {openFolder.discountPercent > 0 && openFolder.discountFlat > 0 ? ' + ' : ''}
+                            {openFolder.discountFlat > 0 ? formatCurrency(openFolder.discountFlat) : ''}
+                            {!openFolder.discountPercent && !openFolder.discountFlat ? '-' : ''}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-500">Final Total</p>
+                          <p className="text-lg font-bold text-indigo-600">{formatCurrency(openFolder.finalTotal)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-500">Status</p>
+                          <span className={cn('inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium', STATUS_CONFIG[openFolder.status].bg, STATUS_CONFIG[openFolder.status].color)}>
+                            {STATUS_CONFIG[openFolder.status].label}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Previous Versions */}
+                    <div>
+                      <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                        <GitBranch className="h-4 w-4" />
+                        Previous Versions ({openFolder.versions?.length || 0})
+                      </h3>
+
+                      {(openFolder.versions?.length || 0) > 0 ? (
+                        <div className="space-y-3">
+                          {[...(openFolder.versions || [])].reverse().map((v, idx) => (
+                            <div key={v.id} className="bg-white rounded-xl p-4 border border-slate-200 hover:border-indigo-200 transition-colors">
+                              <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-3">
+                                  <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-sm font-bold">
+                                    v{v.version}
+                                  </span>
+                                  <span className="text-sm text-slate-500">{v.date}</span>
+                                  {v.note && (
+                                    <span className="text-xs text-slate-400 italic">"{v.note}"</span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    onClick={() => handleDeleteVersion(v.id)}
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 text-slate-400 hover:text-red-500"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-3 gap-4 text-sm">
+                                <div>
+                                  <p className="text-xs text-slate-500">Subtotal</p>
+                                  <p className="font-semibold text-slate-700">{formatCurrency(v.subtotal)}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-slate-500">Final Total</p>
+                                  <p className="font-semibold text-indigo-600">{formatCurrency(v.finalTotal)}</p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {idx < (openFolder.versions?.length || 0) - 1 && (
+                                    <div className="flex items-center gap-1 text-xs">
+                                      <ArrowLeftRight className="h-3 w-3 text-slate-400" />
+                                      <span className={cn(
+                                        'font-medium',
+                                        v.finalTotal > (openFolder.versions?.[openFolder.versions.length - 1 - idx - 1]?.finalTotal || 0)
+                                          ? 'text-emerald-600'
+                                          : 'text-red-500'
+                                      )}>
+                                        {v.finalTotal > (openFolder.versions?.[openFolder.versions.length - 1 - idx - 1]?.finalTotal || 0) ? '+' : ''}
+                                        {formatCurrency(v.finalTotal - (openFolder.versions?.[openFolder.versions.length - 1 - idx - 1]?.finalTotal || 0))}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-8 bg-slate-50 rounded-xl">
+                          <Layers className="h-12 w-12 text-slate-300 mx-auto mb-2" />
+                          <p className="text-slate-500">No versions saved yet</p>
+                          <p className="text-xs text-slate-400 mt-1">Save a version to track quotation changes</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Timeline Tab - Activity History */}
+                {activeTab === 'timeline' && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                        <History className="h-4 w-4" />
+                        Activity Timeline
+                      </h3>
+                    </div>
+
+                    <div className="relative">
+                      {/* Timeline Line */}
+                      <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-slate-200" />
+
+                      <div className="space-y-4">
+                        {/* Created Event */}
+                        <div className="relative flex gap-4 pl-10">
+                          <div className="absolute left-2 w-5 h-5 rounded-full bg-indigo-500 border-2 border-white shadow flex items-center justify-center">
+                            <Plus className="h-3 w-3 text-white" />
+                          </div>
+                          <div className="flex-1 bg-indigo-50 rounded-lg p-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-medium text-indigo-700">Quotation Created</span>
+                              <span className="text-xs text-slate-500">{openFolder.createdAt.split('T')[0]}</span>
+                            </div>
+                            <p className="text-xs text-slate-600 mt-1">
+                              Initial amount: {formatCurrency(openFolder.subtotal)}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Payment Events */}
+                        {openFolder.payments.map((payment, idx) => (
+                          <div key={payment.id} className="relative flex gap-4 pl-10">
+                            <div className="absolute left-2 w-5 h-5 rounded-full bg-emerald-500 border-2 border-white shadow flex items-center justify-center">
+                              <IndianRupee className="h-3 w-3 text-white" />
+                            </div>
+                            <div className="flex-1 bg-emerald-50 rounded-lg p-3">
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm font-medium text-emerald-700">
+                                  Payment Received - {formatCurrency(payment.amount)}
+                                </span>
+                                <span className="text-xs text-slate-500">{payment.date}</span>
+                              </div>
+                              <p className="text-xs text-slate-600 mt-1">
+                                {payment.method.toUpperCase()}
+                                {payment.reference && ` • Ref: ${payment.reference}`}
+                                {payment.note && ` • ${payment.note}`}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+
+                        {/* Version Events */}
+                        {openFolder.versions?.map((version) => (
+                          <div key={version.id} className="relative flex gap-4 pl-10">
+                            <div className="absolute left-2 w-5 h-5 rounded-full bg-purple-500 border-2 border-white shadow flex items-center justify-center">
+                              <GitBranch className="h-3 w-3 text-white" />
+                            </div>
+                            <div className="flex-1 bg-purple-50 rounded-lg p-3">
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm font-medium text-purple-700">
+                                  Version v{version.version} Saved
+                                </span>
+                                <span className="text-xs text-slate-500">{version.date}</span>
+                              </div>
+                              <p className="text-xs text-slate-600 mt-1">
+                                Total: {formatCurrency(version.finalTotal)}
+                                {version.note && ` • "${version.note}"`}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+
+                        {/* Status Change (simulated - last update) */}
+                        {openFolder.status !== 'DRAFT' && (
+                          <div className="relative flex gap-4 pl-10">
+                            <div className={cn(
+                              'absolute left-2 w-5 h-5 rounded-full border-2 border-white shadow flex items-center justify-center',
+                              openFolder.status === 'APPROVED' ? 'bg-emerald-500' :
+                              openFolder.status === 'SENT' ? 'bg-blue-500' : 'bg-red-500'
+                            )}>
+                              {openFolder.status === 'APPROVED' ? <Check className="h-3 w-3 text-white" /> :
+                               openFolder.status === 'SENT' ? <Send className="h-3 w-3 text-white" /> :
+                               <XCircle className="h-3 w-3 text-white" />}
+                            </div>
+                            <div className={cn(
+                              'flex-1 rounded-lg p-3',
+                              openFolder.status === 'APPROVED' ? 'bg-emerald-50' :
+                              openFolder.status === 'SENT' ? 'bg-blue-50' : 'bg-red-50'
+                            )}>
+                              <div className="flex items-center justify-between">
+                                <span className={cn(
+                                  'text-sm font-medium',
+                                  openFolder.status === 'APPROVED' ? 'text-emerald-700' :
+                                  openFolder.status === 'SENT' ? 'text-blue-700' : 'text-red-700'
+                                )}>
+                                  Status: {STATUS_CONFIG[openFolder.status].label}
+                                </span>
+                                <span className="text-xs text-slate-500">{openFolder.updatedAt.split('T')[0]}</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Documents Tab */}
+                {activeTab === 'documents' && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                        <FileImage className="h-4 w-4" />
+                        Documents & Photos
+                      </h3>
+                      <Button size="sm" variant="outline">
+                        <Upload className="h-3.5 w-3.5 mr-1" />
+                        Upload
+                      </Button>
+                    </div>
+
+                    {/* Document Categories */}
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="bg-blue-50 rounded-xl p-4 text-center border-2 border-dashed border-blue-200 hover:border-blue-400 cursor-pointer transition-colors">
+                        <FileText className="h-8 w-8 text-blue-400 mx-auto mb-2" />
+                        <p className="text-sm font-medium text-blue-700">Contracts</p>
+                        <p className="text-xs text-blue-500">0 files</p>
+                      </div>
+                      <div className="bg-amber-50 rounded-xl p-4 text-center border-2 border-dashed border-amber-200 hover:border-amber-400 cursor-pointer transition-colors">
+                        <Camera className="h-8 w-8 text-amber-400 mx-auto mb-2" />
+                        <p className="text-sm font-medium text-amber-700">Site Photos</p>
+                        <p className="text-xs text-amber-500">0 files</p>
+                      </div>
+                      <div className="bg-emerald-50 rounded-xl p-4 text-center border-2 border-dashed border-emerald-200 hover:border-emerald-400 cursor-pointer transition-colors">
+                        <Receipt className="h-8 w-8 text-emerald-400 mx-auto mb-2" />
+                        <p className="text-sm font-medium text-emerald-700">Receipts</p>
+                        <p className="text-xs text-emerald-500">{openFolder.payments.length} receipts</p>
+                      </div>
+                    </div>
+
+                    {/* Empty State */}
+                    <div className="text-center py-8 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200">
+                      <Upload className="h-12 w-12 text-slate-300 mx-auto mb-2" />
+                      <p className="text-slate-500">Drop files here or click to upload</p>
+                      <p className="text-xs text-slate-400 mt-1">Supports: PDF, JPG, PNG (max 10MB)</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Notes Tab */}
+                {activeTab === 'notes' && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                        <MessageSquare className="h-4 w-4" />
+                        Notes & Comments
+                      </h3>
+                      <Button size="sm" variant="outline">
+                        <Plus className="h-3.5 w-3.5 mr-1" />
+                        Add Note
+                      </Button>
+                    </div>
+
+                    {/* Existing Notes */}
+                    {openFolder.notes ? (
+                      <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-200">
+                        <div className="flex items-start gap-3">
+                          <StickyNote className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                          <div>
+                            <p className="text-sm text-slate-700">{openFolder.notes}</p>
+                            <p className="text-xs text-slate-400 mt-2">Added on {openFolder.createdAt.split('T')[0]}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {/* Quick Notes Templates */}
+                    <div>
+                      <p className="text-xs font-medium text-slate-500 mb-2">Quick Notes</p>
+                      <div className="flex flex-wrap gap-2">
+                        {['Site visit scheduled', 'Waiting for approval', 'Design changes requested', 'Production started', 'Installation date confirmed'].map((note) => (
+                          <button
+                            key={note}
+                            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-full text-xs text-slate-600 transition-colors"
+                          >
+                            {note}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Add Note Input */}
+                    <div className="bg-slate-50 rounded-xl p-4">
+                      <textarea
+                        placeholder="Add a note about this client..."
+                        className="w-full bg-white rounded-lg border border-slate-200 p-3 text-sm resize-none h-24 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                      <div className="flex justify-end mt-2">
+                        <Button size="sm" className="bg-indigo-500 hover:bg-indigo-600">
+                          <Save className="h-3.5 w-3.5 mr-1" />
+                          Save Note
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Client Info Tab */}
                 {activeTab === 'info' && (
                   <div className="space-y-4">
                     {/* Client Details Card */}
-                    <div className="bg-slate-50 rounded-xl p-4 space-y-4">
-                      <h3 className="font-semibold text-slate-800 flex items-center gap-2">
+                    <div className="bg-gradient-to-r from-slate-50 to-indigo-50/50 rounded-xl p-4">
+                      <h3 className="font-semibold text-slate-800 flex items-center gap-2 mb-4">
                         <User className="h-4 w-4 text-indigo-500" />
                         Client Details
                       </h3>
                       <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-xs text-slate-500">Name</p>
-                          <p className="font-medium text-slate-800">{openFolder.clientName || '-'}</p>
+                        <div className="bg-white rounded-lg p-3 border border-slate-100">
+                          <p className="text-[10px] text-slate-500 uppercase tracking-wide">Name</p>
+                          <p className="font-semibold text-slate-800">{openFolder.clientName || '-'}</p>
                         </div>
-                        <div>
-                          <p className="text-xs text-slate-500">Phone</p>
+                        <div className="bg-white rounded-lg p-3 border border-slate-100">
+                          <p className="text-[10px] text-slate-500 uppercase tracking-wide">Phone</p>
                           <div className="flex items-center gap-2">
-                            <Phone className="h-3.5 w-3.5 text-slate-400" />
-                            <p className="font-medium text-slate-800">{openFolder.clientMobile || '-'}</p>
+                            <Phone className="h-3.5 w-3.5 text-indigo-400" />
+                            <p className="font-semibold text-slate-800">{openFolder.clientMobile || '-'}</p>
                           </div>
                         </div>
-                        <div>
-                          <p className="text-xs text-slate-500">Location</p>
+                        <div className="bg-white rounded-lg p-3 border border-slate-100">
+                          <p className="text-[10px] text-slate-500 uppercase tracking-wide">Location</p>
                           <div className="flex items-center gap-2">
-                            <MapPin className="h-3.5 w-3.5 text-slate-400" />
-                            <p className="font-medium text-slate-800">{openFolder.clientLocation || '-'}</p>
+                            <MapPin className="h-3.5 w-3.5 text-indigo-400" />
+                            <p className="font-semibold text-slate-800">{openFolder.clientLocation || '-'}</p>
                           </div>
                         </div>
-                        <div>
-                          <p className="text-xs text-slate-500">Email</p>
-                          <p className="font-medium text-slate-800">{openFolder.clientEmail || '-'}</p>
+                        <div className="bg-white rounded-lg p-3 border border-slate-100">
+                          <p className="text-[10px] text-slate-500 uppercase tracking-wide">Email</p>
+                          <p className="font-semibold text-slate-800">{openFolder.clientEmail || '-'}</p>
                         </div>
                       </div>
                     </div>
 
                     {/* Quotation Details Card */}
-                    <div className="bg-slate-50 rounded-xl p-4 space-y-4">
-                      <h3 className="font-semibold text-slate-800 flex items-center gap-2">
-                        <FileText className="h-4 w-4 text-indigo-500" />
+                    <div className="bg-gradient-to-r from-purple-50/50 to-indigo-50 rounded-xl p-4">
+                      <h3 className="font-semibold text-slate-800 flex items-center gap-2 mb-4">
+                        <FileText className="h-4 w-4 text-purple-500" />
                         Quotation Details
                       </h3>
-                      <div className="grid grid-cols-3 gap-4">
-                        <div>
-                          <p className="text-xs text-slate-500">Quotation Number</p>
-                          <p className="font-mono font-medium text-slate-800">{openFolder.quotationNumber}</p>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="bg-white rounded-lg p-3 border border-slate-100">
+                          <p className="text-[10px] text-slate-500 uppercase tracking-wide">Quote #</p>
+                          <p className="font-mono font-semibold text-slate-800">{openFolder.quotationNumber}</p>
                         </div>
-                        <div>
-                          <p className="text-xs text-slate-500">Date</p>
+                        <div className="bg-white rounded-lg p-3 border border-slate-100">
+                          <p className="text-[10px] text-slate-500 uppercase tracking-wide">Date</p>
                           <div className="flex items-center gap-2">
-                            <Calendar className="h-3.5 w-3.5 text-slate-400" />
-                            <p className="font-medium text-slate-800">{openFolder.date}</p>
+                            <Calendar className="h-3.5 w-3.5 text-purple-400" />
+                            <p className="font-semibold text-slate-800">{openFolder.date}</p>
                           </div>
                         </div>
-                        <div>
-                          <p className="text-xs text-slate-500">Valid Till</p>
+                        <div className="bg-white rounded-lg p-3 border border-slate-100">
+                          <p className="text-[10px] text-slate-500 uppercase tracking-wide">Valid Till</p>
                           <div className="flex items-center gap-2">
-                            <Clock className="h-3.5 w-3.5 text-slate-400" />
-                            <p className="font-medium text-slate-800">{openFolder.validityDate}</p>
+                            <Clock className="h-3.5 w-3.5 text-purple-400" />
+                            <p className="font-semibold text-slate-800">{openFolder.validityDate}</p>
                           </div>
                         </div>
                       </div>
-                    </div>
-
-                    {/* Notes */}
-                    {openFolder.notes && (
-                      <div className="bg-slate-50 rounded-xl p-4">
-                        <h3 className="font-semibold text-slate-800 mb-2">Notes</h3>
-                        <p className="text-sm text-slate-600">{openFolder.notes}</p>
-                      </div>
-                    )}
-
-                    {/* Version History */}
-                    <div className="bg-indigo-50/50 rounded-xl p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <button
-                          onClick={() => setShowVersions(!showVersions)}
-                          className="text-sm font-medium text-indigo-700 flex items-center gap-2 hover:text-indigo-800 transition-colors"
-                        >
-                          <GitBranch className="h-4 w-4" />
-                          Version History ({openFolder.versions?.length || 0})
-                          {showVersions ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                        </button>
-                        {!isQuickQuote(openFolder) && (
-                          <Button
-                            onClick={handleSaveVersion}
-                            size="sm"
-                            className="h-8 bg-indigo-500 hover:bg-indigo-600"
-                          >
-                            <Save className="h-3.5 w-3.5 mr-1" />
-                            Save Version
-                          </Button>
-                        )}
-                      </div>
-                      {showVersions && (
-                        <div className="space-y-2 max-h-48 overflow-y-auto">
-                          {(openFolder.versions?.length || 0) > 0 ? (
-                            [...(openFolder.versions || [])].reverse().map((v) => (
-                              <div key={v.id} className="bg-white rounded-lg p-3 border border-indigo-100">
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-2">
-                                    <span className="px-2 py-0.5 rounded bg-indigo-100 text-indigo-700 text-xs font-bold">v{v.version}</span>
-                                    <span className="text-xs text-slate-500">{v.date}</span>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-bold text-indigo-600 text-sm">{formatCurrency(v.finalTotal)}</span>
-                                    <button
-                                      onClick={() => handleDeleteVersion(v.id)}
-                                      className="h-6 w-6 text-slate-400 hover:text-red-500 rounded flex items-center justify-center"
-                                    >
-                                      <X className="h-3.5 w-3.5" />
-                                    </button>
-                                  </div>
-                                </div>
-                                {v.note && <p className="text-xs text-slate-500 italic mt-1">"{v.note}"</p>}
-                              </div>
-                            ))
-                          ) : (
-                            <p className="text-sm text-slate-400 text-center py-4">No versions saved</p>
-                          )}
-                        </div>
-                      )}
                     </div>
 
                     {/* Status Actions */}
-                    <div className="bg-slate-50 rounded-xl p-4">
-                      <h3 className="font-semibold text-slate-800 mb-3">Status & Actions</h3>
+                    <div className="bg-gradient-to-r from-emerald-50/50 to-teal-50 rounded-xl p-4">
+                      <h3 className="font-semibold text-slate-800 mb-3 flex items-center gap-2">
+                        <Check className="h-4 w-4 text-emerald-500" />
+                        Status & Actions
+                      </h3>
                       <div className="flex flex-wrap gap-2">
                         {!isQuickQuote(openFolder) && (
                           <Button
@@ -764,7 +1074,7 @@ export default function QuotationsPage() {
                             size="sm"
                           >
                             <Edit3 className="h-3.5 w-3.5 mr-1" />
-                            Edit
+                            Edit Client
                           </Button>
                         )}
                         {openFolder.status !== 'SENT' && (
@@ -772,6 +1082,7 @@ export default function QuotationsPage() {
                             onClick={() => handleStatusChange('SENT')}
                             variant="outline"
                             size="sm"
+                            className="border-blue-200 text-blue-600 hover:bg-blue-50"
                           >
                             <Send className="h-3.5 w-3.5 mr-1" />
                             Mark Sent
@@ -798,6 +1109,22 @@ export default function QuotationsPage() {
                             Reject
                           </Button>
                         )}
+                      </div>
+                    </div>
+
+                    {/* Source Info */}
+                    <div className="bg-slate-100 rounded-lg p-3 flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-xs text-slate-500">
+                        <span>Source:</span>
+                        <span className={cn(
+                          'px-2 py-0.5 rounded-full font-medium',
+                          isQuickQuote(openFolder) ? 'bg-amber-100 text-amber-700' : 'bg-indigo-100 text-indigo-700'
+                        )}>
+                          {isQuickQuote(openFolder) ? 'Quick Quote' : 'Native'}
+                        </span>
+                      </div>
+                      <div className="text-xs text-slate-400">
+                        Created: {openFolder.createdAt.split('T')[0]}
                       </div>
                     </div>
                   </div>
