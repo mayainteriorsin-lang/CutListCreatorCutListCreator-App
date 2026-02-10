@@ -5,7 +5,7 @@
  */
 
 import * as Sentry from '@sentry/node';
-import { Express } from 'express';
+import type { Express } from 'express';
 
 /**
  * Initialize Sentry for server-side error tracking

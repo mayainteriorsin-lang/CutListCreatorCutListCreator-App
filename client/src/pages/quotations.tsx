@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Fragment } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,6 +17,9 @@ import {
   ChevronLeft,
   ChevronDown,
   ChevronUp,
+  ChevronRight,
+  FolderOpen,
+  Folder,
   Phone,
   MapPin,
   Calendar,
@@ -435,77 +438,256 @@ export default function QuotationsPage() {
                     <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody>
                   {filteredQuotations.map((q) => {
                     const statusConfig = STATUS_CONFIG[q.status];
                     const StatusIcon = statusConfig.icon;
-                    const isSelected = selectedId === q.id;
+                    const isExpanded = selectedId === q.id;
+                    const isQQ = isQuickQuote(q);
                     return (
-                      <tr
-                        key={q.id}
-                        onClick={() => setSelectedId(isSelected ? null : q.id)}
-                        className={cn(
-                          'cursor-pointer transition-colors',
-                          isSelected
-                            ? 'bg-indigo-50'
-                            : 'hover:bg-slate-50'
-                        )}
-                      >
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            {q.source === 'quick-quote' && (
-                              <Zap className="h-3.5 w-3.5 text-amber-500" />
-                            )}
-                            <span className="font-medium text-slate-900 text-sm">{q.clientName || 'Unnamed'}</span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="text-xs font-mono text-slate-500">{q.quotationNumber}</span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="text-xs text-slate-600">{q.clientMobile || '-'}</span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="text-xs text-slate-500">{q.clientLocation || '-'}</span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="text-xs text-slate-500">{q.date}</span>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <span className="text-sm font-semibold text-slate-800">₹{q.finalTotal.toLocaleString('en-IN')}</span>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          {q.pendingAmount > 0 ? (
-                            <span className="text-sm font-medium text-amber-600">₹{q.pendingAmount.toLocaleString('en-IN')}</span>
-                          ) : (
-                            <span className="text-sm text-emerald-600">Paid</span>
+                      <Fragment key={q.id}>
+                        {/* Main Row - Folder Header */}
+                        <tr
+                          onClick={() => setSelectedId(isExpanded ? null : q.id)}
+                          className={cn(
+                            'cursor-pointer transition-all border-b border-slate-100',
+                            isExpanded
+                              ? 'bg-indigo-50 border-indigo-200'
+                              : 'hover:bg-slate-50'
                           )}
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <span className={cn('inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium', statusConfig.bg, statusConfig.color)}>
-                            <StatusIcon className="h-3 w-3" />
-                            {statusConfig.label}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center justify-center gap-1">
-                            <button
-                              onClick={(e) => { e.stopPropagation(); setSelectedId(q.id); }}
-                              className="h-7 w-7 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-500 hover:text-indigo-600 transition-colors"
-                              title="View"
-                            >
-                              <ChevronDown className={cn('h-4 w-4 transition-transform', isSelected && 'rotate-180')} />
-                            </button>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); setSelectedId(q.id); setShowDeleteDialog(true); }}
-                              className="h-7 w-7 rounded-lg hover:bg-red-50 flex items-center justify-center text-slate-400 hover:text-red-500 transition-colors"
-                              title="Delete"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
+                        >
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              {/* Folder Icon */}
+                              {isExpanded ? (
+                                <FolderOpen className="h-4 w-4 text-indigo-500" />
+                              ) : (
+                                <Folder className="h-4 w-4 text-slate-400" />
+                              )}
+                              {isQQ && <Zap className="h-3 w-3 text-amber-500" />}
+                              <span className="font-medium text-slate-900 text-sm">{q.clientName || 'Unnamed'}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="text-xs font-mono text-slate-500">{q.quotationNumber}</span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="text-xs text-slate-600">{q.clientMobile || '-'}</span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="text-xs text-slate-500">{q.clientLocation || '-'}</span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="text-xs text-slate-500">{q.date}</span>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <span className="text-sm font-semibold text-slate-800">₹{q.finalTotal.toLocaleString('en-IN')}</span>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            {q.pendingAmount > 0 ? (
+                              <span className="text-sm font-medium text-amber-600">₹{q.pendingAmount.toLocaleString('en-IN')}</span>
+                            ) : (
+                              <span className="text-sm text-emerald-600">Paid</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <span className={cn('inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium', statusConfig.bg, statusConfig.color)}>
+                              <StatusIcon className="h-3 w-3" />
+                              {statusConfig.label}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center justify-center gap-1">
+                              <div className={cn('h-6 w-6 rounded flex items-center justify-center transition-transform', isExpanded && 'rotate-90')}>
+                                <ChevronRight className="h-4 w-4 text-slate-400" />
+                              </div>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setSelectedId(q.id); setShowDeleteDialog(true); }}
+                                className="h-7 w-7 rounded-lg hover:bg-red-50 flex items-center justify-center text-slate-400 hover:text-red-500 transition-colors"
+                                title="Delete"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+
+                        {/* Expanded Content Row - Folder Contents */}
+                        {isExpanded && (
+                          <tr className="bg-slate-50/50">
+                            <td colSpan={9} className="p-0">
+                              <div className="border-b-2 border-indigo-200 bg-white">
+                                {isQQ ? (
+                                  /* Quick Quote Editor */
+                                  <div className="p-4">
+                                    <QuickQuotationPage />
+                                  </div>
+                                ) : (
+                                  /* Native Client Details */
+                                  <div className="p-4 space-y-4">
+                                    {/* Amount Stats Bar */}
+                                    <div className="grid grid-cols-4 gap-3">
+                                      <div className="bg-slate-50 rounded-lg p-3 text-center">
+                                        <p className="text-[10px] text-slate-500">Subtotal</p>
+                                        <p className="text-sm font-bold text-slate-800">₹{q.subtotal.toLocaleString('en-IN')}</p>
+                                      </div>
+                                      <div className="bg-indigo-50 rounded-lg p-3 text-center">
+                                        <p className="text-[10px] text-slate-500">Final Total</p>
+                                        <p className="text-sm font-bold text-indigo-600">₹{q.finalTotal.toLocaleString('en-IN')}</p>
+                                      </div>
+                                      <div className="bg-emerald-50 rounded-lg p-3 text-center">
+                                        <p className="text-[10px] text-slate-500">Received</p>
+                                        <p className="text-sm font-bold text-emerald-600">₹{q.totalPaid.toLocaleString('en-IN')}</p>
+                                      </div>
+                                      <div className={cn('rounded-lg p-3 text-center', q.pendingAmount > 0 ? 'bg-amber-50' : 'bg-emerald-50')}>
+                                        <p className="text-[10px] text-slate-500">Pending</p>
+                                        <p className={cn('text-sm font-bold', q.pendingAmount > 0 ? 'text-amber-600' : 'text-emerald-600')}>
+                                          ₹{Math.max(0, q.pendingAmount).toLocaleString('en-IN')}
+                                        </p>
+                                      </div>
+                                    </div>
+
+                                    {/* Client Info + Discount */}
+                                    <div className="flex items-center gap-4 text-xs text-slate-600">
+                                      <div className="flex items-center gap-1">
+                                        <Phone className="h-3.5 w-3.5 text-slate-400" />
+                                        {q.clientMobile || '-'}
+                                      </div>
+                                      <div className="flex items-center gap-1">
+                                        <MapPin className="h-3.5 w-3.5 text-slate-400" />
+                                        {q.clientLocation || '-'}
+                                      </div>
+                                      <div className="flex items-center gap-1">
+                                        <Calendar className="h-3.5 w-3.5 text-slate-400" />
+                                        Valid till {q.validityDate}
+                                      </div>
+                                      {(q.discountPercent > 0 || q.discountFlat > 0) && (
+                                        <div className="flex items-center gap-1 text-orange-600">
+                                          <Percent className="h-3.5 w-3.5" />
+                                          Discount: {q.discountPercent > 0 && `${q.discountPercent}%`}
+                                          {q.discountPercent > 0 && q.discountFlat > 0 && ' + '}
+                                          {q.discountFlat > 0 && `₹${q.discountFlat.toLocaleString('en-IN')}`}
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    {/* Two Column Layout: Payment + Version History */}
+                                    <div className="grid grid-cols-2 gap-4">
+                                      {/* Payment Section */}
+                                      <PaymentSection
+                                        quotation={q}
+                                        onAddPayment={handleAddPayment}
+                                        onRemovePayment={handleRemovePayment}
+                                      />
+
+                                      {/* Version History */}
+                                      <div className="bg-indigo-50/50 rounded-xl p-3 space-y-2 h-fit">
+                                        <div className="flex items-center justify-between">
+                                          <button
+                                            onClick={(e) => { e.stopPropagation(); setShowVersions(!showVersions); }}
+                                            className="text-xs font-medium text-indigo-700 flex items-center gap-1 hover:text-indigo-800 transition-colors"
+                                          >
+                                            <GitBranch className="h-3.5 w-3.5" />
+                                            Version History ({q.versions?.length || 0})
+                                            {showVersions ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                                          </button>
+                                          <Button
+                                            onClick={(e) => { e.stopPropagation(); handleSaveVersion(); }}
+                                            size="sm"
+                                            className="h-7 px-2 text-xs bg-indigo-500 hover:bg-indigo-600"
+                                          >
+                                            <Save className="h-3 w-3 mr-1" />
+                                            Save
+                                          </Button>
+                                        </div>
+                                        {showVersions && (
+                                          <div className="space-y-2 max-h-48 overflow-y-auto">
+                                            {(q.versions?.length || 0) > 0 ? (
+                                              [...(q.versions || [])].reverse().map((v, idx) => (
+                                                <div key={v.id} className="bg-white rounded-lg p-2 border border-indigo-100 text-xs">
+                                                  <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                      <span className="px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 text-[10px] font-bold">v{v.version}</span>
+                                                      <span className="text-slate-500">{v.date}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-1">
+                                                      <span className="font-bold text-indigo-600">{formatCurrency(v.finalTotal)}</span>
+                                                      <button
+                                                        onClick={(e) => { e.stopPropagation(); handleDeleteVersion(v.id); }}
+                                                        className="h-5 w-5 text-slate-400 hover:text-red-500 rounded flex items-center justify-center"
+                                                      >
+                                                        <X className="h-3 w-3" />
+                                                      </button>
+                                                    </div>
+                                                  </div>
+                                                  {v.note && <p className="text-slate-500 italic mt-1">"{v.note}"</p>}
+                                                </div>
+                                              ))
+                                            ) : (
+                                              <p className="text-xs text-slate-400 text-center py-2">No versions saved</p>
+                                            )}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    {/* Notes */}
+                                    {q.notes && (
+                                      <div className="bg-slate-50 rounded-lg p-3">
+                                        <p className="text-xs text-slate-500 mb-1">Notes</p>
+                                        <p className="text-sm text-slate-700">{q.notes}</p>
+                                      </div>
+                                    )}
+
+                                    {/* Action Buttons */}
+                                    <div className="flex gap-2 pt-2 border-t border-slate-100">
+                                      <Button
+                                        onClick={(e) => { e.stopPropagation(); handleEdit(); }}
+                                        variant="outline"
+                                        size="sm"
+                                      >
+                                        <Edit3 className="h-3.5 w-3.5 mr-1" />
+                                        Edit
+                                      </Button>
+                                      {q.status !== 'SENT' && (
+                                        <Button
+                                          onClick={(e) => { e.stopPropagation(); handleStatusChange('SENT'); }}
+                                          variant="outline"
+                                          size="sm"
+                                        >
+                                          <Send className="h-3.5 w-3.5 mr-1" />
+                                          Mark Sent
+                                        </Button>
+                                      )}
+                                      {q.status !== 'APPROVED' && (
+                                        <Button
+                                          onClick={(e) => { e.stopPropagation(); handleStatusChange('APPROVED'); }}
+                                          size="sm"
+                                          className="bg-emerald-500 hover:bg-emerald-600"
+                                        >
+                                          <Check className="h-3.5 w-3.5 mr-1" />
+                                          Approve
+                                        </Button>
+                                      )}
+                                      {q.status !== 'REJECTED' && (
+                                        <Button
+                                          onClick={(e) => { e.stopPropagation(); handleStatusChange('REJECTED'); }}
+                                          variant="outline"
+                                          size="sm"
+                                          className="text-red-600 border-red-200 hover:bg-red-50"
+                                        >
+                                          <XCircle className="h-3.5 w-3.5 mr-1" />
+                                          Reject
+                                        </Button>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
                     );
                   })}
                 </tbody>
@@ -513,254 +695,6 @@ export default function QuotationsPage() {
             )}
           </div>
 
-          {/* Detail Panel - Shows below table when client selected */}
-          <div>
-            {selected && isQuickQuote(selected) ? (
-              /* Quick Quote Editor - embedded */
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-lg overflow-hidden">
-                <QuickQuotationPage />
-              </div>
-            ) : selected ? (
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-lg overflow-hidden">
-                {/* Detail Header */}
-                <div className="px-5 py-4 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                        <FileText className="h-5 w-5 text-white" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h2 className="text-base font-semibold text-white">{selected.clientName || 'Unnamed'}</h2>
-                          <span className={cn('px-2 py-0.5 rounded text-[10px] font-medium',
-                            selected.status === 'DRAFT' ? 'bg-white/20 text-white' :
-                            selected.status === 'SENT' ? 'bg-blue-400/30 text-blue-100' :
-                            selected.status === 'APPROVED' ? 'bg-emerald-400/30 text-emerald-100' :
-                            'bg-red-400/30 text-red-100'
-                          )}>
-                            {selected.status}
-                          </span>
-                        </div>
-                        <p className="text-xs text-white/70 font-mono">{selected.quotationNumber}</p>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={handleEdit}
-                        className="h-8 w-8 rounded-lg bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
-                        title="Edit"
-                      >
-                        <Edit3 className="h-4 w-4 text-white" />
-                      </button>
-                      <button
-                        onClick={() => setShowDeleteDialog(true)}
-                        className="h-8 w-8 rounded-lg bg-white/20 hover:bg-red-500/50 flex items-center justify-center transition-colors"
-                      >
-                        <Trash2 className="h-4 w-4 text-white" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Amount Stats */}
-                <div className="grid grid-cols-4 border-b border-slate-100">
-                  <div className="px-4 py-3 border-r border-slate-100">
-                    <p className="text-[10px] text-slate-500 mb-0.5">Subtotal</p>
-                    <p className="text-sm font-bold text-slate-800">₹{selected.subtotal.toLocaleString('en-IN')}</p>
-                  </div>
-                  <div className="px-4 py-3 border-r border-slate-100">
-                    <p className="text-[10px] text-slate-500 mb-0.5">Final</p>
-                    <p className="text-sm font-bold text-indigo-600">₹{selected.finalTotal.toLocaleString('en-IN')}</p>
-                  </div>
-                  <div className="px-4 py-3 border-r border-slate-100">
-                    <p className="text-[10px] text-slate-500 mb-0.5">Received</p>
-                    <p className="text-sm font-bold text-emerald-600">₹{selected.totalPaid.toLocaleString('en-IN')}</p>
-                  </div>
-                  <div className="px-4 py-3">
-                    <p className="text-[10px] text-slate-500 mb-0.5">Pending</p>
-                    <p className={cn('text-sm font-bold', selected.pendingAmount > 0 ? 'text-amber-600' : 'text-emerald-600')}>
-                      ₹{Math.max(0, selected.pendingAmount).toLocaleString('en-IN')}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Details */}
-                <div className="p-4 space-y-4">
-                  {/* Client Info */}
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="flex items-center gap-2 text-sm">
-                      <Phone className="h-4 w-4 text-slate-400" />
-                      <span className="text-slate-600">{selected.clientMobile || '-'}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <MapPin className="h-4 w-4 text-slate-400" />
-                      <span className="text-slate-600">{selected.clientLocation || '-'}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <Calendar className="h-4 w-4 text-slate-400" />
-                      <span className="text-slate-600">Valid till {selected.validityDate}</span>
-                    </div>
-                  </div>
-
-                  {/* Discount Info */}
-                  {(selected.discountPercent > 0 || selected.discountFlat > 0) && (
-                    <div className="bg-orange-50 rounded-lg p-3 flex items-center gap-3">
-                      <Percent className="h-4 w-4 text-orange-500" />
-                      <span className="text-sm text-orange-700">
-                        Discount: {selected.discountPercent > 0 && `${selected.discountPercent}%`}
-                        {selected.discountPercent > 0 && selected.discountFlat > 0 && ' + '}
-                        {selected.discountFlat > 0 && `₹${selected.discountFlat.toLocaleString('en-IN')}`}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Payment Section */}
-                  <PaymentSection
-                    quotation={selected}
-                    onAddPayment={handleAddPayment}
-                    onRemovePayment={handleRemovePayment}
-                  />
-
-                  {/* Notes */}
-                  {selected.notes && (
-                    <div className="bg-slate-50 rounded-lg p-3">
-                      <p className="text-xs text-slate-500 mb-1">Notes</p>
-                      <p className="text-sm text-slate-700">{selected.notes}</p>
-                    </div>
-                  )}
-
-                  {/* Version History */}
-                  <div className="bg-indigo-50/50 rounded-xl p-3 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <button
-                          onClick={() => setShowVersions(!showVersions)}
-                          className="text-xs font-medium text-indigo-700 flex items-center gap-1 hover:text-indigo-800 transition-colors"
-                        >
-                          <GitBranch className="h-3.5 w-3.5" />
-                          Version History ({selected.versions?.length || 0})
-                          {showVersions ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                        </button>
-                        <Button
-                          onClick={handleSaveVersion}
-                          size="sm"
-                          className="h-7 px-2 text-xs bg-indigo-500 hover:bg-indigo-600"
-                        >
-                          <Save className="h-3 w-3 mr-1" />
-                          Save Version
-                        </Button>
-                      </div>
-
-                      {showVersions && (
-                        <div className="space-y-2 max-h-48 overflow-y-auto">
-                          {(selected.versions?.length || 0) > 0 ? (
-                            [...(selected.versions || [])].reverse().map((v, idx) => (
-                              <div key={v.id} className="bg-white rounded-lg p-3 border border-indigo-100">
-                                <div className="flex items-start justify-between mb-2">
-                                  <div className="flex items-center gap-2">
-                                    <span className="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-bold">
-                                      v{v.version}
-                                    </span>
-                                    <span className="text-xs text-slate-500">{v.date}</span>
-                                    {v.note && (
-                                      <span className="text-xs text-slate-600 italic truncate max-w-32">
-                                        "{v.note}"
-                                      </span>
-                                    )}
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-sm font-bold text-indigo-600">
-                                      {formatCurrency(v.finalTotal)}
-                                    </span>
-                                    <button
-                                      onClick={() => handleDeleteVersion(v.id)}
-                                      className="h-5 w-5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded flex items-center justify-center transition-colors"
-                                    >
-                                      <X className="h-3 w-3" />
-                                    </button>
-                                  </div>
-                                </div>
-
-                                {/* Changes from previous version */}
-                                {v.changes && v.changes.length > 0 && (
-                                  <div className="mt-2 pt-2 border-t border-indigo-50">
-                                    <p className="text-[10px] text-slate-500 mb-1">Changes:</p>
-                                    <div className="space-y-1">
-                                      {v.changes.map((c, cIdx) => (
-                                        <div key={cIdx} className="flex items-center gap-2 text-xs">
-                                          <span className="text-slate-500 min-w-20">{c.field}:</span>
-                                          <span className="text-red-500 flex items-center gap-0.5 line-through">
-                                            <ArrowDownRight className="h-3 w-3" />
-                                            {typeof c.oldValue === 'number' ? formatCurrency(c.oldValue) : c.oldValue}
-                                          </span>
-                                          <span className="text-emerald-600 flex items-center gap-0.5 font-medium">
-                                            <ArrowUpRight className="h-3 w-3" />
-                                            {typeof c.newValue === 'number' ? formatCurrency(c.newValue) : c.newValue}
-                                          </span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-
-                                {/* Show summary for first version */}
-                                {idx === (selected.versions?.length || 0) - 1 && (
-                                  <div className="mt-1 text-[10px] text-slate-400">
-                                    Initial version
-                                  </div>
-                                )}
-                              </div>
-                            ))
-                          ) : (
-                            <div className="text-center py-4">
-                              <p className="text-xs text-slate-400 mb-2">No versions saved yet</p>
-                              <p className="text-[10px] text-slate-400">
-                                Save a version to track changes over time
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                  {/* Status Actions */}
-                  <div className="flex gap-2 pt-2">
-                    {selected.status !== 'SENT' && (
-                        <Button
-                          onClick={() => handleStatusChange('SENT')}
-                          variant="outline"
-                          size="sm"
-                          className="flex-1"
-                        >
-                          <Send className="h-3.5 w-3.5 mr-1.5" />
-                          Mark Sent
-                        </Button>
-                      )}
-                      {selected.status !== 'APPROVED' && (
-                        <Button
-                          onClick={() => handleStatusChange('APPROVED')}
-                          size="sm"
-                          className="flex-1 bg-emerald-500 hover:bg-emerald-600"
-                        >
-                          <Check className="h-3.5 w-3.5 mr-1.5" />
-                          Approve
-                        </Button>
-                      )}
-                      {selected.status !== 'REJECTED' && (
-                      <Button
-                        onClick={() => handleStatusChange('REJECTED')}
-                        variant="outline"
-                        size="sm"
-                        className="flex-1 text-red-600 border-red-200 hover:bg-red-50"
-                      >
-                        <XCircle className="h-3.5 w-3.5 mr-1.5" />
-                        Reject
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ) : null}
-          </div>
         </div>
       </main>
 
