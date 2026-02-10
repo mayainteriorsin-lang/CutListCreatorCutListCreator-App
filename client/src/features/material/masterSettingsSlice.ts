@@ -17,6 +17,7 @@ import { logger } from "@/lib/system/logger";
 // PATCH 17: Default master settings object (never null)
 const DEFAULT_MASTER_SETTINGS: MasterSettingsMemory = {
   id: 0,
+  tenantId: 'default',
   sheetWidth: "1210",
   sheetHeight: "2420",
   kerf: "5",
@@ -24,7 +25,7 @@ const DEFAULT_MASTER_SETTINGS: MasterSettingsMemory = {
   masterPlywoodBrand: "Apple Ply 16mm BWP",
   optimizePlywoodUsage: "true",
   updatedAt: new Date(),
-} as MasterSettingsMemory;
+};
 
 interface MasterSettingsState {
   data: MasterSettingsMemory;
@@ -104,8 +105,15 @@ export const useMasterSettingsStore = create<MasterSettingsState>((set, get) => 
         }
       );
 
+      // Merge with DEFAULT to ensure tenantId is present for MasterSettingsMemory type
+      const finalSettings: MasterSettingsMemory = {
+        ...DEFAULT_MASTER_SETTINGS,
+        ...safeMasterSettings,
+        updatedAt: new Date(safeMasterSettings?.updatedAt ?? new Date()),
+      };
+
       set({
-        data: (safeMasterSettings ?? DEFAULT_MASTER_SETTINGS) as MasterSettingsMemory,
+        data: finalSettings,
         loaded: true,
         loading: false,
         error: null,

@@ -133,8 +133,8 @@ router.get('/library/:id', async (req: AuthRequest, res) => {
             .from(libraryModules)
             .where(
                 and(
-                    eq(libraryModules.id, id),
-                    eq(libraryModules.tenantId, tenantId)
+                    eq(libraryModules.id, id as string),
+                    eq(libraryModules.tenantId, tenantId as string)
                 )
             )
             .limit(1);
@@ -146,7 +146,7 @@ router.get('/library/:id', async (req: AuthRequest, res) => {
             });
         }
 
-        const r = rows[0];
+        const r = rows[0]!;
         res.json({
             success: true,
             data: {
@@ -199,8 +199,8 @@ router.put('/library/:id', async (req: AuthRequest, res) => {
             .set(updateData)
             .where(
                 and(
-                    eq(libraryModules.id, id),
-                    eq(libraryModules.tenantId, tenantId)
+                    eq(libraryModules.id, id as string),
+                    eq(libraryModules.tenantId, tenantId as string)
                 )
             );
 
@@ -229,8 +229,8 @@ router.delete('/library/:id', async (req: AuthRequest, res) => {
         await db.delete(libraryModules)
             .where(
                 and(
-                    eq(libraryModules.id, id),
-                    eq(libraryModules.tenantId, tenantId)
+                    eq(libraryModules.id, id as string),
+                    eq(libraryModules.tenantId, tenantId as string)
                 )
             );
 
@@ -268,8 +268,8 @@ router.post('/library/:id/publish', async (req: AuthRequest, res) => {
             })
             .where(
                 and(
-                    eq(libraryModules.id, id),
-                    eq(libraryModules.tenantId, tenantId)
+                    eq(libraryModules.id, id as string),
+                    eq(libraryModules.tenantId, tenantId as string)
                 )
             );
 
@@ -304,8 +304,8 @@ router.post('/library/:id/unpublish', async (req: AuthRequest, res) => {
             })
             .where(
                 and(
-                    eq(libraryModules.id, id),
-                    eq(libraryModules.tenantId, tenantId)
+                    eq(libraryModules.id, id as string),
+                    eq(libraryModules.tenantId, tenantId as string)
                 )
             );
 
@@ -347,7 +347,7 @@ router.get('/library/public/:shareCode', async (req, res) => {
             });
         }
 
-        const r = rows[0];
+        const r = rows[0]!;
         res.json({
             success: true,
             data: {
@@ -384,8 +384,8 @@ router.post('/library/:id/toggle-favorite', async (req: AuthRequest, res) => {
             .from(libraryModules)
             .where(
                 and(
-                    eq(libraryModules.id, id),
-                    eq(libraryModules.tenantId, tenantId)
+                    eq(libraryModules.id, id as string),
+                    eq(libraryModules.tenantId, tenantId as string)
                 )
             )
             .limit(1);
@@ -397,7 +397,7 @@ router.post('/library/:id/toggle-favorite', async (req: AuthRequest, res) => {
             });
         }
 
-        const currentFavorite = rows[0].favorite === 'true';
+        const currentFavorite = rows[0]!.favorite === 'true';
         const newFavorite = !currentFavorite;
 
         await db.update(libraryModules)
@@ -407,8 +407,8 @@ router.post('/library/:id/toggle-favorite', async (req: AuthRequest, res) => {
             })
             .where(
                 and(
-                    eq(libraryModules.id, id),
-                    eq(libraryModules.tenantId, tenantId)
+                    eq(libraryModules.id, id as string),
+                    eq(libraryModules.tenantId, tenantId as string)
                 )
             );
 

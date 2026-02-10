@@ -91,13 +91,13 @@ router.get('/quotations/:id', async (req: AuthRequest, res) => {
             .from(quotations)
             .where(
                 and(
-                    eq(quotations.id, id),
-                    eq(quotations.tenantId, tenantId)
+                    eq(quotations.id, id as string),
+                    eq(quotations.tenantId, tenantId as string)
                 )
             )
             .limit(1);
 
-        if (rows.length === 0) {
+        if (rows.length === 0 || !rows[0]) {
             return res.status(404).json({
                 success: false,
                 error: 'Quotation not found'
@@ -131,7 +131,7 @@ router.get('/quotations/lead/:leadId', async (req: AuthRequest, res) => {
             .from(quotations)
             .where(
                 and(
-                    eq(quotations.leadId, leadId),
+                    eq(quotations.leadId, leadId as string),
                     eq(quotations.tenantId, tenantId) // Tenant isolation
                 )
             );

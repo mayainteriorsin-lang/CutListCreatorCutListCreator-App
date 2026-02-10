@@ -135,12 +135,11 @@ export const createModuleSlice: StateCreator<
     const zoomForHeight = availableH / (moduleH + padding * 2);
     const idealZoom = Math.min(1.5, Math.max(0.2, Math.min(zoomForWidth, zoomForHeight)));
 
-    // Calculate origin to center the module
-    const viewportW = state.canvasSize.w / idealZoom;
+    // Calculate origin - position at left edge with small padding
     const viewportH = state.canvasSize.h / idealZoom;
-    const originX = (viewportW - moduleW) / 2;
-    const originY = (viewportH - moduleH) / 2;
-    const origin = { x: Math.max(100, originX), y: Math.max(80, originY) };
+    const originX = 50; // Left edge with 50px padding
+    const originY = (viewportH - moduleH) / 2; // Vertically centered
+    const origin = { x: originX, y: Math.max(50, originY) };
 
     // Generate new module shapes
     const newModuleShapes = generateModuleShapes(configWithPanels, origin);

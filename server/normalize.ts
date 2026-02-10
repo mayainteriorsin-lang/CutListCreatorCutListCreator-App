@@ -37,3 +37,7 @@ export function normDate(v: unknown): Date {
 export function normDateISO(v: unknown): string {
   return normDate(v).toISOString();
 }
+
+export function sanitizeFilename(name: string): string {
+  return (name || '').replace(/[^a-zA-Z0-9.-]/g, '_');
+}

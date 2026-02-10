@@ -200,10 +200,10 @@ export function InnerDimensions({ shapes, fontSize }: Props): React.ReactElement
 
         return (
           <g key={`section-${sectionIdx}`}>
-            {/* Section inner width - inside section at bottom */}
+            {/* Section inner width - inside section, well above bottom panel */}
             <text
               x={sectionCenterX}
-              y={innerBottom - safeFontSize * 0.5}
+              y={innerBottom - safeFontSize * 1.5}
               textAnchor="middle"
               {...textStyle}
             >
@@ -213,7 +213,7 @@ export function InnerDimensions({ shapes, fontSize }: Props): React.ReactElement
             {/* Vertical gaps - show height of each gap */}
             {gaps.map((gap, gapIdx) => {
               const gapCenterY = gap.y + gap.height / 2;
-              const xPos = section.start + safeFontSize * 0.8;
+              const xPos = section.start + safeFontSize * 1.2;
               return (
                 <text
                   key={`gap-${sectionIdx}-${gapIdx}`}
@@ -231,20 +231,7 @@ export function InnerDimensions({ shapes, fontSize }: Props): React.ReactElement
         );
       })}
 
-      {/* ================================================================== */}
-      {/* CENTER POST - Width below wardrobe */}
-      {/* ================================================================== */}
-      {centerPosts.map((post, idx) => (
-        <text
-          key={`cp-${idx}`}
-          x={post.x + post.w / 2}
-          y={outerBottom + safeFontSize * 1.2}
-          textAnchor="middle"
-          {...textStyle}
-        >
-          {Math.round(post.w)}
-        </text>
-      ))}
+      {/* Center post width labels removed - always same as carcass thickness */}
     </g>
   );
 }

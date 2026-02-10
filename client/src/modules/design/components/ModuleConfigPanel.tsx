@@ -162,10 +162,10 @@ function validateModuleConfig(config: ModuleConfig): ValidationResult {
 }
 
 export interface ModuleConfigPanelProps {
-  onExportToCutlist?: (data: { width: number; height: number; depth: number; name: string }) => void;
+  // Props can be extended in the future
 }
 
-export default function ModuleConfigPanel({ onExportToCutlist }: ModuleConfigPanelProps) {
+export default function ModuleConfigPanel(_props: ModuleConfigPanelProps) {
   const {
     showModulePanel, setShowModulePanel,
     moduleConfig, setModuleConfig,
@@ -189,13 +189,6 @@ export default function ModuleConfigPanel({ onExportToCutlist }: ModuleConfigPan
   const handleChange = (updated: typeof moduleConfig) => {
     setModuleConfig(updated);
     regenerateModuleShapes(updated);
-  };
-
-  // Handle update drawing
-  const handleUpdateDrawing = () => {
-    if (moduleConfig) {
-      regenerateModuleShapes(moduleConfig);
-    }
   };
 
   // Handle save to library - validates first, then opens folder selection dialog
@@ -317,19 +310,6 @@ export default function ModuleConfigPanel({ onExportToCutlist }: ModuleConfigPan
     alert(`Module "${libraryModule.name}" saved to ${folderName}!`);
   };
 
-  // Handle generate cutlist
-  const handleGenerateCutlist = () => {
-    if (!moduleConfig) return;
-    if (onExportToCutlist) {
-      onExportToCutlist({
-        width: moduleConfig.widthMm,
-        height: moduleConfig.heightMm,
-        depth: moduleConfig.depthMm,
-        name: moduleConfig.name
-      });
-    }
-  };
-
   // Handle close
   const handleClose = () => {
     setShowModulePanel(false);
@@ -343,9 +323,7 @@ export default function ModuleConfigPanel({ onExportToCutlist }: ModuleConfigPan
       <ModuleConfigPanelUI
         config={moduleConfig}
         onChange={handleChange}
-        onUpdateDrawing={handleUpdateDrawing}
         onSaveToLibrary={handleSaveToLibrary}
-        onGenerateCutlist={handleGenerateCutlist}
         onClose={handleClose}
         pricing={pricing}
       />

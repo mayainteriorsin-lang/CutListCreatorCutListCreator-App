@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
+import { withCircuitBreaker } from "../services/circuitBreaker";
 
 const bodySchema = z.object({
   imageBase64: z.string().min(1, "imageBase64 is required"),
@@ -25,6 +26,13 @@ const suggestionSchema = z.object({
 });
 
 type AiWardrobeLayoutSuggestion = z.infer<typeof suggestionSchema>;
+
+const emptySuggestion = (): AiWardrobeLayoutSuggestion => ({
+  wardrobeBox: { xNorm: 0, yNorm: 0, wNorm: 0, hNorm: 0 },
+  loft: { present: false },
+  suggestedShutters: 3,
+  confidence: 0,
+});
 
 const SYSTEM_PROMPT = `
 You are a wardrobe layout vision assistant.
@@ -78,6 +86,10 @@ const responseFormat = {
   },
 } as const;
 
+/**
+ * Call OpenAI API with circuit breaker protection
+ * PHASE 16: Added circuit breaker for resilience
+ */
 async function detectWardrobeLayout(params: {
   imageBase64: string;
   roomType?: string;
@@ -88,67 +100,75 @@ async function detectWardrobeLayout(params: {
     throw new Error("OpenAI API key not configured");
   }
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 20000);
+  // Wrap OpenAI call with circuit breaker
+  return withCircuitBreaker(
+    'ai',
+    async () => {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 20000);
 
-  const payload = {
-    model: "gpt-4o-mini",
-    max_tokens: 350,
-    response_format: responseFormat,
-    messages: [
-      { role: "system", content: SYSTEM_PROMPT },
-      {
-        role: "user",
-        content: [
+      const payload = {
+        model: "gpt-4o-mini",
+        max_tokens: 350,
+        response_format: responseFormat,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
           {
-            type: "text",
-            text: roomType ? `Room type: ${roomType}.` : "Room type: unknown.",
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: roomType ? `Room type: ${roomType}.` : "Room type: unknown.",
+              },
+              { type: "image_url", image_url: { url: imageBase64 } },
+            ],
           },
-          { type: "image_url", image_url: { url: imageBase64 } },
         ],
-      },
-    ],
-  };
+      };
 
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeout);
+
+      if (!response.ok) {
+        const errText = await response.text().catch(() => "");
+        console.error("OpenAI wardrobe layout error:", response.status, errText);
+        throw new Error("AI detection failed");
+      }
+
+      const data: any = await response.json();
+      const content: string = data?.choices?.[0]?.message?.content?.trim?.() || "";
+      if (!content) {
+        throw new Error("Empty AI response");
+      }
+
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(content);
+      } catch (err) {
+        console.error("Failed to parse AI JSON:", err, content);
+        throw new Error("Invalid AI response");
+      }
+
+      const validated = suggestionSchema.safeParse(parsed);
+      if (!validated.success) {
+        console.error("AI wardrobe layout validation failed:", validated.error.format());
+        throw new Error("Invalid AI response");
+      }
+
+      return { suggestion: validated.data, raw: content };
     },
-    body: JSON.stringify(payload),
-    signal: controller.signal,
-  });
-
-  clearTimeout(timeout);
-
-  if (!response.ok) {
-    const errText = await response.text().catch(() => "");
-    console.error("OpenAI wardrobe layout error:", response.status, errText);
-    throw new Error("AI detection failed");
-  }
-
-  const data: any = await response.json();
-  const content: string = data?.choices?.[0]?.message?.content?.trim?.() || "";
-  if (!content) {
-    throw new Error("Empty AI response");
-  }
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(content);
-  } catch (err) {
-    console.error("Failed to parse AI JSON:", err, content);
-    throw new Error("Invalid AI response");
-  }
-
-  const validated = suggestionSchema.safeParse(parsed);
-  if (!validated.success) {
-    console.error("AI wardrobe layout validation failed:", validated.error.format());
-    throw new Error("Invalid AI response");
-  }
-
-  return { suggestion: validated.data, raw: content };
+    // Fallback when circuit is open
+    () => ({ suggestion: emptySuggestion(), raw: '' })
+  );
 }
 
 export function aiWardrobeLayoutRouter() {

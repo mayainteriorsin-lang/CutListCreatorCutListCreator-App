@@ -119,6 +119,46 @@ export function checkCenterPostClick(
 }
 
 /**
+ * Check if click is on a shelf
+ * Shelves have IDs like "MOD-SHELF-{sectionIndex+1}-{shelfIndex}"
+ */
+export function checkShelfClick(
+  point: { x: number; y: number },
+  shapes: Shape[]
+): { shelfId: string; sectionIndex: number; shelfIndex: number } | null {
+  // Find all shelf shapes
+  const shelfShapes = shapes.filter(s =>
+    s.type === "rect" && s.id.startsWith("MOD-SHELF-")
+  ) as RectShape[];
+
+  // Add vertical tolerance for easier clicking (shelves are thin ~18mm)
+  const CLICK_TOLERANCE = 20;
+
+  for (const shelf of shelfShapes) {
+    const expandedTop = shelf.y - CLICK_TOLERANCE;
+    const expandedBottom = shelf.y + shelf.h + CLICK_TOLERANCE;
+
+    // Check if point is within shelf bounds (with vertical tolerance)
+    if (
+      point.x >= shelf.x &&
+      point.x <= shelf.x + shelf.w &&
+      point.y >= expandedTop &&
+      point.y <= expandedBottom
+    ) {
+      // Parse shelf ID: "MOD-SHELF-{sectionIndex+1}-{shelfIndex}"
+      const parts = shelf.id.split("-");
+      if (parts.length >= 4) {
+        const sectionIndex = parseInt(parts[2], 10) - 1; // Convert back to 0-based
+        const shelfIndex = parseInt(parts[3], 10);
+        return { shelfId: shelf.id, sectionIndex, shelfIndex };
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
  * Detect which section was clicked (for sections array)
  */
 export function detectSectionFromSectionsArray(
@@ -243,6 +283,16 @@ export function getClickTarget(
     return {
       type: "centerPost",
       postIndex,
+    };
+  }
+
+  // Check if click is on a shelf
+  const shelfHit = checkShelfClick(svgPoint, shapes);
+  if (shelfHit) {
+    return {
+      type: "shelf",
+      shelfId: shelfHit.shelfId,
+      sectionIndex: shelfHit.sectionIndex,
     };
   }
 

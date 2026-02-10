@@ -24,7 +24,7 @@ import libraryRouter from "./routes/libraryRoutes";
 import authRouter from "./routes/authRoutes";
 import { authenticate, AuthRequest } from "./middleware/auth";
 import { tenantRateLimit } from "./middleware/tenantRateLimit";
-import { normString, normNumber, normBoolean, normArray, normDate, normDateISO } from "./normalize";
+import { normString, normNumber, normBoolean, normArray, normDate, normDateISO, sanitizeFilename as sanitizeFilenameUtil } from "./normalize";
 import {
   MasterSettingsResponseSchema,
   PlywoodListSchema,
@@ -37,6 +37,7 @@ import {
 import { ok, err } from "./lib/apiEnvelope";
 import { safeQuery as safeQueryAdapter } from "./db/adapter";
 import { cacheService, CACHE_KEYS } from "./services/cacheService";
+import { getFileStorage, FileNotFoundError, STORAGE_PATHS, storagePath } from "./services/fileStorage";
 // Legacy support
 const getCache = (key: string) => cacheService.get(key);
 const setCache = (key: string, val: any) => cacheService.set(key, val);
@@ -149,7 +150,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     let dbReady = false;
 
     try {
-      await safeQuery(() => db.execute(sql`SELECT 1`), [], { timeoutMs: 2000 });
+      await safeQuery(() => db.execute(sql`SELECT 1`), null as any, { timeoutMs: 2000 });
       dbReady = true;
     } catch (e) {
       console.error("[READINESS] Database check failed:", e);
@@ -178,7 +179,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     try {
       // Simple query to verify DB connection
-      await safeQuery(() => db.execute(sql`SELECT 1`), [], { timeoutMs: 2000 });
+      await safeQuery(() => db.execute(sql`SELECT 1`), null as any, { timeoutMs: 2000 });
       dbStatus = "connected";
     } catch (e) {
       dbStatus = "disconnected";
@@ -198,11 +199,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // DEV-ONLY: Direct login bypass (no DB required)
+  // SECURITY FIX: Requires EXPLICIT opt-in via DEV_AUTH_ENABLED=true
+  // This prevents accidental exposure if NODE_ENV is misconfigured
+  const isDevAuthEnabled = process.env.DEV_AUTH_ENABLED === 'true' && process.env.NODE_ENV !== 'production';
+
+  if (isDevAuthEnabled) {
+    console.warn('[SECURITY WARNING] Dev authentication bypass is ENABLED. Do NOT use in production!');
+  }
+
   app.post("/api/auth/login", async (req, res, next) => {
     const { email, password } = req.body || {};
 
-    // Only handle dev credentials - pass others to authRouter
-    if (process.env.NODE_ENV !== 'production' &&
+    // Only handle dev credentials if explicitly enabled AND not production
+    // Requires both: NODE_ENV !== 'production' AND DEV_AUTH_ENABLED === 'true'
+    if (isDevAuthEnabled &&
       email === 'admin@cutlist.pro' &&
       password === 'admin123') {
 
@@ -210,7 +220,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const jwt = await import('jsonwebtoken');
         const { nanoid } = await import('nanoid');
 
-        const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-production';
+        const JWT_SECRET = process.env.JWT_SECRET;
+        if (!JWT_SECRET || JWT_SECRET === 'dev-secret-change-in-production') {
+          console.error('[Auth] JWT_SECRET not configured properly');
+          return res.status(500).json({ success: false, error: 'Server configuration error' });
+        }
+
         const devUser = {
           userId: 'dev-admin-001',
           email: 'admin@cutlist.pro',
@@ -241,7 +256,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }
 
-    // Not dev credentials - pass to authRouter
+    // Not dev credentials or dev auth disabled - pass to authRouter
     next();
   });
 
@@ -302,7 +317,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/plywood-brand-memory/:brand", authenticate, async (req, res) => {
     try {
       const { brand } = req.params;
-      const deleted = await db.delete(plywoodBrandMemory).where(eq(plywoodBrandMemory.brand, brand)).returning();
+      const deleted = await db.delete(plywoodBrandMemory).where(eq(plywoodBrandMemory.brand, brand as string)).returning();
 
       if (deleted.length === 0) {
         return res.status(404).json({ error: "Brand not found" });
@@ -371,7 +386,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             laminateCode: laminateCode || null,
             updatedAt: sql`now()`
           })
-          .where(eq(quickShutterMemory.id, existing[0].id))
+          .where(eq(quickShutterMemory.id, existing[0]!.id))
           .returning();
         return res.json(updated);
       } else {
@@ -394,7 +409,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Master Settings memory routes (protected)
 
   // Get the most recent Master Settings
-  app.get("/api/master-settings-memory", authenticate, async (_req, res) => {
+  app.get("/api/master-settings-memory", authenticate, async (req, res) => {
     const defaultSettings = {
       sheetWidth: '1210',
       sheetHeight: '2420',
@@ -481,7 +496,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             updatedAt: sql`now()`
           })
           .where(and(
-            eq(masterSettingsMemory.id, existing[0]?.id),
+            eq(masterSettingsMemory.id, existing[0]!.id),
             eq(masterSettingsMemory.tenantId, (req as AuthRequest).tenantId || 'default')
           ))
           .returning();
@@ -899,6 +914,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/laminate-code-godown/:code", authenticate, async (req, res) => {
     try {
       const { code } = req.params;
+      if (!code) return res.status(400).json(err("Code is required"));
+
       const { name, innerCode, supplier, thickness, description, woodGrainsEnabled } = req.body;
       const hasWoodGrainsUpdate = woodGrainsEnabled !== undefined;
       const woodGrainsValue = normBoolean(woodGrainsEnabled) ? 'true' : 'false';
@@ -950,7 +967,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/laminate-code-godown/:code", authenticate, async (req, res) => {
     try {
       const { code } = req.params;
-      const deleted = await db.delete(laminateCodeGodown).where(eq(laminateCodeGodown.code, code)).returning();
+      if (!code) return res.status(400).json(err("Code is required"));
+
+      const deleted = await db.delete(laminateCodeGodown).where(eq(laminateCodeGodown.code, code as string)).returning();
 
       if (deleted.length === 0) {
         return res.status(404).json(err("Laminate code not found in godown"));
@@ -1022,7 +1041,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { code } = req.params;
       const [godown] = await db.select()
         .from(laminateCodeGodown)
-        .where(eq(laminateCodeGodown.code, code))
+        .where(eq(laminateCodeGodown.code, code as string))
         .limit(1);
 
       if (godown) {
@@ -1031,7 +1050,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const preference = await db.select()
         .from(laminateWoodGrainsPreference)
-        .where(eq(laminateWoodGrainsPreference.laminateCode, code));
+        .where(eq(laminateWoodGrainsPreference.laminateCode, code as string));
 
       if (preference.length === 0) {
         return res.json(ok({ woodGrainsEnabled: false }));
@@ -1082,11 +1101,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .where(eq(laminateCodeGodown.code, laminateCode));
 
         return res.json(ok({
-          id: updated.id,
-          laminateCode: updated.laminateCode,
-          woodGrainsEnabled: updated.woodGrainsEnabled === 'true',
-          createdAt: updated.createdAt,
-          updatedAt: updated.updatedAt
+          id: updated!.id,
+          laminateCode: updated!.laminateCode,
+          woodGrainsEnabled: updated!.woodGrainsEnabled === 'true',
+          createdAt: updated!.createdAt,
+          updatedAt: updated!.updatedAt
         }));
       } else {
         // Insert new preference
@@ -1110,11 +1129,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // PATCH 13: Return normalized boolean response wrapped with ok()
         return res.json(ok({
-          id: newPreference.id,
-          laminateCode: newPreference.laminateCode,
-          woodGrainsEnabled: newPreference.woodGrainsEnabled === 'true',
-          createdAt: newPreference.createdAt,
-          updatedAt: newPreference.updatedAt
+          id: newPreference!.id,
+          laminateCode: newPreference!.laminateCode,
+          woodGrainsEnabled: newPreference!.woodGrainsEnabled === 'true',
+          createdAt: newPreference!.createdAt,
+          updatedAt: newPreference!.updatedAt
         }));
       }
     } catch (error: any) {
@@ -1164,7 +1183,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const { pdf, materialList } = validation.data;
-      const clientSlug = slugifyClientName(req.params.clientSlug);
+      const clientSlug = slugifyClientName(req.params.clientSlug as string);
       const pdfFilename = sanitizeFilename(pdf.filename);
       const materialListFilename = sanitizeFilename(materialList.filename);
 
@@ -1281,9 +1300,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get client file (PDF or material list) - protected
   app.get("/api/clients/:clientSlug/files/:filename", authenticate, async (req, res) => {
     try {
-      const clientSlug = slugifyClientName(req.params.clientSlug);
+      const clientSlug = slugifyClientName(req.params.clientSlug as string);
       const { filename } = req.params;
-      const safeFilename = sanitizeFilename(filename);
+      const safeFilename = sanitizeFilenameUtil(filename as string);
 
       if (!clientSlug || !safeFilename) {
         return res.status(400).json({ error: "Invalid client slug or filename" });
@@ -1291,6 +1310,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const objectStorageService = new ObjectStorageService();
       const file = await objectStorageService.getClientFile(clientSlug, safeFilename);
+
+      if (!file) throw new Error("File not found");
 
       await objectStorageService.downloadObject(file, res);
     } catch (error) {
@@ -1363,7 +1384,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/laminate-catalogue/:filename", authenticate, async (req, res) => {
     try {
       const { filename } = req.params;
-      const safeFilename = sanitizeFilename(filename);
+      const safeFilename = sanitizeFilenameUtil(filename as string);
 
       if (!safeFilename) {
         return res.status(400).json(err("Invalid filename"));
@@ -1371,6 +1392,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const objectStorageService = new ObjectStorageService();
       const file = await objectStorageService.getClientFile('catalogues', safeFilename);
+
+      if (!file) throw new ObjectNotFoundError("Catalogue not found");
 
       await objectStorageService.downloadObject(file, res);
     } catch (error) {
@@ -1383,29 +1406,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // List all catalogues (protected)
+  // PHASE 16: Uses FileStorage abstraction for S3-readiness
   app.get("/api/laminate-catalogues", authenticate, async (_req, res) => {
     try {
-      const objectStorageService = new ObjectStorageService();
-      const cataloguesDir = path.join(process.cwd(), 'storage', 'catalogues');
+      const storage = getFileStorage();
+      const files = await storage.list(STORAGE_PATHS.CATALOGUES);
 
-      // Check if directory exists
-      if (!fs.existsSync(cataloguesDir)) {
-        return res.json(ok([]));
-      }
+      const catalogues = files
+        .filter(f => f.path.endsWith('.pdf'))
+        .map(f => ({
+          filename: f.path.split('/').pop() || f.path,
+          size: f.metadata.size,
+          uploadedAt: f.metadata.lastModified.toISOString(),
+        }));
 
-      const files = fs.readdirSync(cataloguesDir)
-        .filter(f => f.endsWith('.pdf'))
-        .map(f => {
-          const stats = fs.statSync(path.join(cataloguesDir, f));
-          return {
-            filename: f,
-            size: stats.size,
-            uploadedAt: stats.mtime.toISOString(),
-          };
-        })
-        .sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime());
-
-      res.json(ok(files));
+      res.json(ok(catalogues));
     } catch (error: any) {
       console.error("Error listing catalogues:", error);
       res.status(500).json(err("Failed to list catalogues", error?.message));
@@ -1413,17 +1428,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete catalogue (protected)
+  // PHASE 16: Uses FileStorage abstraction for S3-readiness
   app.delete("/api/laminate-catalogue/:filename", authenticate, async (req, res) => {
     try {
       const { filename } = req.params;
-      const safeFilename = sanitizeFilename(filename);
-      const filePath = path.join(process.cwd(), 'storage', 'catalogues', safeFilename);
+      const safeFilename = sanitizeFilenameUtil(filename as string);
+      const storage = getFileStorage();
+      const filePath = storagePath(STORAGE_PATHS.CATALOGUES, safeFilename);
 
-      if (!fs.existsSync(filePath)) {
+      if (!(await storage.exists(filePath))) {
         return res.status(404).json(err("Catalogue not found"));
       }
 
-      fs.unlinkSync(filePath);
+      await storage.delete(filePath);
       res.json(ok({ message: "Catalogue deleted successfully" }));
     } catch (error: any) {
       console.error("Error deleting catalogue:", error);
@@ -1436,6 +1453,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ============================================
 
   // Upload laminate image (thumbnail) - protected
+  // PHASE 16: Uses FileStorage abstraction for S3-readiness
   app.post("/api/laminate-image/:code", authenticate, async (req, res) => {
     try {
       const { code } = req.params;
@@ -1445,6 +1463,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json(err("Missing laminate code or image data"));
       }
 
+      const safeCode = (code as string).replace(/[^a-zA-Z0-9-_]/g, '_');
       // Validate mime type (only images)
       const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
       if (!allowedTypes.includes(mimeType)) {
@@ -1460,25 +1479,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Create safe filename from laminate code
       const ext = mimeType.split('/')[1] === 'jpeg' ? 'jpg' : mimeType.split('/')[1];
-      const safeCode = code.replace(/[^a-zA-Z0-9-_]/g, '_');
       const filename = `${safeCode}.${ext}`;
 
-      // Ensure directory exists
-      const imagesDir = path.join(process.cwd(), 'storage', 'laminate-images');
-      if (!fs.existsSync(imagesDir)) {
-        fs.mkdirSync(imagesDir, { recursive: true });
-      }
+      const storage = getFileStorage();
 
       // Delete any existing image for this code (different extensions)
-      const existingFiles = fs.readdirSync(imagesDir).filter(f => f.startsWith(safeCode + '.'));
-      existingFiles.forEach(f => {
-        fs.unlinkSync(path.join(imagesDir, f));
-      });
+      const existingFiles = await storage.list(STORAGE_PATHS.LAMINATE_IMAGES);
+      for (const f of existingFiles) {
+        const existingFilename = f.path.split('/').pop() || '';
+        if (existingFilename.startsWith(safeCode + '.')) {
+          await storage.delete(f.path);
+        }
+      }
 
       // Save new image
-      const filePath = path.join(imagesDir, filename);
+      const filePath = storagePath(STORAGE_PATHS.LAMINATE_IMAGES, filename);
       const buffer = Buffer.from(base64, 'base64');
-      fs.writeFileSync(filePath, buffer);
+      await storage.save(filePath, buffer, mimeType);
 
       res.json(ok({
         code,
@@ -1493,62 +1510,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get laminate image (protected)
+  // PHASE 16: Uses FileStorage abstraction for S3-readiness
   app.get("/api/laminate-image/:code", authenticate, async (req, res) => {
     try {
       const { code } = req.params;
-      const safeCode = code.replace(/[^a-zA-Z0-9-_]/g, '_');
-      const imagesDir = path.join(process.cwd(), 'storage', 'laminate-images');
+      const safeCode = (code as string).replace(/[^a-zA-Z0-9-_]/g, '_');
+      const storage = getFileStorage();
 
       // Find image file (could be jpg, png, webp, gif)
-      if (!fs.existsSync(imagesDir)) {
+      const allFiles = await storage.list(STORAGE_PATHS.LAMINATE_IMAGES);
+      const matchingFiles = allFiles.filter(f => {
+        const filename = f.path.split('/').pop() || '';
+        return filename.startsWith(safeCode + '.');
+      });
+
+      if (matchingFiles.length === 0) {
         return res.status(404).json(err("Image not found"));
       }
 
-      const files = fs.readdirSync(imagesDir).filter(f => f.startsWith(safeCode + '.'));
-      if (files.length === 0) {
-        return res.status(404).json(err("Image not found"));
-      }
+      const file = matchingFiles[0]!;
+      const metadata = await storage.getMetadata(file.path);
 
-      const filename = files[0];
-      const filePath = path.join(imagesDir, filename);
-      const ext = path.extname(filename).slice(1);
-
-      const mimeTypes: Record<string, string> = {
-        jpg: 'image/jpeg',
-        jpeg: 'image/jpeg',
-        png: 'image/png',
-        webp: 'image/webp',
-        gif: 'image/gif'
-      };
-
-      res.setHeader('Content-Type', mimeTypes[ext] || 'image/jpeg');
+      res.setHeader('Content-Type', metadata.mimeType);
       res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 1 day
-      fs.createReadStream(filePath).pipe(res);
+
+      const stream = await storage.getStream(file.path);
+      stream.pipe(res);
     } catch (error: any) {
+      if (error instanceof FileNotFoundError) {
+        return res.status(404).json(err("Image not found"));
+      }
       console.error("Error getting laminate image:", error);
       res.status(500).json(err("Failed to get image", error?.message));
     }
   });
 
   // Delete laminate image (protected)
+  // PHASE 16: Uses FileStorage abstraction for S3-readiness
   app.delete("/api/laminate-image/:code", authenticate, async (req, res) => {
     try {
       const { code } = req.params;
-      const safeCode = code.replace(/[^a-zA-Z0-9-_]/g, '_');
-      const imagesDir = path.join(process.cwd(), 'storage', 'laminate-images');
+      const safeCode = (code as string).replace(/[^a-zA-Z0-9-_]/g, '_');
+      const storage = getFileStorage();
 
-      if (!fs.existsSync(imagesDir)) {
-        return res.status(404).json(err("Image not found"));
-      }
-
-      const files = fs.readdirSync(imagesDir).filter(f => f.startsWith(safeCode + '.'));
-      if (files.length === 0) {
-        return res.status(404).json(err("Image not found"));
-      }
-
-      files.forEach(f => {
-        fs.unlinkSync(path.join(imagesDir, f));
+      // Find and delete all images for this code
+      const allFiles = await storage.list(STORAGE_PATHS.LAMINATE_IMAGES);
+      const matchingFiles = allFiles.filter(f => {
+        const filename = f.path.split('/').pop() || '';
+        return filename.startsWith(safeCode + '.');
       });
+
+      if (matchingFiles.length === 0) {
+        return res.status(404).json(err("Image not found"));
+      }
+
+      for (const f of matchingFiles) {
+        await storage.delete(f.path);
+      }
 
       res.json(ok({ message: "Image deleted successfully" }));
     } catch (error: any) {
@@ -1558,22 +1576,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // List all laminate images (protected)
+  // PHASE 16: Uses FileStorage abstraction for S3-readiness
   app.get("/api/laminate-images", authenticate, async (_req, res) => {
     try {
-      const imagesDir = path.join(process.cwd(), 'storage', 'laminate-images');
+      const storage = getFileStorage();
+      const files = await storage.list(STORAGE_PATHS.LAMINATE_IMAGES);
 
-      if (!fs.existsSync(imagesDir)) {
-        return res.json(ok({}));
-      }
-
-      const files = fs.readdirSync(imagesDir);
       const imageMap: Record<string, string> = {};
 
-      files.forEach(f => {
-        const ext = path.extname(f);
-        const code = f.replace(ext, '').replace(/_/g, '-'); // Convert back underscores
+      for (const f of files) {
+        const filename = f.path.split('/').pop() || '';
+        // Skip metadata files
+        if (filename.endsWith('.meta.json')) continue;
+
+        const ext = path.extname(filename);
+        const code = filename.replace(ext, '').replace(/_/g, '-'); // Convert back underscores
         imageMap[code] = `/api/laminate-image/${encodeURIComponent(code)}`;
-      });
+      }
 
       res.json(ok(imageMap));
     } catch (error: any) {

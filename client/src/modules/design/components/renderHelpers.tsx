@@ -42,7 +42,7 @@ interface GridOptions {
 }
 
 /**
- * Render the grid with ruler marks
+ * Render the grid (no ruler marks)
  */
 export function renderGrid({
   gridSize,
@@ -52,43 +52,6 @@ export function renderGrid({
 }: GridOptions): React.ReactElement {
   const fine = gridSize;
   const medium = gridSize * 10;
-  const rulerMarks: JSX.Element[] = [];
-  const labelInterval = medium > 0 ? medium : fine * 10;
-
-  for (let x = 0; x <= canvasWidth; x += labelInterval) {
-    rulerMarks.push(
-      <g key={`xruler-${x}`}>
-        <line x1={x} y1={0} x2={x} y2={6} stroke="#555" strokeWidth={0.5} />
-        <text
-          x={x}
-          y={15}
-          fontSize={9}
-          fill="#666"
-          textAnchor="middle"
-          fontFamily="'Courier New', monospace"
-        >
-          {x}
-        </text>
-      </g>
-    );
-  }
-  for (let y = 0; y <= canvasHeight; y += labelInterval) {
-    rulerMarks.push(
-      <g key={`yruler-${y}`}>
-        <line x1={0} y1={y} x2={6} y2={y} stroke="#555" strokeWidth={0.5} />
-        <text
-          x={-8}
-          y={y + 3}
-          fontSize={9}
-          fill="#666"
-          textAnchor="end"
-          fontFamily="'Courier New', monospace"
-        >
-          {y}
-        </text>
-      </g>
-    );
-  }
 
   return (
     <>
@@ -142,9 +105,6 @@ export function renderGrid({
           fill="url(#gridMedium)"
         />
       )}
-      <line x1={0} y1={0} x2={60} y2={0} stroke="#c00" strokeWidth={1} />
-      <line x1={0} y1={0} x2={0} y2={60} stroke="#0c0" strokeWidth={1} />
-      <g id="rulers">{rulerMarks}</g>
     </>
   );
 }
@@ -165,6 +125,9 @@ interface RectRenderOptions {
   isHovered: boolean;
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
+  actionMode?: "move" | "resize" | "copy" | "delete" | null;
+  cursorPos?: { x: number; y: number } | null;
+  dimFontSize?: number;
 }
 
 /**
@@ -177,12 +140,34 @@ export function renderRect({
   isHovered,
   onMouseEnter,
   onMouseLeave,
+  actionMode,
+  cursorPos,
+  dimFontSize = DEFAULT_DIMENSION_FONT_SIZE,
 }: RectRenderOptions): React.ReactElement {
   const rFill = r.fill ?? "none";
   const rStroke = r.stroke ?? COLORS.CYAN;
   const rStrokeW = r.strokeWidth ?? 1;
   const isModRect = r.id.startsWith("MOD-");
   const isLocked = LOCKED_SHAPE_IDS.has(r.id);
+  const isCenterPost = r.id.startsWith("MOD-POST-");
+
+  // For center posts in resize mode: check if cursor is in 80px padding area
+  const HIT_PADDING = 80;
+  let isInPadding = false;
+
+  if (isCenterPost && isSelected && actionMode === "resize" && cursorPos) {
+    // Check if cursor is directly on the post
+    const isOnPost = cursorPos.x >= r.x && cursorPos.x <= r.x + r.w &&
+                     cursorPos.y >= r.y && cursorPos.y <= r.y + r.h;
+
+    // Check if cursor is in the padding area (but not on post)
+    const inPaddingArea = cursorPos.x >= r.x - HIT_PADDING && cursorPos.x <= r.x + r.w + HIT_PADDING &&
+                          cursorPos.y >= r.y - HIT_PADDING && cursorPos.y <= r.y + r.h + HIT_PADDING;
+    isInPadding = inPaddingArea && !isOnPost;
+  }
+
+  // Only show arrows when in 40px padding area (not directly on post)
+  const showArrowsInPadding = isCenterPost && isSelected && actionMode === "resize" && isInPadding;
 
   // Locked shapes don't show selection/hover states
   const selStroke = isLocked
@@ -253,6 +238,63 @@ export function renderRect({
             {Math.round(r.w)} × {Math.round(r.h)}
           </text>
         </g>
+      )}
+      {/* Resize handles for center posts - arrows only when in 40px padding area */}
+      {showArrowsInPadding && (
+        <g>
+          {/* Top resize arrow */}
+          <circle
+            cx={r.x + r.w / 2}
+            cy={r.y - 15}
+            r={12}
+            fill="#3b82f6"
+            stroke="#fff"
+            strokeWidth={2}
+          />
+          <text
+            x={r.x + r.w / 2}
+            y={r.y - 10}
+            textAnchor="middle"
+            fontSize={16}
+            fontWeight="bold"
+            fill="#fff"
+          >
+            ↑
+          </text>
+          {/* Bottom resize arrow */}
+          <circle
+            cx={r.x + r.w / 2}
+            cy={r.y + r.h + 15}
+            r={12}
+            fill="#3b82f6"
+            stroke="#fff"
+            strokeWidth={2}
+          />
+          <text
+            x={r.x + r.w / 2}
+            y={r.y + r.h + 20}
+            textAnchor="middle"
+            fontSize={16}
+            fontWeight="bold"
+            fill="#fff"
+          >
+            ↓
+          </text>
+        </g>
+      )}
+      {/* Height display for center posts in resize mode - shown next to post */}
+      {isCenterPost && isSelected && actionMode === "resize" && (
+        <text
+          x={r.x + r.w + dimFontSize * 0.5}
+          y={r.y + r.h / 2 + dimFontSize * 0.3}
+          textAnchor="start"
+          fontSize={dimFontSize}
+          fontWeight="bold"
+          fill={DIMENSION_COLOR}
+          fontFamily={DIMENSION_FONT_FAMILY}
+        >
+          {Math.round(r.h)}
+        </text>
       )}
     </g>
   );
@@ -389,6 +431,8 @@ interface ShapeRenderOptions {
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
   dimFontSize?: number;
+  actionMode?: "move" | "resize" | "copy" | "delete" | null;
+  cursorPos?: { x: number; y: number } | null;
 }
 
 /**
@@ -401,6 +445,8 @@ export function renderShape({
   onMouseEnter,
   onMouseLeave,
   dimFontSize = DEFAULT_DIMENSION_FONT_SIZE,
+  actionMode,
+  cursorPos,
 }: ShapeRenderOptions): React.ReactElement | null {
   if (shape.type === "dimension") {
     return renderDimension(shape as DimensionShape, dimFontSize);
@@ -411,6 +457,9 @@ export function renderShape({
       isHovered,
       onMouseEnter,
       onMouseLeave,
+      actionMode,
+      cursorPos,
+      dimFontSize,
     });
   } else if (shape.type === "line") {
     return renderLine({

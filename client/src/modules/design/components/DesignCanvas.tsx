@@ -37,13 +37,18 @@ export default function DesignCanvas() {
   const svgRef = useRef<SVGSVGElement>(null);
   const panRef = useRef({ x: 0, y: 0 });
 
-  // Context menu state for shelf editing
+  // Context menu state for shelf/center post editing
   const [contextMenu, setContextMenu] = useState<{
     visible: boolean;
     position: { x: number; y: number };
+    menuType: "section" | "centerPost" | "shelf";
     sectionIndex: number;
     sectionType: string;
     shelfCount: number;
+    centerPostCount: number;
+    // For shelf click - Posts Below feature
+    shelfId?: string;
+    postsBelow?: number;
   } | null>(null);
 
   // Get state from store
@@ -89,7 +94,7 @@ export default function DesignCanvas() {
     setContextMenu(null);
   }, []);
 
-  // Handle right-click on canvas to show shelf context menu
+  // Handle right-click on canvas to show context menu (shelves or center posts)
   // Uses extracted getClickTarget for clean separation of concerns
   const handleContextMenu = useCallback(
     (e: React.MouseEvent<SVGSVGElement>) => {
@@ -105,9 +110,9 @@ export default function DesignCanvas() {
       // Use centralized click target detection
       const target = getClickTarget(svgPoint, moduleConfig, shapes);
 
-      // Only show shelf menu for section clicks
-      if (target.type !== "section") {
-        return; // Let panel/post selection handle other click types
+      // Show menu for section, center post, or shelf clicks
+      if (target.type !== "section" && target.type !== "centerPost" && target.type !== "shelf") {
+        return; // Let panel selection handle other click types
       }
 
       // Clear any existing panel selection
@@ -116,13 +121,47 @@ export default function DesignCanvas() {
       // Calculate menu position
       const position = calculateMenuPosition(e.clientX, e.clientY);
 
-      setContextMenu({
-        visible: true,
-        position,
-        sectionIndex: target.sectionIndex ?? 0,
-        sectionType: target.sectionType ?? "shelves",
-        shelfCount: target.shelfCount ?? 0,
-      });
+      if (target.type === "centerPost") {
+        // Center post right-click - show center post controls
+        setContextMenu({
+          visible: true,
+          position,
+          menuType: "centerPost",
+          sectionIndex: 0,
+          sectionType: "shelves",
+          shelfCount: 0,
+          centerPostCount: moduleConfig?.centerPostCount ?? 0,
+        });
+      } else if (target.type === "shelf") {
+        // Shelf right-click - show Posts Below controls
+        const sectionIdx = target.sectionIndex ?? 0;
+        // Get current postsBelow value from section config
+        const currentSection = moduleConfig?.sections?.[sectionIdx];
+        const currentPostsBelow = currentSection?.postsBelow ?? 0;
+
+        setContextMenu({
+          visible: true,
+          position,
+          menuType: "shelf",
+          sectionIndex: sectionIdx,
+          sectionType: currentSection?.type ?? "shelves",
+          shelfCount: currentSection?.shelfCount ?? 0,
+          centerPostCount: moduleConfig?.centerPostCount ?? 0,
+          shelfId: target.shelfId,
+          postsBelow: currentPostsBelow,
+        });
+      } else {
+        // Section right-click - show shelf controls
+        setContextMenu({
+          visible: true,
+          position,
+          menuType: "section",
+          sectionIndex: target.sectionIndex ?? 0,
+          sectionType: target.sectionType ?? "shelves",
+          shelfCount: target.shelfCount ?? 0,
+          centerPostCount: moduleConfig?.centerPostCount ?? 0,
+        });
+      }
     },
     [moduleConfig, shapes, clearSelection]
   );
@@ -167,6 +206,63 @@ export default function DesignCanvas() {
     [moduleConfig, contextMenu, regenerateModuleShapes]
   );
 
+  // Handle center post count change from context menu
+  const handleCenterPostCountChange = useCallback(
+    (newCount: number) => {
+      if (!moduleConfig) return;
+
+      // Update the context menu state for immediate UI feedback
+      setContextMenu(prev => prev ? { ...prev, centerPostCount: newCount } : null);
+
+      // Regenerate shapes with new center post count
+      const newConfig = { ...moduleConfig, centerPostCount: newCount };
+      regenerateModuleShapes(newConfig);
+    },
+    [moduleConfig, regenerateModuleShapes]
+  );
+
+  // Handle posts below change from shelf context menu
+  const handlePostsBelowChange = useCallback(
+    (newCount: number) => {
+      if (!moduleConfig || !contextMenu) return;
+
+      const { sections } = moduleConfig;
+      const sectionIdx = contextMenu.sectionIndex;
+
+      // Update the context menu state for immediate UI feedback
+      setContextMenu(prev => prev ? { ...prev, postsBelow: newCount } : null);
+
+      if (sections && sections.length > sectionIdx) {
+        // Update specific section's postsBelow count
+        const updatedSections = sections.map((section, idx) => {
+          if (idx === sectionIdx) {
+            return { ...section, postsBelow: newCount };
+          }
+          return section;
+        });
+
+        const newConfig = { ...moduleConfig, sections: updatedSections };
+        regenerateModuleShapes(newConfig);
+      } else {
+        // For wardrobe_carcass without sections, create sections based on center posts
+        const postCount = moduleConfig.centerPostCount ?? 0;
+        const numSections = postCount + 1;
+
+        // Create sections array with the clicked section having the new postsBelow count
+        const newSections: WardrobeSection[] = Array.from({ length: numSections }, (_, idx) => ({
+          type: "shelves" as const,
+          widthMm: 0,
+          shelfCount: 0,
+          postsBelow: idx === sectionIdx ? newCount : 0,
+        }));
+
+        const newConfig = { ...moduleConfig, sections: newSections, sectionCount: numSections };
+        regenerateModuleShapes(newConfig);
+      }
+    },
+    [moduleConfig, contextMenu, regenerateModuleShapes]
+  );
+
   // Resize canvas on window resize
   useEffect(() => {
     const onResize = () => {
@@ -198,9 +294,11 @@ export default function DesignCanvas() {
         onMouseEnter: () => setHoveredPanelId(s.id),
         onMouseLeave: () => setHoveredPanelId(null),
         dimFontSize,
+        actionMode,
+        cursorPos,
       });
     },
-    [selectedId, selectedIds, hoveredPanelId, setHoveredPanelId, dimFontSize]
+    [selectedId, selectedIds, hoveredPanelId, setHoveredPanelId, dimFontSize, actionMode, cursorPos]
   );
 
   // Calculate cursor style
@@ -289,14 +387,19 @@ export default function DesignCanvas() {
         renderComponentPreview({ component: selectedComponent, cursorPos })}
     </svg>
 
-    {/* Shelf Context Menu */}
-    {contextMenu?.visible && (
+    {/* Context Menu (Shelves and Posts tabs) */}
+    {contextMenu?.visible && (contextMenu.menuType === "section" || contextMenu.menuType === "shelf") && (
       <ShelfContextMenu
         position={contextMenu.position}
+        menuType={contextMenu.menuType === "shelf" ? "section" : contextMenu.menuType}
         shelfCount={contextMenu.shelfCount}
         sectionIndex={contextMenu.sectionIndex}
         sectionType={contextMenu.sectionType}
+        centerPostCount={contextMenu.centerPostCount}
+        postsBelow={contextMenu.postsBelow ?? 0}
         onShelfCountChange={handleShelfCountChange}
+        onCenterPostCountChange={handleCenterPostCountChange}
+        onPostsBelowChange={handlePostsBelowChange}
         onClose={closeContextMenu}
       />
     )}

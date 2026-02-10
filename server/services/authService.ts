@@ -70,16 +70,16 @@ export class AuthService {
             passwordHash,
             fullName,
             role: 'admin',
-            tenantId: tenant.id,
+            tenantId: tenant!.id,
             emailVerified: false,
         }).returning();
 
         // Generate tokens
         const payload: UserPayload = {
-            userId: user.id,
-            email: user.email,
-            role: user.role,
-            tenantId: user.tenantId!,
+            userId: user!.id,
+            email: user!.email,
+            role: user!.role as any,
+            tenantId: user!.tenantId!,
         };
 
         const tokens = await this.generateTokens(payload);

@@ -22,22 +22,22 @@ export const objectStorageClient = new Storage({
 });
 
 export class ObjectNotFoundError extends Error {
-  constructor() {
-    super("Object not found");
+  constructor(message?: string) {
+    super(message || "Object not found");
     this.name = "ObjectNotFoundError";
     Object.setPrototypeOf(this, ObjectNotFoundError.prototype);
   }
 }
 
 export class ObjectStorageService {
-  constructor() {}
+  constructor() { }
 
   getPrivateObjectDir(): string {
     const dir = process.env.PRIVATE_OBJECT_DIR || "";
     if (!dir) {
       throw new Error(
         "PRIVATE_OBJECT_DIR not set. Create a bucket in 'Object Storage' " +
-          "tool and set PRIVATE_OBJECT_DIR env var."
+        "tool and set PRIVATE_OBJECT_DIR env var."
       );
     }
     return dir;
@@ -89,7 +89,7 @@ export class ObjectStorageService {
   async downloadObject(file: File, res: Response) {
     try {
       const [metadata] = await file.getMetadata();
-      
+
       res.set({
         "Content-Type": metadata.contentType || "application/octet-stream",
         "Content-Length": metadata.size,
@@ -127,7 +127,7 @@ function parseObjectPath(path: string): {
     throw new Error("Invalid path: must contain at least a bucket name");
   }
 
-  const bucketName = pathParts[1];
+  const bucketName = pathParts[1]!;
   const objectName = pathParts.slice(2).join("/");
 
   return {

@@ -11,7 +11,6 @@ import {
   Users,
   ChevronLeft,
   ChevronRight,
-  Zap,
   BookOpen,
   LogOut,
 } from "lucide-react";
@@ -66,12 +65,6 @@ const navItems: NavItem[] = [
 ];
 
 const secondaryNavItems: NavItem[] = [
-  {
-    path: "/quick-quotation",
-    label: "Quick Quote",
-    icon: <Zap className="w-5 h-5" />,
-    gradient: "from-green-500 to-emerald-500",
-  },
   {
     path: "/client-info",
     label: "Client Info",

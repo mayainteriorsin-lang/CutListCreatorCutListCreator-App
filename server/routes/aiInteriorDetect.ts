@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
+import { withCircuitBreaker } from "../services/circuitBreaker";
 
 const unitTypeSchema = z.enum(["wardrobe", "kitchen", "tv_unit", "dresser", "other"]);
 
@@ -155,6 +156,10 @@ const emptySuggestion = (unitType: UnitType): AiInteriorSuggestion => ({
   suggestions: {},
 });
 
+/**
+ * Call OpenAI API with circuit breaker protection
+ * PHASE 16: Added circuit breaker for resilience
+ */
 async function detectInteriorUnit(params: {
   imageBase64: string;
   unitType: UnitType;
@@ -166,71 +171,79 @@ async function detectInteriorUnit(params: {
     throw new Error("OpenAI API key not configured");
   }
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 20000);
+  // Wrap OpenAI call with circuit breaker
+  return withCircuitBreaker(
+    'ai',
+    async () => {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 20000);
 
-  const payload = {
-    model: "gpt-4o-mini",
-    max_tokens: 400,
-    response_format: responseFormat,
-    messages: [
-      { role: "system", content: SYSTEM_PROMPT },
-      {
-        role: "user",
-        content: [
+      const payload = {
+        model: "gpt-4o-mini",
+        max_tokens: 400,
+        response_format: responseFormat,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
           {
-            type: "text",
-            text: `Unit type: ${unitType}. Room type: ${roomType || "unknown"}.`,
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: `Unit type: ${unitType}. Room type: ${roomType || "unknown"}.`,
+              },
+              { type: "image_url", image_url: { url: imageBase64 } },
+            ],
           },
-          { type: "image_url", image_url: { url: imageBase64 } },
         ],
-      },
-    ],
-  };
-
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(payload),
-    signal: controller.signal,
-  });
-
-  clearTimeout(timeout);
-
-  if (!response.ok) {
-    const errText = await response.text().catch(() => "");
-    console.error("OpenAI vision error:", response.status, errText);
-    throw new Error("AI detection failed");
-  }
-
-  const data: any = await response.json();
-  const content: string = data?.choices?.[0]?.message?.content?.trim?.() || "";
-  let suggestion = emptySuggestion(unitType);
-
-  if (!content) {
-    return { suggestion, raw: content };
-  }
-
-  try {
-    const parsed = JSON.parse(content);
-    const validated = suggestionSchema.safeParse(parsed);
-    if (validated.success) {
-      suggestion = {
-        ...validated.data,
-        unitType,
-        suggestions: validated.data.suggestions ?? {},
       };
-    } else {
-      console.error("AI interior detect validation failed:", validated.error.format());
-    }
-  } catch (err) {
-    console.error("Failed to parse AI JSON:", err, content);
-  }
 
-  return { suggestion, raw: content };
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeout);
+
+      if (!response.ok) {
+        const errText = await response.text().catch(() => "");
+        console.error("OpenAI vision error:", response.status, errText);
+        throw new Error("AI detection failed");
+      }
+
+      const data: any = await response.json();
+      const content: string = data?.choices?.[0]?.message?.content?.trim?.() || "";
+      let suggestion = emptySuggestion(unitType);
+
+      if (!content) {
+        return { suggestion, raw: content };
+      }
+
+      try {
+        const parsed = JSON.parse(content);
+        const validated = suggestionSchema.safeParse(parsed);
+        if (validated.success) {
+          suggestion = {
+            ...validated.data,
+            unitType,
+            suggestions: validated.data.suggestions ?? {},
+          };
+        } else {
+          console.error("AI interior detect validation failed:", validated.error.format());
+        }
+      } catch (err) {
+        console.error("Failed to parse AI JSON:", err, content);
+      }
+
+      return { suggestion, raw: content };
+    },
+    // Fallback when circuit is open
+    () => ({ suggestion: emptySuggestion(unitType), raw: '' })
+  );
 }
 
 export function aiInteriorDetectRouter() {

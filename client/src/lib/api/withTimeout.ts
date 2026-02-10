@@ -9,10 +9,10 @@ export async function withTimeout<T>(
   promise: Promise<T>,
   ms = 8000
 ): Promise<T> {
-  let timer: number;
+  let timer: ReturnType<typeof setTimeout> | undefined;
 
   const timeout = new Promise<never>((_, reject) => {
-    timer = window.setTimeout(() => {
+    timer = setTimeout(() => {
       reject(new Error("Request timed out"));
     }, ms);
   });
@@ -20,6 +20,8 @@ export async function withTimeout<T>(
   try {
     return await Promise.race([promise, timeout]);
   } finally {
-    clearTimeout(timer);
+    if (timer !== undefined) {
+      clearTimeout(timer);
+    }
   }
 }

@@ -11,7 +11,6 @@ import type { ModuleConfig, WardrobeSection, WardrobeSectionType } from "../engi
 import { DEFAULT_WARDROBE_SECTIONS } from "../engine/shapeGenerator";
 import { UNIT_TYPE_LABELS } from "@/modules/visual-quotation/constants";
 import { validateModuleConfig } from "../engine/validation";
-import BackPanelPreview from "./BackPanelPreview";
 import CuttingListPreview from "./CuttingListPreview";
 import SkirtingInput from "./SkirtingInput";
 import {
@@ -20,8 +19,6 @@ import {
   inputStyle,
   numberInputStyle,
   rowStyle,
-  CARCASS_OPTIONS,
-  SHUTTER_OPTIONS,
   SECTION_TYPE_LABELS,
   TYPE_COLORS,
 } from "./configPanelStyles";
@@ -45,9 +42,7 @@ export interface ModulePricingResult {
 export interface ModuleConfigPanelUIProps {
   config: ModuleConfig;
   onChange: (config: ModuleConfig) => void;
-  onUpdateDrawing: () => void;
   onSaveToLibrary: () => void;
-  onGenerateCutlist: () => void;
   onClose: () => void;
   pricing?: ModulePricingResult;
 }
@@ -55,9 +50,7 @@ export interface ModuleConfigPanelUIProps {
 export default function ModuleConfigPanelUI({
   config,
   onChange,
-  onUpdateDrawing,
   onSaveToLibrary,
-  onGenerateCutlist,
   onClose,
   pricing,
 }: ModuleConfigPanelUIProps) {
@@ -254,27 +247,88 @@ export default function ModuleConfigPanelUI({
         )}
         {config.unitType === "wardrobe_carcass" && (
           <>
-            <div style={rowStyle}>
-              <label style={{ ...labelStyle, marginBottom: 0 }}>Center Posts</label>
-              <input
-                type="number"
-                min={0}
-                max={10}
-                value={config.centerPostCount ?? 0}
-                onChange={(e) => update({ centerPostCount: Math.max(0, Math.min(10, parseInt(e.target.value) || 0)) })}
-                style={numberInputStyle}
-              />
+            {/* Center Posts - Stepper UI */}
+            <div style={{
+              padding: "8px 10px",
+              background: "#f8fafc",
+              borderRadius: 6,
+              border: "1px solid #e2e8f0",
+              marginBottom: 8
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                <span style={{ fontSize: 14 }}>┃</span>
+                <span style={{ fontSize: 11, fontWeight: 500, color: "#334155" }}>Center Posts</span>
+                <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 0 }}>
+                  <button
+                    onClick={() => update({ centerPostCount: Math.max(0, (config.centerPostCount ?? 0) - 1) })}
+                    disabled={(config.centerPostCount ?? 0) <= 0}
+                    style={{
+                      width: 32,
+                      height: 32,
+                      border: "1px solid #e2e8f0",
+                      borderRadius: "6px 0 0 6px",
+                      background: (config.centerPostCount ?? 0) <= 0 ? "#f1f5f9" : "#fff",
+                      color: (config.centerPostCount ?? 0) <= 0 ? "#cbd5e1" : "#334155",
+                      fontSize: 16,
+                      cursor: (config.centerPostCount ?? 0) <= 0 ? "not-allowed" : "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    −
+                  </button>
+                  <div style={{
+                    width: 40,
+                    height: 32,
+                    border: "1px solid #e2e8f0",
+                    borderLeft: "none",
+                    borderRight: "none",
+                    background: "#fff",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: "#334155",
+                  }}>
+                    {config.centerPostCount ?? 0}
+                  </div>
+                  <button
+                    onClick={() => update({ centerPostCount: Math.min(9, (config.centerPostCount ?? 0) + 1) })}
+                    disabled={(config.centerPostCount ?? 0) >= 9}
+                    style={{
+                      width: 32,
+                      height: 32,
+                      border: "1px solid #e2e8f0",
+                      borderRadius: "0 6px 6px 0",
+                      background: (config.centerPostCount ?? 0) >= 9 ? "#f1f5f9" : "#fff",
+                      color: (config.centerPostCount ?? 0) >= 9 ? "#cbd5e1" : "#334155",
+                      fontSize: 16,
+                      cursor: (config.centerPostCount ?? 0) >= 9 ? "not-allowed" : "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+              <div style={{ fontSize: 10, color: "#94a3b8" }}>
+                Range: 0-9 center posts
+              </div>
             </div>
             <div style={rowStyle}>
-              <label style={{ ...labelStyle, marginBottom: 0 }}>Carcass (mm)</label>
-              <input
-                type="number"
-                min={12}
-                max={25}
+              <label style={{ ...labelStyle, marginBottom: 0 }}>Carcass</label>
+              <select
                 value={config.carcassThicknessMm ?? 18}
-                onChange={(e) => update({ carcassThicknessMm: Math.max(12, Math.min(25, parseInt(e.target.value) || 18)) })}
-                style={numberInputStyle}
-              />
+                onChange={(e) => update({ carcassThicknessMm: parseInt(e.target.value) })}
+                style={{ ...inputStyle, width: 70, fontSize: 11 }}
+              >
+                <option value={18}>18mm</option>
+                <option value={25}>25mm</option>
+              </select>
             </div>
             <div style={rowStyle}>
               <label style={{ ...labelStyle, marginBottom: 0 }}>Back Panel (mm)</label>
@@ -288,34 +342,20 @@ export default function ModuleConfigPanelUI({
               />
             </div>
             <div style={rowStyle}>
-              <label style={{ ...labelStyle, marginBottom: 0 }}>Post Deduct</label>
-              <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                <span style={{ fontSize: 9, color: "#64748b", fontWeight: 600 }}>B</span>
-                <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={config.backPanelDeduction ?? 20}
-                  onChange={(e) => update({ backPanelDeduction: Math.max(0, parseInt(e.target.value) || 0) })}
-                  style={{ ...numberInputStyle, width: 50 }}
-                  title="Back deduction"
-                />
-                <span style={{ fontSize: 9, color: "#64748b", fontWeight: 600 }}>F</span>
-                <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={config.backPanelFrontDeduction ?? 0}
-                  onChange={(e) => update({ backPanelFrontDeduction: Math.max(0, parseInt(e.target.value) || 0) })}
-                  style={{ ...numberInputStyle, width: 50 }}
-                  title="Front deduction"
-                />
-              </div>
+              <label style={{ ...labelStyle, marginBottom: 0 }}>Back Inset</label>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                value={config.backPanelDeduction ?? 20}
+                onChange={(e) => update({ backPanelDeduction: Math.max(0, parseInt(e.target.value) || 0) })}
+                style={numberInputStyle}
+                title="Back panel inset from edges (mm)"
+              />
             </div>
             <div style={rowStyle}>
-              <label style={{ ...labelStyle, marginBottom: 0 }}>Shelf Deduct</label>
+              <label style={{ ...labelStyle, marginBottom: 0 }}>Shelf Inset</label>
               <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                <span style={{ fontSize: 9, color: "#64748b", fontWeight: 600 }}>B</span>
                 <input
                   type="number"
                   min={0}
@@ -323,9 +363,9 @@ export default function ModuleConfigPanelUI({
                   value={config.shelfBackDeduction ?? 20}
                   onChange={(e) => update({ shelfBackDeduction: Math.max(0, parseInt(e.target.value) || 0) })}
                   style={{ ...numberInputStyle, width: 50 }}
-                  title="Back deduction"
+                  title="Shelf back inset (mm)"
                 />
-                <span style={{ fontSize: 9, color: "#64748b", fontWeight: 600 }}>F</span>
+                <span style={{ fontSize: 9, color: "#64748b" }}>back</span>
                 <input
                   type="number"
                   min={0}
@@ -333,8 +373,9 @@ export default function ModuleConfigPanelUI({
                   value={config.shelfFrontDeduction ?? 10}
                   onChange={(e) => update({ shelfFrontDeduction: Math.max(0, parseInt(e.target.value) || 0) })}
                   style={{ ...numberInputStyle, width: 50 }}
-                  title="Front deduction"
+                  title="Shelf front inset (mm)"
                 />
+                <span style={{ fontSize: 9, color: "#64748b" }}>front</span>
               </div>
             </div>
             {/* Skirting Option - below shelf deduct */}
@@ -346,16 +387,6 @@ export default function ModuleConfigPanelUI({
               rowStyle={rowStyle}
               labelStyle={labelStyle}
               numberInputStyle={numberInputStyle}
-            />
-            {/* Back Panel Size Preview */}
-            <BackPanelPreview
-              widthMm={config.widthMm}
-              heightMm={config.heightMm}
-              carcassThicknessMm={config.carcassThicknessMm ?? 18}
-              backPanelThicknessMm={config.backPanelThicknessMm ?? 10}
-              centerPostCount={config.centerPostCount ?? 0}
-              backPanelDeduction={config.backPanelDeduction ?? 20}
-              panelsEnabled={config.panelsEnabled ?? { top: true, bottom: true, left: true, right: true, back: true }}
             />
           </>
         )}
@@ -475,69 +506,6 @@ export default function ModuleConfigPanelUI({
         </div>
       )}
 
-      {/* Materials */}
-      <div style={sectionStyle}>
-        <div style={{ fontSize: 11, fontWeight: 600, color: "#334155", marginBottom: 8 }}>
-          Materials
-        </div>
-        <div style={{ marginBottom: 8 }}>
-          <label style={labelStyle}>Carcass</label>
-          <select
-            value={config.carcassMaterial}
-            onChange={(e) => update({ carcassMaterial: e.target.value })}
-            style={inputStyle}
-          >
-            {CARCASS_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label style={labelStyle}>Shutter</label>
-          <select
-            value={config.shutterMaterial}
-            onChange={(e) => update({ shutterMaterial: e.target.value })}
-            style={inputStyle}
-          >
-            {SHUTTER_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* Rate Card Pricing */}
-      {pricing && (
-        <div style={sectionStyle}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: "#334155", marginBottom: 8 }}>
-            Rate Card
-          </div>
-          <div style={{ fontSize: 11, color: "#64748b" }}>
-            <div style={rowStyle}>
-              <span>Carcass</span>
-              <span>{pricing.carcassSqft} sqft @ {pricing.carcassRate}/sqft</span>
-            </div>
-            <div style={rowStyle}>
-              <span>Shutter</span>
-              <span>{pricing.shutterSqft} sqft @ {pricing.shutterRate}/sqft</span>
-            </div>
-            {pricing.loftSqft > 0 && (
-              <div style={rowStyle}>
-                <span>Loft</span>
-                <span>{pricing.loftSqft} sqft</span>
-              </div>
-            )}
-            <div style={{
-              ...rowStyle, fontWeight: 600, color: "#334155",
-              borderTop: "1px solid #e2e8f0", paddingTop: 6, marginTop: 2, marginBottom: 0,
-            }}>
-              <span>Total (incl 18% GST)</span>
-              <span>Rs.{pricing.total.toLocaleString()}</span>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Spacer */}
       <div style={{ flex: 1 }} />
 
@@ -594,38 +562,6 @@ export default function ModuleConfigPanelUI({
           flexShrink: 0,
         }}
       >
-        <button
-          onClick={onUpdateDrawing}
-          style={{
-            width: "100%",
-            padding: "8px",
-            background: "linear-gradient(135deg, #0d9488, #14b8a6)",
-            color: "#fff",
-            border: "none",
-            borderRadius: 6,
-            fontSize: 12,
-            fontWeight: 600,
-            cursor: "pointer",
-          }}
-        >
-          Update Drawing
-        </button>
-        <button
-          onClick={onGenerateCutlist}
-          style={{
-            width: "100%",
-            padding: "8px",
-            background: "linear-gradient(135deg, #3b82f6, #6366f1)",
-            color: "#fff",
-            border: "none",
-            borderRadius: 6,
-            fontSize: 12,
-            fontWeight: 600,
-            cursor: "pointer",
-          }}
-        >
-          Generate Cutlist
-        </button>
         <button
           onClick={onSaveToLibrary}
           disabled={hasErrors}

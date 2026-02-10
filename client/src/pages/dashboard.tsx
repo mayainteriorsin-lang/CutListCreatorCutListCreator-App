@@ -24,7 +24,6 @@ import {
   Palette,
   Factory,
   CreditCard,
-  Zap,
   BookOpen,
   LogOut,
 } from "lucide-react";
@@ -94,14 +93,6 @@ export default function HomePage({ summary }: HomePageProps) {
       icon: <FileText className="w-8 h-8" />,
       gradient: "from-cyan-500 to-blue-500",
       shadow: "shadow-cyan-500/30",
-    },
-    {
-      path: "/quick-quotation",
-      label: "Quick Quote",
-      description: "Fast quotation",
-      icon: <Zap className="w-8 h-8" />,
-      gradient: "from-amber-500 to-yellow-500",
-      shadow: "shadow-amber-500/30",
     },
     {
       path: "/design",

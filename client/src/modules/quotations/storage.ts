@@ -26,8 +26,11 @@
  * the pattern used by CRM (localStorage-first with API sync).
  */
 
-import type { Quotation, PaymentEntry, QuotationStatus } from './types';
+import type { Quotation, PaymentEntry, QuotationStatus, QuotationVersion, VersionChange } from './types';
 import { generateUUID } from '@/lib/uuid';
+
+// Maximum versions per quotation
+const MAX_VERSIONS_PER_QUOTATION = 50;
 
 const STORAGE_KEY = 'quotations:data';
 const QUICK_QUOTE_KEY = 'mayaClients';  // Legacy Quick Quote - read-only merge
@@ -356,6 +359,139 @@ export function removePaymentFromQuotation(quotationId: string, paymentId: strin
 // Update quotation status
 export function updateQuotationStatus(id: string, status: QuotationStatus): Quotation | null {
   return updateQuotation(id, { status });
+}
+
+// ====== Version History Functions ======
+
+// Detect changes between two quotation states
+function detectChanges(oldQuotation: Quotation, newQuotation: Quotation): VersionChange[] {
+  const changes: VersionChange[] = [];
+
+  // Track key fields for change detection
+  const fieldsToTrack: Array<{ field: keyof Quotation; label: string }> = [
+    { field: 'clientName', label: 'Client Name' },
+    { field: 'clientMobile', label: 'Mobile' },
+    { field: 'clientLocation', label: 'Location' },
+    { field: 'subtotal', label: 'Subtotal' },
+    { field: 'discountPercent', label: 'Discount %' },
+    { field: 'discountFlat', label: 'Discount Amount' },
+    { field: 'finalTotal', label: 'Final Total' },
+    { field: 'status', label: 'Status' },
+  ];
+
+  for (const { field, label } of fieldsToTrack) {
+    const oldVal = oldQuotation[field];
+    const newVal = newQuotation[field];
+    if (oldVal !== newVal) {
+      changes.push({
+        field: label,
+        oldValue: oldVal as string | number,
+        newValue: newVal as string | number,
+      });
+    }
+  }
+
+  return changes;
+}
+
+// Save current quotation state as a new version
+export function saveVersionToQuotation(quotationId: string, note?: string): QuotationVersion | null {
+  const quotation = getQuotationById(quotationId);
+  if (!quotation || quotation.source === 'quick-quote') return null;
+
+  const versions = quotation.versions || [];
+  const lastVersion = versions[versions.length - 1];
+  const nextVersionNumber = lastVersion ? lastVersion.version + 1 : 1;
+
+  // Detect changes from last version (if exists)
+  let changes: VersionChange[] = [];
+  if (lastVersion && quotation) {
+    // Compare current quotation with last saved version data
+    const currentSnapshot = {
+      finalTotal: quotation.finalTotal,
+      subtotal: quotation.subtotal,
+      discountPercent: quotation.discountPercent,
+      discountFlat: quotation.discountFlat,
+      clientName: quotation.clientName,
+      clientMobile: quotation.clientMobile,
+      clientLocation: quotation.clientLocation,
+      status: quotation.status,
+    };
+
+    // Simple comparison for version-level changes
+    if (lastVersion.finalTotal !== currentSnapshot.finalTotal) {
+      changes.push({
+        field: 'Final Total',
+        oldValue: lastVersion.finalTotal,
+        newValue: currentSnapshot.finalTotal,
+      });
+    }
+    if (lastVersion.subtotal !== currentSnapshot.subtotal) {
+      changes.push({
+        field: 'Subtotal',
+        oldValue: lastVersion.subtotal,
+        newValue: currentSnapshot.subtotal,
+      });
+    }
+    if (lastVersion.discountPercent !== currentSnapshot.discountPercent) {
+      changes.push({
+        field: 'Discount %',
+        oldValue: lastVersion.discountPercent,
+        newValue: currentSnapshot.discountPercent,
+      });
+    }
+    if (lastVersion.discountFlat !== currentSnapshot.discountFlat) {
+      changes.push({
+        field: 'Discount Amount',
+        oldValue: lastVersion.discountFlat,
+        newValue: currentSnapshot.discountFlat,
+      });
+    }
+  }
+
+  const now = nowISO();
+  const newVersion: QuotationVersion = {
+    id: `ver-${generateUUID()}`,
+    version: nextVersionNumber,
+    date: now.split('T')[0],
+    timestamp: Date.now(),
+    finalTotal: quotation.finalTotal,
+    subtotal: quotation.subtotal,
+    discountPercent: quotation.discountPercent,
+    discountFlat: quotation.discountFlat,
+    note,
+    changes: changes.length > 0 ? changes : undefined,
+  };
+
+  // Keep only last N versions
+  const updatedVersions = [...versions, newVersion];
+  if (updatedVersions.length > MAX_VERSIONS_PER_QUOTATION) {
+    updatedVersions.shift(); // Remove oldest
+  }
+
+  updateQuotation(quotationId, { versions: updatedVersions });
+  return newVersion;
+}
+
+// Delete a specific version from quotation
+export function deleteVersionFromQuotation(quotationId: string, versionId: string): boolean {
+  const quotation = getQuotationById(quotationId);
+  if (!quotation || quotation.source === 'quick-quote') return false;
+
+  const versions = quotation.versions || [];
+  const filteredVersions = versions.filter(v => v.id !== versionId);
+
+  if (filteredVersions.length === versions.length) return false; // Version not found
+
+  updateQuotation(quotationId, { versions: filteredVersions });
+  return true;
+}
+
+// Get all versions for a quotation
+export function getVersionsForQuotation(quotationId: string): QuotationVersion[] {
+  const quotation = getQuotationById(quotationId);
+  if (!quotation) return [];
+  return quotation.versions || [];
 }
 
 // Get quotations stats

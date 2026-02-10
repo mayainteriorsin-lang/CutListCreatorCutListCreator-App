@@ -4,6 +4,7 @@ import type { MasterSettingsMemory } from "@shared/schema";
 
 const defaultMasterSettings: MasterSettingsMemory = {
   id: 0,
+  tenantId: 'default',
   sheetWidth: '1210',
   sheetHeight: '2420',
   kerf: '5',

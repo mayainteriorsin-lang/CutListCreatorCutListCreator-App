@@ -156,6 +156,8 @@ class CacheService {
 export const cacheService = new CacheService();
 export const CACHE_KEYS = {
     MASTER_SETTINGS: 'master_settings:v1',
+    MASTER_SETTINGS_MEMORY: 'master_settings_memory:v1',
     GODOWN_LAMINATE: 'godown:laminate:v1',
     GODOWN_PLYWOOD: 'godown:plywood:v1',
+    WOOD_GRAINS: 'wood_grains:v1',
 };

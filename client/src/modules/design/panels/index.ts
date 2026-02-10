@@ -112,6 +112,7 @@ export {
   CenterPostOverlay,
   ShelfOverlay,
   ShelfContextMenu,
+  ShelfPostsMenu,
 } from "./components";
 
-export type { ShelfContextMenuProps } from "./components";
+export type { ShelfContextMenuProps, ShelfPostsMenuProps } from "./components";

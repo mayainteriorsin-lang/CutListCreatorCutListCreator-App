@@ -116,7 +116,7 @@ async function uploadLaminateImage(code: string, file: File): Promise<string | n
       reader.onload = () => {
         const result = reader.result as string;
         // Remove data:mime;base64, prefix
-        const base64Data = result.split(',')[1];
+        const base64Data = result.split(',')[1] ?? result;
         resolve(base64Data);
       };
       reader.onerror = reject;
@@ -151,6 +151,8 @@ export interface LaminateComboboxProps {
   onChange: (value: string) => void;
   onCreate?: (value: string) => void;
   laminateCodes?: string[];
+  /** @deprecated Use laminateCodes instead */
+  externalCodes?: string[];
   placeholder?: string;
   disabled?: boolean;
   className?: string;
@@ -164,13 +166,16 @@ export function LaminateCombobox({
   value,
   onChange,
   onCreate,
-  laminateCodes: externalCodes,
+  laminateCodes,
+  externalCodes,
   placeholder = "Select laminate code...",
   disabled = false,
   className,
   woodGrainsPreferences = {},
   showWoodGrainBadge = true,
 }: LaminateComboboxProps) {
+  // Support both prop names (externalCodes is deprecated alias)
+  const providedCodes = laminateCodes ?? externalCodes;
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [recentCodes, setRecentCodes] = useState<string[]>([]);
@@ -188,15 +193,15 @@ export function LaminateCombobox({
 
   // Use external codes if provided, otherwise merge fetched codes + localStorage codes
   const laminateOptions = useMemo(() => {
-    const safeExternalCodes = Array.isArray(externalCodes) ? externalCodes : [];
+    const safeProvidedCodes = Array.isArray(providedCodes) ? providedCodes : [];
     const safeFetchedCodes = Array.isArray(fetchedCodes)
       ? fetchedCodes.map((c) => c.code)
       : [];
     const safeLocalCodes = Array.isArray(localCodes) ? localCodes : [];
 
     // Merge server + localStorage codes (localStorage fallback when server is down)
-    const codes = safeExternalCodes.length > 0
-      ? safeExternalCodes
+    const codes = safeProvidedCodes.length > 0
+      ? safeProvidedCodes
       : [...safeFetchedCodes, ...safeLocalCodes];
 
     // Deduplicate and sort
@@ -212,7 +217,7 @@ export function LaminateCombobox({
     });
 
     return deduped.sort((a, b) => a.localeCompare(b));
-  }, [externalCodes, fetchedCodes, localCodes]);
+  }, [providedCodes, fetchedCodes, localCodes]);
 
   // Load laminate images on mount (merge server + localStorage)
   useEffect(() => {

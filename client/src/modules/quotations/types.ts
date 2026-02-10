@@ -9,6 +9,27 @@ export interface PaymentEntry {
   note: string;
 }
 
+// Version change tracking
+export interface VersionChange {
+  field: string;
+  oldValue: string | number;
+  newValue: string | number;
+}
+
+// Version snapshot of a quotation
+export interface QuotationVersion {
+  id: string;
+  version: number;           // v1, v2, v3...
+  date: string;              // Date when version was saved
+  timestamp: number;         // Unix timestamp
+  finalTotal: number;        // Grand total at this version
+  subtotal: number;
+  discountPercent: number;
+  discountFlat: number;
+  note?: string;             // Optional note about this version
+  changes?: VersionChange[]; // Changes from previous version
+}
+
 export interface Quotation {
   id: string;
   // Client info
@@ -36,4 +57,6 @@ export interface Quotation {
   updatedAt: string;
   // Source tracking
   source?: 'native' | 'quick-quote';
+  // Version history
+  versions?: QuotationVersion[];
 }

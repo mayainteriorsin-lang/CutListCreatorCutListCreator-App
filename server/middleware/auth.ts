@@ -3,6 +3,7 @@ import { authService } from '../services/authService';
 import { db } from '../db';
 import { tenants } from '../db/authSchema';
 import { eq } from 'drizzle-orm';
+import { getStateStore, stateKey, STATE_KEYS } from '../services/stateStore';
 
 /**
  * Extended Request with user context
@@ -19,31 +20,41 @@ export interface AuthRequest extends Request {
 
 /**
  * PHASE 14: Tenant status cache for performance
+ * PHASE 16: Refactored to use StateStore abstraction for Redis-readiness
  * TTL: 5 minutes to balance freshness with performance
  */
-const tenantStatusCache = new Map<string, { status: string; cachedAt: number }>();
 const TENANT_STATUS_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+interface TenantStatusEntry {
+    status: string;
+    cachedAt: number;
+}
 
 /**
  * PHASE 14: Get tenant status with caching (GAP-TEN-001 fix)
+ * PHASE 16: Uses StateStore abstraction for distributed caching
  */
 async function getTenantStatus(tenantId: string): Promise<string | null> {
-    const now = Date.now();
-    const cached = tenantStatusCache.get(tenantId);
-
-    if (cached && (now - cached.cachedAt) < TENANT_STATUS_TTL_MS) {
-        return cached.status;
-    }
+    const store = getStateStore();
+    const key = stateKey(STATE_KEYS.TENANT_STATUS, tenantId);
 
     try {
+        // Check cache first
+        const cached = await store.get<TenantStatusEntry>(key);
+        if (cached) {
+            return cached.status;
+        }
+
+        // Query database
         const tenant = await db.query.tenants.findFirst({
             where: eq(tenants.id, tenantId),
             columns: { status: true }
         });
 
         if (tenant) {
-            tenantStatusCache.set(tenantId, { status: tenant.status || 'active', cachedAt: now });
-            return tenant.status || 'active';
+            const status = tenant.status || 'active';
+            await store.set(key, { status, cachedAt: Date.now() }, TENANT_STATUS_TTL_MS);
+            return status;
         }
         return null;
     } catch (error) {
@@ -55,9 +66,12 @@ async function getTenantStatus(tenantId: string): Promise<string | null> {
 
 /**
  * PHASE 14: Clear tenant status cache (for suspension/activation)
+ * PHASE 16: Uses StateStore abstraction for distributed cache invalidation
  */
-export function invalidateTenantStatusCache(tenantId: string): void {
-    tenantStatusCache.delete(tenantId);
+export async function invalidateTenantStatusCache(tenantId: string): Promise<void> {
+    const store = getStateStore();
+    const key = stateKey(STATE_KEYS.TENANT_STATUS, tenantId);
+    await store.delete(key);
 }
 
 /**

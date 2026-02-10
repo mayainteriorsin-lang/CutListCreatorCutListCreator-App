@@ -105,6 +105,7 @@ export const useGodownStore = create<GodownState>((set, get) => ({
     const codeName = name || code;
     const tempItem: LaminateCodeGodown = {
       id: -1,
+      tenantId: 'default',
       code,
       name: codeName,
       woodGrainsEnabled: "false",

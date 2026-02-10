@@ -34,7 +34,6 @@ const SimpleRateCardPage = lazy(() => import("@/modules/visual-quotation/pages/S
 const ModuleDrawDemo = lazy(() => import("@/modules/visual-quotation/pages/ModuleDrawDemo"));
 const StartQuotationPage = lazy(() => import("@/pages/start-quotation"));
 const CrmPage = lazy(() => import("@/pages/crm"));
-const QuickQuotationPage = lazy(() => import("@/pages/quick-quotation"));
 const QuotationsPage = lazy(() => import("@/pages/quotations"));
 const LibraryPage = lazy(() => import("@/pages/library"));
 const CustomerQuotePage = lazy(() => import("@/pages/customer-quote"));
@@ -99,7 +98,6 @@ function Router() {
           <Route path="/crm" element={<CrmPage />} />
           <Route path="/client-info" element={<QuotationsPage />} />
           <Route path="/start-quotation" element={<StartQuotationPage />} />
-          <Route path="/quick-quotation" element={<QuickQuotationPage />} />
           <Route path="/library" element={<LibraryPage />} />
 
           {/* Rate Card Management */}

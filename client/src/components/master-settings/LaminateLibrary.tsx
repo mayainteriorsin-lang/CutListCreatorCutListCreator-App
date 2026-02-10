@@ -108,7 +108,7 @@ async function uploadLaminateImage(code: string, file: File): Promise<string | n
     const reader = new FileReader();
     reader.onload = () => {
       const result = reader.result as string;
-      const base64Data = result.split(',')[1];
+      const base64Data = result.split(',')[1] ?? result;
       resolve(base64Data);
     };
     reader.onerror = reject;

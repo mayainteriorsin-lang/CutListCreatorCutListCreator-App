@@ -1,9 +1,8 @@
-export default function QuickQuotationPage() {
-  return (
-    <iframe
-      src="/quick-quotation/index.html"
-      title="Quick Quotation"
-      className="w-full h-screen border-0"
-    />
-  );
-}
+/**
+ * Quick Quotation Page
+ *
+ * Native React implementation of the quotation editor.
+ * Replaces the legacy iframe-based version.
+ */
+
+export { QuickQuotationPage as default } from '@/modules/quick-quotation';

@@ -335,6 +335,7 @@ export interface WardrobeSection {
   shelfCount?: number;    // For "shelves" and "short_hang"
   drawerCount?: number;   // For "drawers"
   rodHeightPct?: number;  // For "short_hang" - % of section height for rod area
+  postsBelow?: number;    // Number of partial posts below a specific shelf
 }
 
 /** Default wardrobe sections layout */
@@ -378,3 +379,117 @@ export const SVG_MIME_TYPE = "image/svg+xml;charset=utf-8";
 
 /** PNG export MIME type */
 export const PNG_MIME_TYPE = "image/png";
+
+// =============================================================================
+// SECTION WIDTH CALCULATION (shared by shapeGenerator & panelGenerator)
+// =============================================================================
+
+/** Configuration for section width calculation */
+export interface SectionWidthConfig {
+  /** Total wardrobe width in mm */
+  widthMm: number;
+  /** Carcass panel thickness in mm (typically 18 or 25) */
+  carcassThicknessMm: number;
+  /** Number of center posts (0 = no posts, single section) */
+  centerPostCount: number;
+  /** Optional custom post X positions (relative to inner left edge) */
+  customPostPositions?: number[];
+}
+
+/** Result of section width calculation */
+export interface SectionWidthResult {
+  /** Inner width (total width minus left and right panels) */
+  innerWidth: number;
+  /** Width of each section between posts */
+  sectionWidths: number[];
+  /** X position of each post (relative to inner left edge) */
+  postPositions: number[];
+}
+
+/** Ensure number is valid and within range */
+function safeNumber(value: number | undefined, defaultVal: number, min = 0, max = 10000): number {
+  if (value === undefined || value === null || isNaN(value)) return defaultVal;
+  return Math.max(min, Math.min(max, value));
+}
+
+/**
+ * Calculate section widths for wardrobe carcass
+ *
+ * User-friendly features:
+ * - Auto-corrects invalid inputs (negative, NaN, undefined)
+ * - Limits post count to reasonable maximum (10)
+ * - Ensures minimum section width (50mm)
+ * - Filters invalid custom positions automatically
+ *
+ * @param config - Width, thickness, post count, and optional custom positions
+ * @returns Inner width, section widths array, and post positions array
+ *
+ * @example
+ * // Equal 3 sections (2 posts)
+ * calculateSectionWidths({ widthMm: 2400, carcassThicknessMm: 18, centerPostCount: 2 })
+ *
+ * @example
+ * // Custom positions (unequal sections)
+ * calculateSectionWidths({ widthMm: 2400, carcassThicknessMm: 18, centerPostCount: 1, customPostPositions: [800] })
+ */
+export function calculateSectionWidths(config: SectionWidthConfig): SectionWidthResult {
+  // Safe defaults for all inputs
+  const width = safeNumber(config.widthMm, 1200, 200, 6000);
+  const thickness = safeNumber(config.carcassThicknessMm, 18, 8, 50);
+  const postCount = safeNumber(config.centerPostCount, 0, 0, 10);
+
+  // Calculate inner width (between left and right panels)
+  const innerWidth = Math.max(100, width - thickness * 2);
+  const sectionCount = postCount + 1;
+
+  // No posts = single full-width section
+  if (postCount === 0) {
+    return {
+      innerWidth,
+      sectionWidths: [innerWidth],
+      postPositions: [],
+    };
+  }
+
+  const postPositions: number[] = [];
+  const sectionWidths: number[] = [];
+
+  // Custom positions: validate and use provided X coordinates
+  const customPositions = config.customPostPositions;
+  if (customPositions?.length === postCount) {
+    // Filter valid positions (within inner width, positive)
+    const validPositions = customPositions
+      .filter(p => typeof p === "number" && !isNaN(p) && p > 0 && p < innerWidth)
+      .sort((a, b) => a - b);
+
+    // Use custom if all valid, otherwise fall through to equal division
+    if (validPositions.length === postCount) {
+      postPositions.push(...validPositions);
+
+      let previousX = 0;
+      for (const position of validPositions) {
+        sectionWidths.push(Math.max(50, position - previousX)); // Min 50mm section
+        previousX = position;
+      }
+      sectionWidths.push(Math.max(50, innerWidth - previousX));
+
+      return { innerWidth, sectionWidths, postPositions };
+    }
+  }
+
+  // Equal division: evenly space posts and sections
+  const totalPostThickness = postCount * thickness;
+  const availableWidth = innerWidth - totalPostThickness;
+  const equalSectionWidth = Math.max(50, availableWidth / sectionCount);
+
+  for (let i = 1; i <= postCount; i++) {
+    const position = equalSectionWidth * i + thickness * (i - 1);
+    postPositions.push(Math.round(position));
+  }
+
+  for (let i = 0; i < sectionCount; i++) {
+    sectionWidths.push(Math.round(equalSectionWidth));
+  }
+
+  return { innerWidth, sectionWidths, postPositions };
+}

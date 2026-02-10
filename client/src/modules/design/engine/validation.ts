@@ -176,14 +176,8 @@ export function validateModuleConfig(config: ModuleConfig): ValidationResult {
     );
     if (postError) errors.push(postError);
 
-    // Warning if center posts exceed section count - 1
-    if (config.centerPostCount > config.sectionCount - 1) {
-      warnings.push({
-        field: "centerPostCount",
-        message: "Center posts typically should not exceed section count - 1",
-        value: config.centerPostCount,
-      });
-    }
+    // Note: For wardrobe_carcass, center posts CREATE sections (posts + 1 = sections)
+    // So we don't compare against sectionCount which is used for shutters/doors
   }
 
   // Thickness validations
