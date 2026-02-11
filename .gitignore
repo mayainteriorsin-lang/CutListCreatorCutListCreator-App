@@ -73,7 +73,8 @@ backup-*/
 attached_assets/
 
 # Local storage (user data)
-storage/
+/storage/
+!client/src/**/storage/
 
 # Temporary files
 *.tmp
