@@ -9,7 +9,7 @@ import type { KonvaEventObject } from "konva/lib/Node";
 import { useDesignCanvasStore } from "../../../store/v2/useDesignCanvasStore";
 import { useQuotationMetaStore } from "../../../store/v2/useQuotationMetaStore";
 
-type DrawModeType = "shutter" | "shutter_loft" | "loft_only" | "iso_kitchen";
+type DrawModeType = "shutter" | "shutter_loft" | "loft_only" | "carcass" | "carcass_loft" | "iso_kitchen";
 
 interface UseQuotation2DDrawingProps {
   canvasFocused: boolean;
@@ -20,9 +20,12 @@ interface UseQuotation2DDrawingReturn {
   drawCurrent: { x: number; y: number } | null;
   drawModeType: DrawModeType;
   setDrawModeType: (type: DrawModeType) => void;
-  handleMouseDown: (e: KonvaEventObject<MouseEvent>) => void;
-  handleMouseMove: (e: KonvaEventObject<MouseEvent>) => void;
+  handleMouseDown: (e: KonvaEventObject<MouseEvent | TouchEvent>) => void;
+  handleMouseMove: (e: KonvaEventObject<MouseEvent | TouchEvent>) => void;
   handleMouseUp: () => void;
+  handleTouchStart: (e: KonvaEventObject<TouchEvent>) => void;
+  handleTouchMove: (e: KonvaEventObject<TouchEvent>) => void;
+  handleTouchEnd: () => void;
 }
 
 export function useQuotation2DDrawing({
@@ -46,6 +49,7 @@ export function useQuotation2DDrawing({
     deleteSelectedUnits,
     clearWardrobeBox,
     setLoftEnabled,
+    setLoftBox,
     setActiveEditPart,
     updateActiveDrawnUnit,
     saveCurrentUnitAndAddNew,
@@ -54,9 +58,9 @@ export function useQuotation2DDrawing({
   const { status } = useQuotationMetaStore();
   const locked = status === "APPROVED";
 
-  // Drawing handlers
+  // Drawing handlers - support both mouse and touch events
   const handleMouseDown = useCallback(
-    (e: KonvaEventObject<MouseEvent>) => {
+    (e: KonvaEventObject<MouseEvent | TouchEvent>) => {
       if (!drawMode || locked) return;
       const stage = e.target.getStage();
       const pos = stage?.getPointerPosition();
@@ -68,7 +72,7 @@ export function useQuotation2DDrawing({
   );
 
   const handleMouseMove = useCallback(
-    (e: KonvaEventObject<MouseEvent>) => {
+    (e: KonvaEventObject<MouseEvent | TouchEvent>) => {
       if (!drawMode || !drawStart || locked) return;
       const stage = e.target.getStage();
       const pos = stage?.getPointerPosition();
@@ -78,6 +82,34 @@ export function useQuotation2DDrawing({
     [drawMode, drawStart, locked]
   );
 
+  // Touch event handlers (for mobile)
+  const handleTouchStart = useCallback(
+    (e: KonvaEventObject<TouchEvent>) => {
+      if (!drawMode || locked) return;
+      // Prevent scrolling while drawing
+      e.evt.preventDefault();
+      const stage = e.target.getStage();
+      const pos = stage?.getPointerPosition();
+      if (!pos) return;
+      setDrawStart(pos);
+      setDrawCurrent(pos);
+    },
+    [drawMode, locked]
+  );
+
+  const handleTouchMove = useCallback(
+    (e: KonvaEventObject<TouchEvent>) => {
+      if (!drawMode || !drawStart || locked) return;
+      e.evt.preventDefault();
+      const stage = e.target.getStage();
+      const pos = stage?.getPointerPosition();
+      if (!pos) return;
+      setDrawCurrent(pos);
+    },
+    [drawMode, drawStart, locked]
+  );
+
+
   const handleMouseUp = useCallback(() => {
     if (!drawMode || !drawStart || !drawCurrent || locked) return;
     const x = Math.min(drawStart.x, drawCurrent.x);
@@ -86,29 +118,92 @@ export function useQuotation2DDrawing({
     const height = Math.abs(drawCurrent.y - drawStart.y);
 
     if (width > 20 && height > 20) {
-      // Set loftEnabled based on drawModeType before creating unit
+      // Determine unit type and loft settings based on drawModeType
       const isLoftOnlyMode = drawModeType === "loft_only";
-      const hasLoft = drawModeType === "shutter_loft" || isLoftOnlyMode;
+      const hasLoft = drawModeType === "shutter_loft" || drawModeType === "carcass_loft" || isLoftOnlyMode;
+      const isCarcassMode = drawModeType === "carcass" || drawModeType === "carcass_loft";
+      const unitType = isCarcassMode ? "wardrobe_carcass" : "wardrobe";
 
+      // Calculate loft box dimensions (loft is ~25% of total height, positioned above main box)
+      const loftHeightRatio = 0.25;
+      const loftHeight = height * loftHeightRatio;
+
+      // Set loft enabled state
       setLoftEnabled(hasLoft);
+
+      // IMPORTANT: Set loftBox in store state BEFORE saving the unit
+      // This ensures saveCurrentUnitAndAddNew captures the loftBox
+      if (isLoftOnlyMode) {
+        // For loft-only, the loftBox IS the main box
+        setLoftBox({
+          x,
+          y,
+          width,
+          height,
+          rotation: 0,
+          dragEdge: null,
+          isDragging: false,
+          locked: false,
+        });
+      } else if (hasLoft) {
+        // Create loftBox positioned above the main shutter area
+        setLoftBox({
+          x,
+          y, // Loft is at top (same y as drawn box top)
+          width,
+          height: loftHeight,
+          rotation: 0,
+          dragEdge: null,
+          isDragging: false,
+          locked: false,
+        });
+      } else {
+        setLoftBox(null);
+      }
 
       // setWardrobeBox now also computes areas
       setWardrobeBox({ x, y, width, height, rotation: 0, source: "manual" });
 
       setTimeout(() => {
         saveCurrentUnitAndAddNew();
-        // After unit is created, set loftOnly flag and activeEditPart
+        // After unit is created, set additional properties
         setTimeout(() => {
+          const updates: Record<string, unknown> = { unitType };
+          const defaultShutterCount = 3;
+
           if (isLoftOnlyMode) {
-            updateActiveDrawnUnit({ loftOnly: true, loftEnabled: true });
+            updates.loftOnly = true;
+            updates.loftEnabled = true;
+            updates.loftShutterCount = defaultShutterCount;
             setActiveEditPart("loft");
           } else if (hasLoft) {
-            updateActiveDrawnUnit({ loftEnabled: true, loftOnly: false });
+            updates.loftEnabled = true;
+            updates.loftOnly = false;
+            updates.shutterCount = defaultShutterCount;
+            updates.loftShutterCount = defaultShutterCount;
+            updates.loftHeightRatio = loftHeightRatio;
+            updates.loftHeightMm = 400; // Default loft height
             setActiveEditPart("shutter");
           } else {
-            updateActiveDrawnUnit({ loftOnly: false, loftEnabled: false });
+            updates.loftOnly = false;
+            updates.loftEnabled = false;
+            updates.shutterCount = defaultShutterCount;
             setActiveEditPart("shutter");
           }
+
+          // For carcass mode, set default center posts and sections
+          if (isCarcassMode) {
+            updates.centerPostCount = 2; // 2 center posts = 3 sections
+            updates.shutterCount = 3;
+            if (hasLoft) {
+              updates.loftShutterCount = 3; // Match loft to carcass sections
+            }
+          }
+
+          updateActiveDrawnUnit(updates);
+
+          // Clear loftBox from store state after unit is created
+          setLoftBox(null);
         }, 10);
       }, 0);
     }
@@ -122,12 +217,18 @@ export function useQuotation2DDrawing({
     locked,
     drawModeType,
     setLoftEnabled,
+    setLoftBox,
     setWardrobeBox,
     saveCurrentUnitAndAddNew,
     updateActiveDrawnUnit,
     setActiveEditPart,
     setDrawMode,
   ]);
+
+  // Touch end handler (calls handleMouseUp logic)
+  const handleTouchEnd = useCallback(() => {
+    handleMouseUp();
+  }, [handleMouseUp]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -205,5 +306,8 @@ export function useQuotation2DDrawing({
     handleMouseDown,
     handleMouseMove,
     handleMouseUp,
+    handleTouchStart,
+    handleTouchMove,
+    handleTouchEnd,
   };
 }

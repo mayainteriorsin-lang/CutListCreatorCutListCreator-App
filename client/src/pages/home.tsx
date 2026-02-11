@@ -23,6 +23,8 @@ import { ProjectDetailsCard } from "@/components/home/ProjectDetailsCard";
 import { ActionButtonsSection } from "@/components/home/ActionButtonsSection";
 import { CollapsibleCard } from "@/components/home/CollapsibleCard";
 import { UndoRedoButtons } from "@/components/home/UndoRedoButtons";
+import { SummarySection } from "@/features/home/components/SummarySection";
+import { CabinetSection } from "@/features/home/components/CabinetSection";
 // PATCH Phase 2: Dialog containers
 import {
   PanelDeleteDialogContainer,
@@ -984,49 +986,27 @@ export default function Home({ homePageMock }: HomeProps) {
 
           </div>
 
-          {/* Right Column - Cabinet List & Summary */}
-          <div className="space-y-6">
-
-            {/* Summary Panel - Stats, Material Summary, Cutting List Summary */}
-            <SummaryPanel
-              cabinets={cabinets}
-              cuttingListSummary={cuttingListSummary}
-              liveMaterialSummary={liveMaterialSummary}
-              shutterCount={calculateShutterCount(cabinets)}
-              onExportExcel={exportToExcel}
-              onExportGoogleSheets={exportToGoogleSheets}
-              onPrint={printList}
-            />
-
-            {/* PATCH 23: Undo/Redo Buttons */}
-            <UndoRedoButtons
-              canUndo={cabinetsHistory.canUndo}
-              canRedo={cabinetsHistory.canRedo}
-              onUndo={() => {
-                cabinetsHistory.undo();
-                manualPanelsHistory.undo();
-              }}
-              onRedo={() => {
-                cabinetsHistory.redo();
-                manualPanelsHistory.redo();
-              }}
-            />
-
-            {/* Cabinet List - PATCH 37: Empty state */}
-            {(!cabinets || cabinets.length === 0) ? (
-              <EmptyBlock
-                title="No cabinets added"
-                description="Configure a cabinet and click 'Add Cabinet' to begin."
-              />
-            ) : (
-              <CabinetSummaryPanel
-                cabinets={cabinets}
-                removeCabinet={removeCabinet}
-                form={form}
-              />
-            )}
-
-          </div>
+          {/* Right Column - Cabinet List & Summary - Extracted to SummarySection */}
+          <SummarySection
+            cabinets={cabinets}
+            cuttingListSummary={cuttingListSummary}
+            liveMaterialSummary={liveMaterialSummary}
+            onExportExcel={exportToExcel}
+            onExportGoogleSheets={exportToGoogleSheets}
+            onPrint={printList}
+            removeCabinet={removeCabinet}
+            form={form}
+            canUndo={cabinetsHistory.canUndo}
+            canRedo={cabinetsHistory.canRedo}
+            onUndo={() => {
+              cabinetsHistory.undo();
+              manualPanelsHistory.undo();
+            }}
+            onRedo={() => {
+              cabinetsHistory.redo();
+              manualPanelsHistory.redo();
+            }}
+          />
         </div>
       </main >
 

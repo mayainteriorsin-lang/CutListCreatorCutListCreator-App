@@ -35,6 +35,7 @@ const ModuleDrawDemo = lazy(() => import("@/modules/visual-quotation/pages/Modul
 const StartQuotationPage = lazy(() => import("@/pages/start-quotation"));
 const CrmPage = lazy(() => import("@/pages/crm"));
 const QuotationsPage = lazy(() => import("@/pages/quotations"));
+const QuickQuotationPage = lazy(() => import("@/pages/quick-quotation"));
 const LibraryPage = lazy(() => import("@/pages/library"));
 const CustomerQuotePage = lazy(() => import("@/pages/customer-quote"));
 const AppointmentPage = lazy(() => import("@/pages/appointment"));
@@ -97,6 +98,7 @@ function Router() {
           {/* Business Routes */}
           <Route path="/crm" element={<CrmPage />} />
           <Route path="/client-info" element={<QuotationsPage />} />
+          <Route path="/quick-quotation" element={<QuickQuotationPage />} />
           <Route path="/start-quotation" element={<StartQuotationPage />} />
           <Route path="/library" element={<LibraryPage />} />
 

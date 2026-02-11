@@ -97,13 +97,25 @@ export function PaymentSection({
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-      {/* Header with Progress */}
+      {/* Header with Summary & Progress */}
       <div className="px-3 py-2 bg-gradient-to-r from-emerald-50 to-teal-50 border-b border-emerald-100">
-        <div className="flex items-center justify-between mb-1.5">
-          <div className="flex items-center gap-2">
-            <Receipt className="h-4 w-4 text-emerald-600" />
-            <span className="text-xs font-semibold text-slate-700">Payments</span>
-            <span className="text-[10px] text-slate-500">({payments.length})</span>
+        {/* Summary Row */}
+        <div className="flex items-center gap-4 mb-2">
+          <div className="flex items-center gap-4 flex-1">
+            <div>
+              <span className="text-[9px] text-slate-500 block">Total</span>
+              <p className="text-sm font-bold text-slate-800">₹{finalTotal.toLocaleString('en-IN')}</p>
+            </div>
+            <div>
+              <span className="text-[9px] text-slate-500 block">Paid</span>
+              <p className="text-sm font-bold text-emerald-600">₹{totalPaid.toLocaleString('en-IN')}</p>
+            </div>
+            <div>
+              <span className="text-[9px] text-slate-500 block">Due</span>
+              <p className={cn('text-sm font-bold', pendingAmount > 0 ? 'text-amber-600' : 'text-emerald-600')}>
+                ₹{Math.max(0, pendingAmount).toLocaleString('en-IN')}
+              </p>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             {!isFullyPaid && (
@@ -111,8 +123,8 @@ export function PaymentSection({
                 <Bell className="h-3 w-3" />Remind
               </button>
             )}
-            <Button onClick={() => setShowPaymentDialog(true)} size="sm" className="h-6 text-[10px] px-2 bg-emerald-600 hover:bg-emerald-700">
-              <Plus className="h-3 w-3 mr-0.5" />Add
+            <Button onClick={() => setShowPaymentDialog(true)} size="sm" className="h-7 text-xs px-3 bg-emerald-600 hover:bg-emerald-700">
+              <Plus className="h-3.5 w-3.5 mr-1" />Payment
             </Button>
           </div>
         </div>
@@ -123,8 +135,8 @@ export function PaymentSection({
             style={{ width: `${progressPercent}%` }} />
         </div>
         <div className="flex justify-between mt-0.5">
-          <span className="text-[9px] text-slate-500">{progressPercent.toFixed(0)}%</span>
-          {isFullyPaid && <span className="text-[9px] text-emerald-600 font-medium flex items-center gap-0.5"><Check className="h-2.5 w-2.5" />Paid</span>}
+          <span className="text-[9px] text-slate-500">{progressPercent.toFixed(0)}% paid</span>
+          {isFullyPaid && <span className="text-[9px] text-emerald-600 font-medium flex items-center gap-0.5"><Check className="h-2.5 w-2.5" />Fully Paid</span>}
         </div>
       </div>
 

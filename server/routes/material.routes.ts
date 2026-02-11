@@ -148,10 +148,10 @@ router.get('/plywood-brand-memory', async (req: AuthRequest, res) => {
     }
 
     try {
+        // Note: plywoodBrandMemory table does not have tenantId column
         const brands = await safeQuery(
             () => db.select()
                 .from(plywoodBrandMemory)
-                .where(eq(plywoodBrandMemory.tenantId, tenantId))
                 .orderBy(plywoodBrandMemory.createdAt),
             []
         );
@@ -183,13 +183,10 @@ router.post('/plywood-brand-memory', async (req: AuthRequest, res) => {
 
         const { brand } = validation.data;
 
-        // Check if brand already exists for this tenant
+        // Check if brand already exists
         const existing = await db.select()
             .from(plywoodBrandMemory)
-            .where(and(
-                eq(plywoodBrandMemory.brand, brand),
-                eq(plywoodBrandMemory.tenantId, tenantId)
-            ))
+            .where(eq(plywoodBrandMemory.brand, brand))
             .limit(1);
 
         if (existing.length > 0) {
@@ -319,23 +316,23 @@ router.post('/godown-memory', async (req: AuthRequest, res) => {
             return res.status(400).json(err('Invalid data', validation.error));
         }
 
-        const { godownName } = validation.data;
+        const { name } = validation.data;
 
         // Check if godown already exists for this tenant
         const existing = await db.select()
             .from(godownMemory)
             .where(and(
-                eq(godownMemory.godownName, godownName),
+                eq(godownMemory.name, name),
                 eq(godownMemory.tenantId, tenantId)
             ))
             .limit(1);
 
         if (existing.length > 0) {
-            return res.json(ok({ message: 'Godown already exists', godownName }));
+            return res.json(ok({ message: 'Godown already exists', name }));
         }
 
         await db.insert(godownMemory).values(validation.data);
-        res.json(ok({ message: 'Godown saved successfully', godownName }));
+        res.json(ok({ message: 'Godown saved successfully', name }));
     } catch (error) {
         console.error('[Material Routes] Error saving godown:', error);
         res.status(500).json(err('Failed to save godown'));
@@ -355,10 +352,10 @@ router.get('/wood-grains-preferences', async (req: AuthRequest, res) => {
     }
 
     try {
+        // Note: laminateWoodGrainsPreference table does not have tenantId column
         const preferences = await safeQuery(
             () => db.select()
-                .from(laminateWoodGrainsPreference)
-                .where(eq(laminateWoodGrainsPreference.tenantId, tenantId)),
+                .from(laminateWoodGrainsPreference),
             []
         );
 

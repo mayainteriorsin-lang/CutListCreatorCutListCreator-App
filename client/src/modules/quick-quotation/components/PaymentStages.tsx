@@ -39,23 +39,24 @@ export function PaymentStages() {
 
   return (
     <Card>
-      <CardContent className="p-3">
-        <div className="flex items-center gap-2">
+      <CardContent className="p-2 sm:p-3">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
           <div className="flex items-center gap-1.5 text-slate-500">
-            <CreditCard className="h-3.5 w-3.5" />
-            <span className="text-[10px] uppercase font-medium">Payment</span>
+            <CreditCard className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+            <span className="text-[9px] sm:text-[10px] uppercase font-medium">Payment</span>
           </div>
 
-          <div className="flex items-center gap-1 flex-1">
+          {/* Mobile: 2x2 grid, Desktop: horizontal row */}
+          <div className="grid grid-cols-2 sm:flex sm:items-center gap-1.5 sm:gap-1 flex-1">
             {stages.map((stage, index) => (
               <div key={stage.name} className="flex items-center">
-                <div className="text-center px-3 py-1.5 bg-slate-50 border border-slate-200 rounded hover:border-blue-300 hover:bg-blue-50 transition-colors">
-                  <div className="text-sm font-bold text-slate-700">{stage.percent}%</div>
-                  <div className="text-[9px] text-slate-400 uppercase">{stage.name}</div>
-                  <div className="text-xs font-medium text-blue-600">₹{formatCurrency(stage.amount)}</div>
+                <div className="text-center px-2 sm:px-3 py-1 sm:py-1.5 bg-slate-50 border border-slate-200 rounded hover:border-blue-300 hover:bg-blue-50 transition-colors flex-1 sm:flex-none">
+                  <div className="text-xs sm:text-sm font-bold text-slate-700">{stage.percent}%</div>
+                  <div className="text-[8px] sm:text-[9px] text-slate-400 uppercase">{stage.name}</div>
+                  <div className="text-[10px] sm:text-xs font-medium text-blue-600">₹{formatCurrency(stage.amount)}</div>
                 </div>
                 {index < stages.length - 1 && (
-                  <ArrowRight className="h-3.5 w-3.5 mx-1 text-slate-300 flex-shrink-0" />
+                  <ArrowRight className="hidden sm:block h-3.5 w-3.5 mx-1 text-slate-300 flex-shrink-0" />
                 )}
               </div>
             ))}

@@ -150,8 +150,9 @@ describe('exportEngine - Pricing Calculations', () => {
     let grandAddOnsTotal = 0;
 
     if (quotationRooms.length === 0) {
+      // Only include units with valid mm dimensions (required for accurate pricing)
       const validUnits = currentDrawnUnits.filter(
-        (u) => (u.widthMm > 0 && u.heightMm > 0) || (u.box && u.box.width > 0 && u.box.height > 0)
+        (u) => u.widthMm > 0 && u.heightMm > 0
       );
       const pricing = calculateFn(validUnits);
       grandSubtotal = pricing.subtotal;
@@ -169,8 +170,9 @@ describe('exportEngine - Pricing Calculations', () => {
     } else {
       quotationRooms.forEach((room, index) => {
         const roomUnits = index === activeRoomIndex ? currentDrawnUnits : room.drawnUnits;
+        // Only include units with valid mm dimensions (required for accurate pricing)
         const validUnits = roomUnits.filter(
-          (u) => (u.widthMm > 0 && u.heightMm > 0) || (u.box && u.box.width > 0 && u.box.height > 0)
+          (u) => u.widthMm > 0 && u.heightMm > 0
         );
         const pricing = calculateFn(validUnits);
         grandSubtotal += pricing.subtotal;
@@ -226,14 +228,15 @@ describe('exportEngine - Pricing Calculations', () => {
       expect(result.roomPricings[0].validUnits).toHaveLength(2);
     });
 
-    it('should accept units with box dimensions', () => {
+    it('should reject units with only box dimensions (no mm dimensions)', () => {
       const units = [
-        { widthMm: 0, heightMm: 0, box: { width: 100, height: 200 } }, // Valid via box
+        { widthMm: 0, heightMm: 0, box: { width: 100, height: 200 } }, // Invalid - no mm dimensions
       ];
 
       const result = calculateAllRoomsPricing([], units, 0, mockCalculate);
 
-      expect(result.roomPricings[0].validUnits).toHaveLength(1);
+      // Units without mm dimensions should not be included (pricing requires mm)
+      expect(result.roomPricings[0].validUnits).toHaveLength(0);
     });
 
     it('should calculate grand totals across rooms', () => {

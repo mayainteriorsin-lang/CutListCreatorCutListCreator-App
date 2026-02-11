@@ -182,107 +182,114 @@ const UnitsCompact: React.FC = () => {
         </div>
       ) : (
         <>
-          {/* Shutter/Loft Toggle */}
-          {isLoftOnly ? (
+          {/* Loft Only Badge */}
+          {isLoftOnly && (
             <div className="flex items-center justify-center p-1.5 bg-amber-50 rounded-lg border border-amber-200">
               <span className="text-xs font-semibold text-amber-700">Loft Only Unit</span>
             </div>
-          ) : (
-            <div className="flex gap-1 p-1 bg-slate-100 rounded-lg">
-              <button
-                onClick={() => setActiveEditPart("shutter")}
-                className={cn(
-                  "flex-1 text-xs font-medium py-1.5 rounded-md transition-all",
-                  activeEditPart === "shutter" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
-                )}
-              >
-                Shutter
-              </button>
-              <button
-                onClick={() => setActiveEditPart("loft")}
-                disabled={!(activeDrawnUnit?.loftEnabled || loftEnabled)}
-                className={cn(
-                  "flex-1 text-xs font-medium py-1.5 rounded-md transition-all",
-                  !(activeDrawnUnit?.loftEnabled || loftEnabled) && "opacity-50 cursor-not-allowed",
-                  activeEditPart === "loft" ? "bg-white text-amber-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
-                )}
-              >
-                Loft
-              </button>
-            </div>
           )}
 
-          {/* Dimensions */}
-          {activeEditPart === "shutter" && !isLoftOnly ? (
-            <div className={cn("grid gap-2", editMode === "carcass" ? "grid-cols-3" : "grid-cols-2")}>
-              <div>
-                <label className="text-xs text-slate-500 mb-1 block">Width</label>
-                <Input
-                  type="text"
-                  inputMode="numeric"
-                  value={widthStr}
-                  onFocus={onWidthFocus}
-                  onChange={(e) => onWidthChange(e.target.value)}
-                  onBlur={onWidthBlur}
-                  disabled={locked || isEditingNewUnit}
-                  placeholder="7'6&quot;"
-                  className="h-9 text-sm bg-white"
-                />
+          {/* Shutter Dimensions - Always visible when not loft-only */}
+          {!isLoftOnly && (
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full bg-blue-500" />
+                <span className="text-xs font-semibold text-blue-600">Shutter</span>
               </div>
-              <div>
-                <label className="text-xs text-slate-500 mb-1 block">Height</label>
-                <Input
-                  type="text"
-                  inputMode="numeric"
-                  value={heightStr}
-                  onFocus={onHeightFocus}
-                  onChange={(e) => onHeightChange(e.target.value)}
-                  onBlur={onHeightBlur}
-                  disabled={locked || isEditingNewUnit}
-                  placeholder="8'"
-                  className="h-9 text-sm bg-white"
-                />
-              </div>
-              {editMode === "carcass" && (
+              <div className={cn("grid gap-2", editMode === "carcass" ? "grid-cols-4" : "grid-cols-3")}>
                 <div>
-                  <label className="text-xs text-slate-500 mb-1 block">Depth</label>
+                  <label className="text-xs text-slate-500 mb-1 block">Width</label>
                   <Input
                     type="text"
                     inputMode="numeric"
-                    value={depthStr}
-                    onFocus={onDepthFocus}
-                    onChange={(e) => onDepthChange(e.target.value)}
-                    onBlur={onDepthBlur}
+                    value={widthStr}
+                    onFocus={onWidthFocus}
+                    onChange={(e) => onWidthChange(e.target.value)}
+                    onBlur={onWidthBlur}
                     disabled={locked || isEditingNewUnit}
-                    placeholder="2'"
+                    placeholder="10'"
                     className="h-9 text-sm bg-white"
                   />
                 </div>
-              )}
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {/* Same as Shutter button - only show when not loft-only and shutter has width */}
-              {!isLoftOnly && currentWidthMm > 0 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full h-7 text-[10px] font-medium gap-1.5 bg-blue-50 border-blue-200 text-blue-600 hover:bg-blue-100"
-                  onClick={() => {
-                    if (activeDrawnUnit) {
-                      updateActiveDrawnUnit({ loftWidthMm: currentWidthMm });
-                      setLoftWidthStr(formatDisplay(mmToInches(currentWidthMm)));
-                    }
-                  }}
-                  disabled={locked || isEditingNewUnit}
-                >
-                  <Copy className="h-3 w-3" />
-                  Same as Shutter Width ({formatDisplay(mmToInches(currentWidthMm))})
-                </Button>
-              )}
-              <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-xs text-amber-600 mb-1 block">Loft Width</label>
+                  <label className="text-xs text-slate-500 mb-1 block">Height</label>
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    value={heightStr}
+                    onFocus={onHeightFocus}
+                    onChange={(e) => onHeightChange(e.target.value)}
+                    onBlur={onHeightBlur}
+                    disabled={locked || isEditingNewUnit}
+                    placeholder="8'"
+                    className="h-9 text-sm bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-slate-500 mb-1 block">Shutters</label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={activeDrawnUnit?.shutterCount || shutterCount}
+                    onChange={(e) => {
+                      const val = Math.max(1, Number(e.target.value));
+                      if (activeDrawnUnit) updateActiveDrawnUnit({ shutterCount: val });
+                      else setShutterCount(val);
+                    }}
+                    disabled={locked || (!wardrobeBox && !activeDrawnUnit)}
+                    className="h-9 text-sm bg-white"
+                  />
+                </div>
+                {editMode === "carcass" && (
+                  <div>
+                    <label className="text-xs text-slate-500 mb-1 block">Depth</label>
+                    <Input
+                      type="text"
+                      inputMode="numeric"
+                      value={depthStr}
+                      onFocus={onDepthFocus}
+                      onChange={(e) => onDepthChange(e.target.value)}
+                      onBlur={onDepthBlur}
+                      disabled={locked || isEditingNewUnit}
+                      placeholder="2'"
+                      className="h-9 text-sm bg-white"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Loft Dimensions - Always visible when loft is enabled or loft-only */}
+          {(activeDrawnUnit?.loftEnabled || loftEnabled || isLoftOnly) && (
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2 h-2 rounded-full bg-amber-500" />
+                  <span className="text-xs font-semibold text-amber-600">Loft</span>
+                </div>
+                {/* Same as Shutter button */}
+                {!isLoftOnly && currentWidthMm > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-5 px-1.5 text-[9px] font-medium gap-1 text-blue-600 hover:bg-blue-50"
+                    onClick={() => {
+                      if (activeDrawnUnit) {
+                        updateActiveDrawnUnit({ loftWidthMm: currentWidthMm });
+                        setLoftWidthStr(formatDisplay(mmToInches(currentWidthMm)));
+                      }
+                    }}
+                    disabled={locked || isEditingNewUnit}
+                  >
+                    <Copy className="h-2.5 w-2.5" />
+                    Same Width
+                  </Button>
+                )}
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="text-xs text-amber-600/70 mb-1 block">Width</label>
                   <Input
                     type="text"
                     inputMode="numeric"
@@ -291,12 +298,12 @@ const UnitsCompact: React.FC = () => {
                     onChange={(e) => onLoftWidthChange(e.target.value)}
                     onBlur={onLoftWidthBlur}
                     disabled={locked || isEditingNewUnit}
-                    placeholder="7'6&quot;"
+                    placeholder="10'"
                     className="h-9 text-sm bg-amber-50/50 border-amber-200"
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-amber-600 mb-1 block">Loft Height</label>
+                  <label className="text-xs text-amber-600/70 mb-1 block">Height</label>
                   <Input
                     type="text"
                     inputMode="numeric"
@@ -309,31 +316,30 @@ const UnitsCompact: React.FC = () => {
                     className="h-9 text-sm bg-amber-50/50 border-amber-200"
                   />
                 </div>
+                <div>
+                  <label className="text-xs text-amber-600/70 mb-1 block">Shutters</label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={activeDrawnUnit?.loftShutterCount || loftShutterCount}
+                    onChange={(e) => {
+                      const val = Math.max(1, Number(e.target.value));
+                      if (activeDrawnUnit) updateActiveDrawnUnit({ loftShutterCount: val });
+                      else setLoftShutterCount(val);
+                    }}
+                    disabled={locked}
+                    className="h-9 text-sm bg-amber-50/50 border-amber-200"
+                  />
+                </div>
               </div>
             </div>
           )}
 
           {/* Config Row */}
           <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
-            {/* Shutter controls - hide for loft-only */}
+            {/* Rows and Loft toggle - hide for loft-only */}
             {!isLoftOnly && (
               <>
-                <div className="flex items-center gap-1.5">
-                  <label className="text-xs text-slate-500">Shutters</label>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={activeDrawnUnit?.shutterCount || shutterCount}
-                    onChange={(e) => {
-                      const val = Math.max(1, Number(e.target.value));
-                      if (activeDrawnUnit) updateActiveDrawnUnit({ shutterCount: val });
-                      else setShutterCount(val);
-                    }}
-                    disabled={locked || (!wardrobeBox && !activeDrawnUnit)}
-                    className="h-7 w-12 text-xs bg-white"
-                  />
-                </div>
-
                 <div className="flex items-center gap-1.5">
                   <label className="text-xs text-slate-500">Rows</label>
                   <Input
@@ -371,41 +377,8 @@ const UnitsCompact: React.FC = () => {
                     disabled={locked || (!wardrobeBox && !activeDrawnUnit)}
                     className="data-[state=checked]:bg-amber-500"
                   />
-                  {(activeDrawnUnit?.loftEnabled || (!activeDrawnUnit && loftEnabled)) && (
-                    <Input
-                      type="number"
-                      min={1}
-                      value={activeDrawnUnit?.loftShutterCount || loftShutterCount}
-                      onChange={(e) => {
-                        const val = Math.max(1, Number(e.target.value));
-                        if (activeDrawnUnit) updateActiveDrawnUnit({ loftShutterCount: val });
-                        else setLoftShutterCount(val);
-                      }}
-                      disabled={locked}
-                      className="h-7 w-10 text-xs bg-amber-50 border-amber-200"
-                    />
-                  )}
                 </div>
               </>
-            )}
-
-            {/* Loft-only: show loft shutter count */}
-            {isLoftOnly && (
-              <div className="flex items-center gap-1.5">
-                <label className="text-xs text-amber-600 font-medium">Loft Shutters</label>
-                <Input
-                  type="number"
-                  min={1}
-                  value={activeDrawnUnit?.loftShutterCount || loftShutterCount}
-                  onChange={(e) => {
-                    const val = Math.max(1, Number(e.target.value));
-                    if (activeDrawnUnit) updateActiveDrawnUnit({ loftShutterCount: val });
-                    else setLoftShutterCount(val);
-                  }}
-                  disabled={locked}
-                  className="h-7 w-12 text-xs bg-amber-50 border-amber-200"
-                />
-              </div>
             )}
 
             <div className="flex-1" />

@@ -42,36 +42,37 @@ export function SummaryPanel() {
 
   return (
     <Card className="bg-gradient-to-r from-slate-700 to-slate-800 text-white">
-      <CardContent className="p-3">
-        <div className="flex items-center gap-4 flex-wrap">
-          {/* Totals */}
-          <div className="flex items-center gap-3 text-sm">
-            <div className="text-center px-2">
-              <div className="text-[10px] text-white/50 uppercase">Main</div>
-              <div className="font-semibold">₹{formatCurrency(totals.mainTotal)}</div>
+      <CardContent className="p-2 sm:p-3">
+        {/* Mobile: Grid layout, Desktop: Flex row */}
+        <div className="grid grid-cols-3 sm:flex sm:items-center gap-2 sm:gap-4 sm:flex-wrap">
+          {/* Totals - spans full width on mobile */}
+          <div className="col-span-3 flex items-center justify-center sm:justify-start gap-2 sm:gap-3 text-xs sm:text-sm pb-2 sm:pb-0 border-b sm:border-b-0 border-white/10">
+            <div className="text-center px-1 sm:px-2">
+              <div className="text-[8px] sm:text-[10px] text-white/50 uppercase">Main</div>
+              <div className="font-semibold text-[11px] sm:text-sm">₹{formatCurrency(totals.mainTotal)}</div>
             </div>
-            <div className="text-white/30">+</div>
-            <div className="text-center px-2">
-              <div className="text-[10px] text-white/50 uppercase">Additional</div>
-              <div className="font-semibold">₹{formatCurrency(totals.additionalTotal)}</div>
+            <div className="text-white/30 text-xs">+</div>
+            <div className="text-center px-1 sm:px-2">
+              <div className="text-[8px] sm:text-[10px] text-white/50 uppercase">Add'l</div>
+              <div className="font-semibold text-[11px] sm:text-sm">₹{formatCurrency(totals.additionalTotal)}</div>
             </div>
-            <div className="text-white/30">=</div>
-            <div className="text-center px-2">
-              <div className="text-[10px] text-white/50 uppercase">Subtotal</div>
-              <div className="font-semibold">₹{formatCurrency(totals.subtotal)}</div>
+            <div className="text-white/30 text-xs">=</div>
+            <div className="text-center px-1 sm:px-2">
+              <div className="text-[8px] sm:text-[10px] text-white/50 uppercase">Subtotal</div>
+              <div className="font-semibold text-[11px] sm:text-sm">₹{formatCurrency(totals.subtotal)}</div>
             </div>
           </div>
 
-          <div className="w-px h-8 bg-white/20" />
+          <div className="hidden sm:block w-px h-8 bg-white/20" />
 
           {/* Discount */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] text-white/50 uppercase">Disc</span>
+          <div className="flex items-center gap-1 sm:gap-1.5">
+            <span className="text-[8px] sm:text-[10px] text-white/50 uppercase">Disc</span>
             <Select
               value={settings.discountType}
               onValueChange={(value) => setDiscountType(value as DiscountType)}
             >
-              <SelectTrigger className="w-14 h-7 text-xs bg-white/10 border-white/20 text-white px-1.5">
+              <SelectTrigger className="w-10 sm:w-14 h-6 sm:h-7 text-[10px] sm:text-xs bg-white/10 border-white/20 text-white px-1 sm:px-1.5">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -87,23 +88,21 @@ export function SummaryPanel() {
               type="number"
               value={settings.discountValue || ''}
               onChange={(e) => setDiscountValue(parseFloat(e.target.value) || 0)}
-              className="w-20 h-7 text-xs bg-white/10 border-white/20 text-white placeholder:text-white/40"
+              className="w-14 sm:w-20 h-6 sm:h-7 text-[10px] sm:text-xs bg-white/10 border-white/20 text-white placeholder:text-white/40"
               placeholder="0"
             />
             {totals.discountAmount > 0 && (
-              <span className="text-xs text-red-300">-₹{formatCurrency(totals.discountAmount)}</span>
+              <span className="text-[10px] sm:text-xs text-red-300 hidden xs:inline">-₹{formatCurrency(totals.discountAmount)}</span>
             )}
           </div>
 
-          <div className="w-px h-8 bg-white/20" />
-
           {/* GST */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] text-white/50 uppercase">GST</span>
+          <div className="flex items-center gap-1 sm:gap-1.5">
+            <span className="text-[8px] sm:text-[10px] text-white/50 uppercase">GST</span>
             <Switch
               checked={settings.gstEnabled}
               onCheckedChange={setGstEnabled}
-              className="scale-75"
+              className="scale-[0.65] sm:scale-75"
             />
             {settings.gstEnabled && (
               <>
@@ -111,7 +110,7 @@ export function SummaryPanel() {
                   value={settings.gstRate.toString()}
                   onValueChange={(value) => setGstRate(parseInt(value) as GstRate)}
                 >
-                  <SelectTrigger className="w-16 h-7 text-xs bg-white/10 border-white/20 text-white px-1.5">
+                  <SelectTrigger className="w-12 sm:w-16 h-6 sm:h-7 text-[10px] sm:text-xs bg-white/10 border-white/20 text-white px-1 sm:px-1.5">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -122,33 +121,32 @@ export function SummaryPanel() {
                     ))}
                   </SelectContent>
                 </Select>
-                <span className="text-xs text-green-300">+₹{formatCurrency(totals.gstAmount)}</span>
+                <span className="text-[10px] sm:text-xs text-green-300 hidden xs:inline">+₹{formatCurrency(totals.gstAmount)}</span>
               </>
             )}
           </div>
 
-          <div className="w-px h-8 bg-white/20" />
-
-          {/* Grand Total */}
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] text-white/50 uppercase">Total</span>
-            <span className="text-xl font-bold text-amber-400">₹{formatCurrency(totals.grandTotal)}</span>
-          </div>
-
-          <div className="w-px h-8 bg-white/20" />
-
           {/* Paid Amount */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] text-white/50 uppercase">Paid</span>
+          <div className="flex items-center gap-1 sm:gap-1.5">
+            <span className="text-[8px] sm:text-[10px] text-white/50 uppercase">Paid</span>
             <Input
               type="number"
               value={settings.paidAmount || ''}
               onChange={(e) => setPaidAmount(parseFloat(e.target.value) || 0)}
-              className="w-24 h-7 text-xs bg-white/10 border-white/20 text-white placeholder:text-white/40"
+              className="w-16 sm:w-24 h-6 sm:h-7 text-[10px] sm:text-xs bg-white/10 border-white/20 text-white placeholder:text-white/40"
               placeholder="0"
             />
+          </div>
+
+          {/* Grand Total - full width row on mobile */}
+          <div className="col-span-3 flex items-center justify-between sm:justify-start gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-white/10">
+            <div className="hidden sm:block w-px h-8 bg-white/20 mr-2" />
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-white/50 uppercase">Total</span>
+              <span className="text-lg sm:text-xl font-bold text-amber-400">₹{formatCurrency(totals.grandTotal)}</span>
+            </div>
             {totals.balanceAmount > 0 && (
-              <span className="text-xs text-red-300">Bal: ₹{formatCurrency(totals.balanceAmount)}</span>
+              <span className="text-[10px] sm:text-xs text-red-300">Bal: ₹{formatCurrency(totals.balanceAmount)}</span>
             )}
           </div>
         </div>

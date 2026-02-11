@@ -302,35 +302,35 @@ const ViewToggle: React.FC = () => {
         </Button>
       </div>
 
-      {/* Customer/Production Toggle */}
-      <div className="flex items-center gap-1 p-1 bg-gray-100 rounded-xl border border-gray-200">
+      {/* Customer/Production Toggle - Icon only for compact */}
+      <div className="flex items-center gap-0.5 p-0.5 bg-slate-700/50 rounded-lg border border-slate-600">
         <Button
           variant="ghost"
           size="sm"
           onClick={handleCustomerClick}
+          title="Customer View"
           className={cn(
-            "h-8 gap-2 rounded-lg transition-all",
+            "h-6 w-6 p-0 rounded transition-all",
             isCustomerPage
-              ? "bg-white text-blue-600 shadow-sm border border-gray-200 hover:bg-white"
-              : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+              ? "bg-blue-500 text-white hover:bg-blue-500"
+              : "text-slate-400 hover:text-white hover:bg-slate-600"
           )}
         >
-          <Eye className="h-4 w-4" />
-          <span className="hidden sm:inline text-xs font-medium">Customer</span>
+          <Eye className="h-3.5 w-3.5" />
         </Button>
         <Button
           variant="ghost"
           size="sm"
           onClick={handleProductionClick}
+          title="Production View"
           className={cn(
-            "h-8 gap-2 rounded-lg transition-all",
+            "h-6 w-6 p-0 rounded transition-all",
             isProductionPage
-              ? "bg-white text-amber-600 shadow-sm border border-gray-200 hover:bg-white"
-              : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+              ? "bg-amber-500 text-white hover:bg-amber-500"
+              : "text-slate-400 hover:text-white hover:bg-slate-600"
           )}
         >
-          <Wrench className="h-4 w-4" />
-          <span className="hidden sm:inline text-xs font-medium">Production</span>
+          <Wrench className="h-3.5 w-3.5" />
         </Button>
       </div>
     </div>

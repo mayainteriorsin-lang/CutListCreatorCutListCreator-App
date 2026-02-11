@@ -230,9 +230,9 @@ const ShutterUnit: React.FC<ShutterUnitProps> = ({ unit, isSelected, onClick, on
   const handleType: HandleType = wardrobeConfig?.shutter?.handle || "bar";
 
   // Colors - same for all units (loft-only and regular)
-  const frameColor = isSelected ? "#3b82f6" : "#475569";
-  const doorColor = isSelected ? "rgba(71, 85, 105, 0.4)" : "rgba(71, 85, 105, 0.25)";
-  const doorBorderColor = isSelected ? "#60a5fa" : "#64748b";
+  const frameColor = isSelected ? "#3b82f6" : "#4b5563";
+  const doorColor = isSelected ? "#f1f5f9" : "#ffffff"; // White base for real shutter look
+  const doorBorderColor = isSelected ? "#3b82f6" : "#4b5563"; // Light black border
 
   // For loft-only units, the entire box is the loft (no main section)
   // For regular units with loft, calculate loft height (default 20% of height)
@@ -257,12 +257,14 @@ const ShutterUnit: React.FC<ShutterUnitProps> = ({ unit, isSelected, onClick, on
   const loftShutterWidth = (box.width - loftTotalGap) / loftShutterCount;
   const loftDoorHeight = loftHeight - doorPadding * 2;
 
-  // Render vertical bar handle - simple black line
-  const renderVerticalHandle = (doorX: number, doorY: number, doorWidth: number, doorHeight: number) => {
+  // Render vertical bar handle - alternating position based on door index
+  const renderVerticalHandle = (doorX: number, doorY: number, doorWidth: number, doorHeight: number, doorIndex: number, totalShutters: number) => {
     const handleLength = Math.min(doorHeight * 0.35, 50); // 35% of door height, max 50px
 
-    // Position handle on the right side of the door
-    const handleX = doorX + doorWidth - 10;
+    // Alternate handle position: even index = right side, odd index = left side
+    // Special case: for 3 shutters, rightmost door (index 2) has handle on left
+    const isLeftSide = doorIndex % 2 === 1 || (totalShutters === 3 && doorIndex === 2);
+    const handleX = isLeftSide ? doorX + 10 : doorX + doorWidth - 10;
     const handleStartY = doorY + (doorHeight - handleLength) / 2;
 
     if (handleType === "none") return null;
@@ -281,31 +283,16 @@ const ShutterUnit: React.FC<ShutterUnitProps> = ({ unit, isSelected, onClick, on
   // Render a single door panel (same color for loft and main)
   const renderDoorPanel = (x: number, y: number, width: number, height: number) => {
     return (
-      <>
-        {/* Door background with slight gradient effect */}
-        <Rect
-          x={x}
-          y={y}
-          width={width}
-          height={height}
-          fill={doorColor}
-          stroke={doorBorderColor}
-          strokeWidth={1.5}
-          cornerRadius={2}
-        />
-        {/* Inner panel detail (recessed effect) */}
-        <Rect
-          x={x + 4}
-          y={y + 4}
-          width={width - 8}
-          height={height - 8}
-          fill="transparent"
-          stroke={doorBorderColor}
-          strokeWidth={0.5}
-          cornerRadius={1}
-          opacity={0.4}
-        />
-      </>
+      <Rect
+        x={x}
+        y={y}
+        width={width}
+        height={height}
+        fill={doorColor}
+        stroke={doorBorderColor}
+        strokeWidth={2}
+        cornerRadius={3}
+      />
     );
   };
 
@@ -434,7 +421,7 @@ const ShutterUnit: React.FC<ShutterUnitProps> = ({ unit, isSelected, onClick, on
             y={box.y}
             width={box.width}
             height={loftHeight}
-            fill="rgba(51, 65, 85, 0.15)"
+            fill="#f1f5f9"
             stroke={doorBorderColor}
             strokeWidth={isSelected ? 2 : 1.5}
           />
@@ -446,7 +433,7 @@ const ShutterUnit: React.FC<ShutterUnitProps> = ({ unit, isSelected, onClick, on
             return (
               <React.Fragment key={`loft-door-${i}`}>
                 {renderDoorPanel(doorX, doorY, loftShutterWidth, loftDoorHeight)}
-                {renderVerticalHandle(doorX, doorY, loftShutterWidth, loftDoorHeight)}
+                {renderVerticalHandle(doorX, doorY, loftShutterWidth, loftDoorHeight, i, loftShutterCount)}
               </React.Fragment>
             );
           })}
@@ -469,7 +456,7 @@ const ShutterUnit: React.FC<ShutterUnitProps> = ({ unit, isSelected, onClick, on
           y={mainY}
           width={box.width}
           height={mainHeight}
-          fill="rgba(51, 65, 85, 0.15)"
+          fill="#f1f5f9"
         />
       )}
 
@@ -483,7 +470,7 @@ const ShutterUnit: React.FC<ShutterUnitProps> = ({ unit, isSelected, onClick, on
           return (
             <React.Fragment key={`door-${colIdx}-${rowIdx}`}>
               {renderDoorPanel(doorX, doorY, shutterWidth, rowHeight)}
-              {renderVerticalHandle(doorX, doorY, shutterWidth, rowHeight)}
+              {renderVerticalHandle(doorX, doorY, shutterWidth, rowHeight, colIdx, shutterCount)}
             </React.Fragment>
           );
         });

@@ -415,25 +415,36 @@ export function buildCutlistItems(params: {
       }
 
       // LOFT (for regular units with loft enabled)
-      if (settings.includeLoft && unit.loftEnabled && unit.loftBox) {
-        const loftWidthMm = unit.loftWidthMm > 0 ? unit.loftWidthMm : unit.widthMm;
-        const loftHeightMm = unit.loftHeightMm > 0
-          ? unit.loftHeightMm
-          : (unit.heightMm * (unit.loftBox.height / unit.box.height));
+      if (settings.includeLoft && unit.loftEnabled) {
+        // Use existing loftBox or create a fallback based on main box
+        const effectiveLoftBox = unit.loftBox || (unit.box ? {
+          x: unit.box.x,
+          y: unit.box.y,
+          width: unit.box.width,
+          height: unit.box.height * 0.25, // Default 25% of main height
+          rotation: 0,
+        } : null);
 
-        if (loftWidthMm > 0 && loftHeightMm > 0) {
-          items.push(...generatePanelGrid({
-            ...context,
-            box: unit.loftBox,
-            totalWidthMm: loftWidthMm,
-            totalHeightMm: loftHeightMm,
-            colCount: unit.loftShutterCount,
-            rowCount: 1, // Loft is always 1 row
-            colDividers: unit.loftDividerXs,
-            panelType: "LOFT",
-            labelPrefix: "L",
-            laminateCode: loftLaminateCode,
-          }));
+        if (effectiveLoftBox) {
+          const loftWidthMm = unit.loftWidthMm > 0 ? unit.loftWidthMm : unit.widthMm;
+          const loftHeightMm = unit.loftHeightMm > 0
+            ? unit.loftHeightMm
+            : (unit.heightMm > 0 ? unit.heightMm * (effectiveLoftBox.height / unit.box.height) : 400);
+
+          if (loftWidthMm > 0 && loftHeightMm > 0) {
+            items.push(...generatePanelGrid({
+              ...context,
+              box: effectiveLoftBox,
+              totalWidthMm: loftWidthMm,
+              totalHeightMm: loftHeightMm,
+              colCount: unit.loftShutterCount || 3,
+              rowCount: 1, // Loft is always 1 row
+              colDividers: unit.loftDividerXs,
+              panelType: "LOFT",
+              labelPrefix: "L",
+              laminateCode: loftLaminateCode,
+            }));
+          }
         }
       }
     });

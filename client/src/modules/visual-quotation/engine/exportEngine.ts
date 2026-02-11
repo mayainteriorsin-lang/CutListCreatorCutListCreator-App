@@ -11,7 +11,7 @@ import * as XLSX from "xlsx";
 import type { QuotationRoom, ClientInfo, QuoteMeta, DrawnUnit, RoomPhoto, ReferencePhoto } from "../types";
 import { type PricingResult } from "./pricingEngine";
 import { pricingService } from "../services/pricingService";
-import { UNIT_TYPE_LABELS } from "../constants";
+import { formatUnitTypeLabel } from "../constants";
 
 // Format mm to feet'inches"
 function formatDimension(mm: number): string {
@@ -47,8 +47,8 @@ function calculateAllRoomsPricing(
 
   if (quotationRooms.length === 0) {
     // No rooms - use current drawnUnits
-    // Accept units with either real-world dimensions (widthMm) OR pixel dimensions (box)
-    const validUnits = currentDrawnUnits.filter(u => (u.widthMm > 0 && u.heightMm > 0) || (u.box && u.box.width > 0 && u.box.height > 0));
+    // Only include units with valid mm dimensions (required for accurate pricing)
+    const validUnits = currentDrawnUnits.filter(u => u.widthMm > 0 && u.heightMm > 0);
     const pricing = pricingService.calculate(validUnits);
     grandSubtotal = pricing.subtotal;
     grandAddOnsTotal = pricing.addOnsTotal;
@@ -73,8 +73,8 @@ function calculateAllRoomsPricing(
   } else {
     quotationRooms.forEach((room, index) => {
       const roomUnits = index === activeRoomIndex ? currentDrawnUnits : room.drawnUnits;
-      // Accept units with either real-world dimensions (widthMm) OR pixel dimensions (box)
-      const validUnits = roomUnits.filter(u => (u.widthMm > 0 && u.heightMm > 0) || (u.box && u.box.width > 0 && u.box.height > 0));
+      // Only include units with valid mm dimensions (required for accurate pricing)
+      const validUnits = roomUnits.filter(u => u.widthMm > 0 && u.heightMm > 0);
       const pricing = pricingService.calculate(validUnits);
       grandSubtotal += pricing.subtotal;
       grandAddOnsTotal += pricing.addOnsTotal;
@@ -218,7 +218,7 @@ export function generateQuotationPDF({
     const group = floorGroups.get(floor)!;
     group.rooms.push({
       room: roomName,
-      unitType: UNIT_TYPE_LABELS[room.unitType] || room.unitType,
+      unitType: formatUnitTypeLabel(room.unitType),
       area: pricing.totalSqft,
       amount: pricing.subtotal,
     });
@@ -454,7 +454,12 @@ export function generateQuotationPDF({
     }
 
     // ========== CANVAS DRAWING (BELOW PHOTO) - 50% width, centered ==========
-    const roomCanvasImage = allCanvasImages?.get(roomIndex) || (roomIndex === activeRoomIndex ? canvasImageData : undefined);
+    // For single room (no quotationRooms), always use canvasImageData
+    // For multi-room, check allCanvasImages map or fallback to canvasImageData for active room
+    const isSingleRoomMode = quotationRooms.length === 0;
+    const roomCanvasImage = isSingleRoomMode
+      ? canvasImageData
+      : (allCanvasImages?.get(roomIndex) || (roomIndex === activeRoomIndex ? canvasImageData : undefined));
 
     // "Design Drawing" label
     doc.setFontSize(7);
@@ -504,7 +509,7 @@ export function generateQuotationPDF({
         const unitPricing = pricing.units[idx];
         if (!unitPricing) return;
 
-        const typeLabel = UNIT_TYPE_LABELS[unit.unitType] || unit.unitType;
+        const typeLabel = formatUnitTypeLabel(unit.unitType);
         const dimensions = `${formatDimension(unit.widthMm)} × ${formatDimension(unit.heightMm)}`;
 
         // Combined carcass + shutter pricing
@@ -697,7 +702,7 @@ export function generateQuotationExcel({
       itemsData.push([
         itemNo++,
         room.name,
-        UNIT_TYPE_LABELS[unit.unitType] || unit.unitType,
+        formatUnitTypeLabel(unit.unitType),
         formatDimension(unit.widthMm),
         formatDimension(unit.heightMm),
         unitPricing.shutterSqft,
@@ -843,7 +848,7 @@ export async function copyQuotationToClipboard({
       const dimensions = `${formatDimension(unit.widthMm)} x ${formatDimension(unit.heightMm)}`;
       // Combined carcass + shutter price
       const totalPrice = unitPricing.carcassPrice + unitPricing.shutterPrice;
-      text += `- ${UNIT_TYPE_LABELS[unit.unitType] || unit.unitType} (${dimensions}): Rs. ${totalPrice.toLocaleString("en-IN")}\n`;
+      text += `- ${formatUnitTypeLabel(unit.unitType)} (${dimensions}): Rs. ${totalPrice.toLocaleString("en-IN")}\n`;
 
       if (unit.loftEnabled && unitPricing.loftPrice > 0) {
         const loftDimensions = `${formatDimension(unit.loftWidthMm)} x ${formatDimension(unit.loftHeightMm)}`;

@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef, ChangeEvent } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useDesignCanvasStore } from "../../../store/v2/useDesignCanvasStore";
 import { useQuotationMetaStore } from "../../../store/v2/useQuotationMetaStore";
 import { useRoomStore } from "../../../store/v2/useRoomStore";
@@ -27,6 +28,7 @@ interface UseQuotation2DStateReturn {
   sidebarCollapsed: boolean;
   setSidebarCollapsed: (collapsed: boolean) => void;
   dimensions: { width: number; height: number };
+  recalculateDimensions: () => void;
   isFullscreen: boolean;
   setIsFullscreen: (fullscreen: boolean) => void;
   canvasFocused: boolean;
@@ -71,18 +73,7 @@ export function useQuotation2DState({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const refFileInputRef = useRef<HTMLInputElement>(null);
 
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [photoImage, setPhotoImage] = useState<HTMLImageElement | null>(null);
-  const [floor, setFloor] = useState("ground");
-  const [room, setRoom] = useState("master_bedroom");
-  const [newUnitType, setNewUnitType] = useState("");
-  const [showAddUnit, setShowAddUnit] = useState(false);
-  const [showRateCard, setShowRateCard] = useState(false);
-  const [canvasFocused, setCanvasFocused] = useState(false);
-
-  // V2 Stores
+  // V2 Stores - must be called before useState that uses store values
   const {
     roomPhoto,
     setRoomPhoto,
@@ -94,11 +85,28 @@ export function useQuotation2DState({
     customUnitTypes,
     setUnitType,
     addCustomUnitType,
-    updateActiveDrawnUnit
+    updateActiveDrawnUnit,
+    // Multi-room support
+    activeFloorId,
+    activeRoomId,
+    switchRoom,
   } = useDesignCanvasStore();
 
-  const { status } = useQuotationMetaStore();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [photoImage, setPhotoImage] = useState<HTMLImageElement | null>(null);
+  // Sync floor/room with store's active values
+  const [floor, setFloor] = useState(activeFloorId || "ground");
+  const [room, setRoom] = useState(activeRoomId || "master_bedroom");
+  const [newUnitType, setNewUnitType] = useState("");
+  const [showAddUnit, setShowAddUnit] = useState(false);
+  const [showRateCard, setShowRateCard] = useState(false);
+  const [canvasFocused, setCanvasFocused] = useState(false);
+
+  const { status, setClientField, setMetaField } = useQuotationMetaStore();
   const { quotationRooms, activeRoomIndex } = useRoomStore();
+  const [searchParams] = useSearchParams();
 
   const { toast } = useToast();
 
@@ -112,27 +120,33 @@ export function useQuotation2DState({
     ...customUnitTypes.map((v) => ({ value: v, label: formatUnitTypeLabel(v) })),
   ];
 
-  // Sync room/floor from store (using roomService for data)
+  // Sync client info from URL params (when navigating from quotations page)
   useEffect(() => {
-    const rooms = roomService.getAllRooms();
-    if (rooms.length > 0 && activeRoomIndex >= 0 && activeRoomIndex < quotationRooms.length) {
-      const currentRoom = quotationRooms[activeRoomIndex];
-      if (currentRoom) {
-        const roomMatch = ROOM_OPTIONS.find((r) =>
-          currentRoom.name.toLowerCase().includes(r.label.toLowerCase())
-        );
-        if (roomMatch) setRoom(roomMatch.value);
-        const floorMatch = FLOOR_OPTIONS.find((f) =>
-          currentRoom.name.toLowerCase().includes(f.label.toLowerCase())
-        );
-        if (floorMatch) {
-          setFloor(floorMatch.value);
-        } else {
-          setFloor("ground");
-        }
-      }
+    const clientName = searchParams.get('clientName');
+    const clientPhone = searchParams.get('clientPhone');
+    const clientLocation = searchParams.get('clientLocation');
+    const quoteNo = searchParams.get('quoteNo');
+
+    if (clientName) setClientField('name', clientName);
+    if (clientPhone) setClientField('phone', clientPhone);
+    if (clientLocation) setClientField('location', clientLocation);
+    if (quoteNo) setMetaField('quoteNo', quoteNo);
+
+    // Clear URL params after syncing to avoid re-syncing on refresh
+    if (clientName || clientPhone || clientLocation || quoteNo) {
+      logger.info('Synced client info from URL params', { clientName, quoteNo });
     }
-  }, [activeRoomIndex, quotationRooms]);
+  }, [searchParams, setClientField, setMetaField]);
+
+  // Sync local state with store's active floor/room
+  useEffect(() => {
+    if (activeFloorId && activeFloorId !== floor) {
+      setFloor(activeFloorId);
+    }
+    if (activeRoomId && activeRoomId !== room) {
+      setRoom(activeRoomId);
+    }
+  }, [activeFloorId, activeRoomId]);
 
   // Load photo image for Konva
   useEffect(() => {
@@ -155,19 +169,20 @@ export function useQuotation2DState({
     };
   }, [stageRef]);
 
+  // Recalculate dimensions function - can be called when view mode changes
+  const recalculateDimensions = useCallback(() => {
+    if (containerRef.current) {
+      const { width, height } = containerRef.current.getBoundingClientRect();
+      setDimensions({ width: Math.max(400, width), height: Math.max(300, height) });
+    }
+  }, []);
+
   // Responsive canvas sizing
   useEffect(() => {
-    const updateDimensions = () => {
-      if (containerRef.current) {
-        const { width, height } = containerRef.current.getBoundingClientRect();
-        setDimensions({ width: Math.max(400, width), height: Math.max(300, height) });
-      }
-    };
-
-    updateDimensions();
-    window.addEventListener("resize", updateDimensions);
-    return () => window.removeEventListener("resize", updateDimensions);
-  }, [sidebarCollapsed]);
+    recalculateDimensions();
+    window.addEventListener("resize", recalculateDimensions);
+    return () => window.removeEventListener("resize", recalculateDimensions);
+  }, [sidebarCollapsed, recalculateDimensions]);
 
   const handleAddNewUnitType = useCallback(() => {
     if (!newUnitType.trim()) return;
@@ -189,64 +204,20 @@ export function useQuotation2DState({
     (newRoom: string) => {
       if (locked) return;
       setRoom(newRoom);
-      const newName = generateRoomName(newRoom, floor);
-      const existingIndex = quotationRooms.findIndex((r) => r.name === newName);
-
-      if (existingIndex >= 0) {
-        // Use roomService to switch rooms
-        roomService.switchToRoom(existingIndex);
-      } else {
-        if (quotationRooms.length > 0) {
-          roomService.saveCurrentRoom();
-        } else if (roomPhoto || wardrobeBox || drawnUnits.length > 0) {
-          const currentName = generateRoomName(room, floor);
-          roomService.createRoom({ unitType, name: currentName });
-        }
-        roomService.createRoom({ unitType, name: newName });
-      }
+      // Use new multi-room switchRoom action
+      switchRoom(floor, newRoom);
     },
-    [
-      locked,
-      floor,
-      quotationRooms,
-      roomPhoto,
-      wardrobeBox,
-      drawnUnits.length,
-      room,
-      unitType,
-    ]
+    [locked, floor, switchRoom]
   );
 
   const handleFloorChange = useCallback(
     (newFloor: string) => {
       if (locked) return;
       setFloor(newFloor);
-      const newName = generateRoomName(room, newFloor);
-      const existingIndex = quotationRooms.findIndex((r) => r.name === newName);
-
-      if (existingIndex >= 0) {
-        // Use roomService to switch rooms
-        roomService.switchToRoom(existingIndex);
-      } else {
-        if (quotationRooms.length > 0) {
-          roomService.saveCurrentRoom();
-        } else if (roomPhoto || wardrobeBox || drawnUnits.length > 0) {
-          const currentName = generateRoomName(room, floor);
-          roomService.createRoom({ unitType, name: currentName });
-        }
-        roomService.createRoom({ unitType, name: newName });
-      }
+      // Use new multi-room switchRoom action
+      switchRoom(newFloor, room);
     },
-    [
-      locked,
-      room,
-      quotationRooms,
-      roomPhoto,
-      wardrobeBox,
-      drawnUnits.length,
-      floor,
-      unitType,
-    ]
+    [locked, room, switchRoom]
   );
 
   const handleMainPhotoUpload = useCallback(
@@ -400,6 +371,7 @@ export function useQuotation2DState({
     sidebarCollapsed,
     setSidebarCollapsed,
     dimensions,
+    recalculateDimensions,
     isFullscreen,
     setIsFullscreen,
     canvasFocused,

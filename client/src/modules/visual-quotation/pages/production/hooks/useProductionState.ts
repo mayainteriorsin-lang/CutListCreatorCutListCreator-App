@@ -284,11 +284,15 @@ export function useProductionState(): UseProductionStateReturn {
     closeEdit,
 
     // Store data for export
+    // Note: productionCanvasSnapshots may be a plain object after hydration from localStorage
+    // Convert it to a Map if needed
     storeData: {
       client,
       meta,
       productionSettings,
-      productionCanvasSnapshots,
+      productionCanvasSnapshots: productionCanvasSnapshots instanceof Map
+        ? productionCanvasSnapshots
+        : new Map(Object.entries(productionCanvasSnapshots || {})),
     },
   };
 }

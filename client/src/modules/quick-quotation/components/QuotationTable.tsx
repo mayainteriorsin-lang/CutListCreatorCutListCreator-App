@@ -18,17 +18,17 @@ import type { QuotationRow } from '../types';
 function TableHeader() {
   return (
     <thead>
-      <tr className="bg-slate-50 text-[10px] text-slate-500 uppercase">
-        <th className="py-1.5 px-1 text-center w-10">#</th>
-        <th className="py-1.5 px-1 text-left">Description</th>
-        <th className="py-1.5 px-2 text-center w-20">H</th>
-        <th className="py-1.5 px-2 text-center w-20">W</th>
-        <th className="py-1.5 px-2 text-center w-20">Sqft</th>
-        <th className="py-1.5 px-2 text-center w-24">Rate</th>
-        <th className="py-1.5 px-2 text-center w-28">Amount</th>
-        <th className="py-1.5 px-2 text-center w-16">Qty</th>
-        <th className="py-1.5 px-2 text-right w-28">Total</th>
-        <th className="py-1.5 px-1 w-16"></th>
+      <tr className="bg-slate-50 text-[9px] sm:text-[10px] text-slate-500 uppercase">
+        <th className="py-1 sm:py-1.5 px-1 text-center w-8 sm:w-10">#</th>
+        <th className="py-1 sm:py-1.5 px-1 text-left min-w-[120px]">Description</th>
+        <th className="py-1 sm:py-1.5 px-1 sm:px-2 text-center w-14 sm:w-20">H</th>
+        <th className="py-1 sm:py-1.5 px-1 sm:px-2 text-center w-14 sm:w-20">W</th>
+        <th className="py-1 sm:py-1.5 px-1 sm:px-2 text-center w-14 sm:w-20">Sqft</th>
+        <th className="py-1 sm:py-1.5 px-1 sm:px-2 text-center w-16 sm:w-24">Rate</th>
+        <th className="py-1 sm:py-1.5 px-1 sm:px-2 text-center w-20 sm:w-28">Amount</th>
+        <th className="py-1 sm:py-1.5 px-1 sm:px-2 text-center w-12 sm:w-16">Qty</th>
+        <th className="py-1 sm:py-1.5 px-1 sm:px-2 text-right w-20 sm:w-28">Total</th>
+        <th className="py-1 sm:py-1.5 px-1 w-12 sm:w-16"></th>
       </tr>
     </thead>
   );
@@ -86,27 +86,27 @@ function QuotationSection({ title, items, isAdditional = false, total }: Quotati
     <Card>
       <CardContent className="p-0">
         {/* Compact Header */}
-        <div className="flex items-center justify-between px-3 py-2 border-b bg-slate-50">
-          <div className="flex items-center gap-2 text-slate-600">
-            <FileText className="h-3.5 w-3.5" />
-            <span className="text-xs font-semibold uppercase">{title}</span>
-            <span className="text-[10px] text-slate-400">
+        <div className="flex items-center justify-between px-2 sm:px-3 py-1.5 sm:py-2 border-b bg-slate-50">
+          <div className="flex items-center gap-1.5 sm:gap-2 text-slate-600">
+            <FileText className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+            <span className="text-[10px] sm:text-xs font-semibold uppercase">{title}</span>
+            <span className="text-[9px] sm:text-[10px] text-slate-400">
               ({items.filter(i => i.type === 'item').length})
             </span>
           </div>
-          <span className="text-sm font-bold text-slate-800">
+          <span className="text-xs sm:text-sm font-bold text-slate-800">
             ₹{formatCurrency(total)}
           </span>
         </div>
 
         {/* Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[900px]">
+        <div className="overflow-x-auto scrollbar-hide">
+          <table className="w-full min-w-[700px] sm:min-w-[900px]">
             <TableHeader />
             <tbody>
               {items.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="py-6 text-center text-slate-400 text-sm">
+                  <td colSpan={10} className="py-4 sm:py-6 text-center text-slate-400 text-xs sm:text-sm">
                     No items yet. Use quick entry below.
                   </td>
                 </tr>
@@ -131,56 +131,59 @@ function QuotationSection({ title, items, isAdditional = false, total }: Quotati
           </table>
         </div>
 
-        {/* Quick Actions Bar - compact */}
-        <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 border-t">
-          <div className="flex-1">
+        {/* Quick Actions Bar - stacks on mobile */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 px-2 sm:px-3 py-2 bg-slate-50 border-t">
+          <div className="flex-1 order-1 sm:order-none">
             <QuickEntryInput isAdditional={isAdditional} />
           </div>
 
-          {/* Floor Selector */}
-          <Select onValueChange={handleAddFloor}>
-            <SelectTrigger className="w-28 h-8 text-xs">
-              <Building2 className="h-3.5 w-3.5 mr-1 text-slate-400" />
-              <SelectValue placeholder="Floor" />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.entries(shortcuts.floors).map(([code, name]) => (
-                <SelectItem key={code} value={code}>
-                  <span className="font-mono text-[10px] bg-slate-100 px-1 rounded mr-1">{code}</span>
-                  {name}
-                </SelectItem>
-              ))}
-              <SelectItem value="__custom__">+ Custom</SelectItem>
-            </SelectContent>
-          </Select>
+          {/* Selectors and Button - horizontal scroll on mobile */}
+          <div className="flex items-center gap-1.5 sm:gap-2 order-2 sm:order-none overflow-x-auto scrollbar-hide">
+            {/* Floor Selector */}
+            <Select onValueChange={handleAddFloor}>
+              <SelectTrigger className="w-20 sm:w-28 h-7 sm:h-8 text-[10px] sm:text-xs flex-shrink-0">
+                <Building2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-0.5 sm:mr-1 text-slate-400" />
+                <SelectValue placeholder="Floor" />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(shortcuts.floors).map(([code, name]) => (
+                  <SelectItem key={code} value={code}>
+                    <span className="font-mono text-[10px] bg-slate-100 px-1 rounded mr-1">{code}</span>
+                    {name}
+                  </SelectItem>
+                ))}
+                <SelectItem value="__custom__">+ Custom</SelectItem>
+              </SelectContent>
+            </Select>
 
-          {/* Room Selector */}
-          <Select onValueChange={handleAddRoom}>
-            <SelectTrigger className="w-28 h-8 text-xs">
-              <Home className="h-3.5 w-3.5 mr-1 text-slate-400" />
-              <SelectValue placeholder="Room" />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.entries(shortcuts.rooms).map(([code, name]) => (
-                <SelectItem key={code} value={code}>
-                  <span className="font-mono text-[10px] bg-slate-100 px-1 rounded mr-1">{code}</span>
-                  {name}
-                </SelectItem>
-              ))}
-              <SelectItem value="__custom__">+ Custom</SelectItem>
-            </SelectContent>
-          </Select>
+            {/* Room Selector */}
+            <Select onValueChange={handleAddRoom}>
+              <SelectTrigger className="w-20 sm:w-28 h-7 sm:h-8 text-[10px] sm:text-xs flex-shrink-0">
+                <Home className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-0.5 sm:mr-1 text-slate-400" />
+                <SelectValue placeholder="Room" />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(shortcuts.rooms).map(([code, name]) => (
+                  <SelectItem key={code} value={code}>
+                    <span className="font-mono text-[10px] bg-slate-100 px-1 rounded mr-1">{code}</span>
+                    {name}
+                  </SelectItem>
+                ))}
+                <SelectItem value="__custom__">+ Custom</SelectItem>
+              </SelectContent>
+            </Select>
 
-          {/* Add Item Button */}
-          <Button
-            variant="default"
-            size="sm"
-            className="h-8 text-xs"
-            onClick={handleAddItem}
-          >
-            <Plus className="h-3.5 w-3.5 mr-1" />
-            Item
-          </Button>
+            {/* Add Item Button */}
+            <Button
+              variant="default"
+              size="sm"
+              className="h-7 sm:h-8 text-[10px] sm:text-xs px-2 sm:px-3 flex-shrink-0"
+              onClick={handleAddItem}
+            >
+              <Plus className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-0.5 sm:mr-1" />
+              Item
+            </Button>
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -208,18 +211,18 @@ export function QuotationTable() {
       {/* Additional Work Toggle */}
       <Button
         variant="outline"
-        className="w-full h-8 text-xs border-dashed"
+        className="w-full h-7 sm:h-8 text-[10px] sm:text-xs border-dashed"
         onClick={toggleAdditionalSection}
       >
         {ui.additionalSectionVisible ? (
           <>
-            <ChevronUp className="h-3.5 w-3.5 mr-1" />
-            Hide Additional Work
+            <ChevronUp className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-1" />
+            <span className="hidden xs:inline">Hide</span> Additional Work
           </>
         ) : (
           <>
-            <ChevronDown className="h-3.5 w-3.5 mr-1" />
-            Add Additional Work
+            <ChevronDown className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-1" />
+            <span className="hidden xs:inline">Add</span> Additional Work
           </>
         )}
       </Button>

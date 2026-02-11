@@ -33,7 +33,7 @@ export function useQuotation2DExport(): UseQuotation2DExportReturn {
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
 
-  const { drawnUnits } = useDesignCanvasStore();
+  const { drawnUnits, activeUnitIndex, setActiveUnitIndex } = useDesignCanvasStore();
 
   // Check if we have data to export (use service)
   const hasExportData = canExport();
@@ -95,7 +95,18 @@ export function useQuotation2DExport(): UseQuotation2DExportReturn {
       setIsExporting(true);
       setError(null);
 
+      // Save current selection and deselect before capture (removes selection box from export)
+      const previousActiveIndex = activeUnitIndex;
+      setActiveUnitIndex(-1);
+
+      // Wait for React to re-render without selection (100ms ensures Konva canvas updates)
+      await new Promise(resolve => setTimeout(resolve, 100));
+
       const canvasImageData = capturePhotoCanvas();
+
+      // Restore selection after capture
+      setActiveUnitIndex(previousActiveIndex);
+
       const result = exportService.exportToPDF({ canvasImageData });
 
       if (!result.success) {
@@ -118,7 +129,7 @@ export function useQuotation2DExport(): UseQuotation2DExportReturn {
     } finally {
       setIsExporting(false);
     }
-  }, [hasExportData, capturePhotoCanvas, toast]);
+  }, [hasExportData, capturePhotoCanvas, toast, activeUnitIndex, setActiveUnitIndex]);
 
   // Export to Excel (via service)
   const handleExportExcel = useCallback(async () => {

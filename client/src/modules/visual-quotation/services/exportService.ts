@@ -12,16 +12,16 @@
  */
 
 import { useDesignCanvasStore } from "../store/v2/useDesignCanvasStore";
-import { usePricingStore } from "../store/v2/usePricingStore";
 import { useQuotationMetaStore } from "../store/v2/useQuotationMetaStore";
-import { useRoomStore } from "../store/v2/useRoomStore";
 import {
   generateQuotationPDF,
   generateQuotationExcel,
   copyQuotationToClipboard,
   generateShareData,
 } from "../engine/exportEngine";
+import { FLOOR_OPTIONS, ROOM_OPTIONS } from "../constants";
 import type { ServiceResult, ExportFormat, ExportParams, ExportResult } from "./types";
+import type { QuotationRoom, DrawnUnit } from "../types";
 
 // ============================================================================
 // Types
@@ -30,7 +30,7 @@ import type { ServiceResult, ExportFormat, ExportParams, ExportResult } from "./
 interface ExportData {
   client: ReturnType<typeof useQuotationMetaStore.getState>["client"];
   meta: ReturnType<typeof useQuotationMetaStore.getState>["meta"];
-  quotationRooms: ReturnType<typeof useRoomStore.getState>["quotationRooms"];
+  quotationRooms: QuotationRoom[];
   currentDrawnUnits: ReturnType<typeof useDesignCanvasStore.getState>["drawnUnits"];
   activeRoomIndex: number;
   roomPhoto?: ReturnType<typeof useDesignCanvasStore.getState>["roomPhoto"];
@@ -42,18 +42,212 @@ interface ExportData {
 // ============================================================================
 
 /**
+ * Get floor label from floor ID
+ * Supports both standard and custom floors
+ */
+function getFloorLabel(floorId: string): string {
+  // First check standard floors
+  const floor = FLOOR_OPTIONS.find(f => f.value === floorId);
+  if (floor) return floor.label;
+
+  // Check custom floors from store
+  const allFloors = useDesignCanvasStore.getState().getAllFloors();
+  const customFloor = allFloors.find(f => f.value === floorId);
+  if (customFloor) return customFloor.label;
+
+  // Fallback: format the ID nicely
+  return floorId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+/**
+ * Get room label from room ID
+ * Supports both standard and custom rooms
+ */
+function getRoomLabel(roomId: string): string {
+  // First check standard rooms
+  const room = ROOM_OPTIONS.find(r => r.value === roomId);
+  if (room) return room.label;
+
+  // Check custom rooms from store
+  const allRooms = useDesignCanvasStore.getState().getAllRooms();
+  const customRoom = allRooms.find(r => r.value === roomId);
+  if (customRoom) return customRoom.label;
+
+  // Fallback: format the ID nicely
+  return roomId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+/**
+ * Parse room key into floorId, roomId, and canvasIndex
+ * Key format: "floorId_roomId_canvasIndex" where both floorId and roomId can contain underscores
+ * e.g., "ground_master_bedroom_0" -> { floorId: "ground", roomId: "master_bedroom", canvasIndex: 0 }
+ * e.g., "ground_2_master_bedroom_0" -> { floorId: "ground_2", roomId: "master_bedroom", canvasIndex: 0 }
+ * e.g., "first_kids_room_2_1" -> { floorId: "first", roomId: "kids_room_2", canvasIndex: 1 }
+ */
+function parseRoomKey(key: string): { floorId: string; roomId: string; canvasIndex: number } {
+  // Get all known floor IDs (standard + custom) sorted by length descending to match longest first
+  const allFloors = useDesignCanvasStore.getState().getAllFloors();
+  const floorIds = allFloors.map(f => f.value).sort((a, b) => b.length - a.length);
+
+  // Get all known room IDs (standard + custom) sorted by length descending
+  const allRooms = useDesignCanvasStore.getState().getAllRooms();
+  const roomIds = allRooms.map(r => r.value).sort((a, b) => b.length - a.length);
+
+  // Find the last underscore followed by a number (canvas index)
+  const lastUnderscoreIndex = key.lastIndexOf('_');
+  const possibleIndex = key.substring(lastUnderscoreIndex + 1);
+  const canvasIndex = parseInt(possibleIndex, 10);
+
+  let remainder = key;
+  let finalCanvasIndex = 0;
+
+  // If last part is a valid number, it's the canvas index
+  if (!isNaN(canvasIndex) && lastUnderscoreIndex > 0) {
+    remainder = key.substring(0, lastUnderscoreIndex);
+    finalCanvasIndex = canvasIndex;
+  }
+
+  // Try to match floor ID from known floors (longest match first)
+  for (const floorId of floorIds) {
+    if (remainder.startsWith(floorId + '_')) {
+      const afterFloor = remainder.substring(floorId.length + 1);
+      // Try to match room ID from known rooms
+      for (const roomId of roomIds) {
+        if (afterFloor === roomId) {
+          return { floorId, roomId, canvasIndex: finalCanvasIndex };
+        }
+      }
+      // If no exact room match, use the remainder as roomId
+      return { floorId, roomId: afterFloor, canvasIndex: finalCanvasIndex };
+    }
+  }
+
+  // Fallback: split at first underscore (legacy behavior)
+  const firstUnderscoreIndex = remainder.indexOf('_');
+  if (firstUnderscoreIndex === -1) {
+    return { floorId: remainder, roomId: '', canvasIndex: finalCanvasIndex };
+  }
+  return {
+    floorId: remainder.substring(0, firstUnderscoreIndex),
+    roomId: remainder.substring(firstUnderscoreIndex + 1),
+    canvasIndex: finalCanvasIndex,
+  };
+}
+
+/**
+ * Convert roomUnits Record to QuotationRoom[] format for export
+ * Organizes by floor, then room, combining all canvases per room
+ */
+function convertRoomUnitsToQuotationRooms(
+  roomUnits: Record<string, DrawnUnit[]>,
+  currentFloorId: string,
+  currentRoomId: string,
+  currentDrawnUnits: DrawnUnit[],
+  currentCanvasIndex: number = 0
+): QuotationRoom[] {
+  // Merge current canvas's units into roomUnits
+  const currentKey = `${currentFloorId}_${currentRoomId}_${currentCanvasIndex}`;
+  const allRoomUnits = {
+    ...roomUnits,
+    [currentKey]: currentDrawnUnits,
+  };
+
+  // Group all canvases by floor+room (combine units from all canvases)
+  const roomGroups: Record<string, DrawnUnit[]> = {};
+
+  for (const [key, units] of Object.entries(allRoomUnits)) {
+    if (!units || units.length === 0) continue;
+
+    const { floorId, roomId } = parseRoomKey(key);
+    const baseKey = `${floorId}_${roomId}`;
+
+    if (!roomGroups[baseKey]) {
+      roomGroups[baseKey] = [];
+    }
+    roomGroups[baseKey].push(...units);
+  }
+
+  // Sort keys by floor order, then room order
+  const floorOrder = FLOOR_OPTIONS.map(f => f.value);
+  const roomOrder = ROOM_OPTIONS.map(r => r.value);
+
+  const sortedKeys = Object.keys(roomGroups)
+    .filter(key => roomGroups[key]?.length > 0) // Only rooms with units
+    .sort((a, b) => {
+      const { floorId: floorA, roomId: roomA } = parseRoomKey(a);
+      const { floorId: floorB, roomId: roomB } = parseRoomKey(b);
+
+      const floorIndexA = floorOrder.indexOf(floorA);
+      const floorIndexB = floorOrder.indexOf(floorB);
+
+      if (floorIndexA !== floorIndexB) {
+        return floorIndexA - floorIndexB;
+      }
+
+      const roomIndexA = roomOrder.indexOf(roomA);
+      const roomIndexB = roomOrder.indexOf(roomB);
+      return roomIndexA - roomIndexB;
+    });
+
+  // Convert to QuotationRoom[]
+  return sortedKeys.map(key => {
+    const { floorId, roomId } = parseRoomKey(key);
+    const units = roomGroups[key];
+    const floorLabel = getFloorLabel(floorId);
+    const roomLabel = getRoomLabel(roomId);
+
+    // Include floor in room name (except for Ground floor)
+    const roomName = floorId === 'ground'
+      ? roomLabel
+      : `${roomLabel} (${floorLabel})`;
+
+    // Get predominant unit type from drawn units
+    const unitType = units[0]?.unitType || 'wardrobe';
+
+    return {
+      id: key,
+      name: roomName,
+      unitType,
+      drawnUnits: units,
+      activeUnitIndex: 0,
+      shutterCount: 3,
+      shutterDividerXs: [],
+      loftEnabled: false,
+      loftHeightRatio: 0.17,
+      loftShutterCount: 2,
+      loftDividerXs: [],
+    };
+  });
+}
+
+/**
  * Gather export data from store
+ * Now uses the new multi-room system (roomUnits in useDesignCanvasStore)
  */
 function gatherExportData(): ExportData {
   const metaState = useQuotationMetaStore.getState();
   const canvasState = useDesignCanvasStore.getState();
-  const roomState = useRoomStore.getState();
+
+  // Convert new roomUnits format to QuotationRoom[] for export engine
+  // Note: This combines all canvases per room into single QuotationRoom entries
+  const quotationRooms = convertRoomUnitsToQuotationRooms(
+    canvasState.roomUnits,
+    canvasState.activeFloorId,
+    canvasState.activeRoomId,
+    canvasState.drawnUnits,
+    canvasState.activeCanvasIndex
+  );
+
+  // Find active room index in the converted array (uses base key without canvas index)
+  const currentKey = `${canvasState.activeFloorId}_${canvasState.activeRoomId}`;
+  const activeRoomIndex = quotationRooms.findIndex(r => r.id === currentKey);
+
   return {
     client: metaState.client,
     meta: metaState.meta,
-    quotationRooms: roomState.quotationRooms,
+    quotationRooms,
     currentDrawnUnits: canvasState.drawnUnits,
-    activeRoomIndex: roomState.activeRoomIndex,
+    activeRoomIndex: activeRoomIndex >= 0 ? activeRoomIndex : 0,
     roomPhoto: canvasState.roomPhoto || undefined,
     referencePhotos: canvasState.referencePhotos,
   };
@@ -277,7 +471,7 @@ export async function exportQuotation(params: ExportParams): Promise<ServiceResu
       return exportToExcel();
     case "clipboard":
       return copyToClipboard();
-    case "whatsapp":
+    case "whatsapp": {
       const result = await shareToWhatsApp();
       return {
         success: result.success,
@@ -288,6 +482,7 @@ export async function exportQuotation(params: ExportParams): Promise<ServiceResu
           error: result.error,
         },
       };
+    }
     default:
       return {
         success: false,
@@ -298,21 +493,19 @@ export async function exportQuotation(params: ExportParams): Promise<ServiceResu
 
 /**
  * Check if export is available (has content to export)
+ * Uses the new multi-room system (roomUnits in useDesignCanvasStore)
  */
 export function canExport(): boolean {
   const canvasState = useDesignCanvasStore.getState();
-  const roomState = useRoomStore.getState();
-  const { quotationRooms, activeRoomIndex } = roomState;
-  const { drawnUnits } = canvasState;
+  const { drawnUnits, roomUnits } = canvasState;
 
-  if (quotationRooms.length === 0) {
-    return drawnUnits.length > 0;
+  // Check current room's drawn units
+  if (drawnUnits.length > 0) {
+    return true;
   }
 
-  return quotationRooms.some((room, index) => {
-    const units = index === activeRoomIndex ? drawnUnits : room.drawnUnits;
-    return units.length > 0;
-  });
+  // Check all saved rooms for units
+  return Object.values(roomUnits).some(units => units.length > 0);
 }
 
 /**

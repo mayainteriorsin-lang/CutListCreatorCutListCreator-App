@@ -51,11 +51,9 @@ export function calculateItemRow(row: QuotationRow): {
     // Direct amount input (no dimensions)
     amount = directAmount;
     total = amount * qty;
-  } else if (rate > 0) {
-    // Rate only (treated as flat amount)
-    amount = rate;
-    total = amount * qty;
   }
+  // Note: Rate alone without dimensions doesn't calculate a total
+  // User must either provide H+W or enter amount directly
 
   return {
     sqft: sqft ? parseFloat(sqft.toFixed(2)) : 0,

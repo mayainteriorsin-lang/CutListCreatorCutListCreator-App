@@ -119,72 +119,71 @@ function QuickQuotationContent() {
     <div className="min-h-screen bg-slate-50">
       {/* Header Bar */}
       <header className="sticky top-0 z-40 bg-white border-b shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 py-2 sm:py-3">
+          {/* Mobile: Two rows, Desktop: Single row */}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             {/* Left: Brand + Doc Info */}
-            <div className="flex items-center gap-6">
+            <div className="flex items-center justify-between sm:justify-start gap-3 sm:gap-6">
               {/* Brand */}
               <div className="flex items-center gap-2">
-                <div className="w-9 h-9 bg-gradient-to-br from-amber-500 to-yellow-500 rounded-lg flex items-center justify-center shadow-md">
-                  <Zap className="h-5 w-5 text-white" />
+                <div className="w-8 h-8 sm:w-9 sm:h-9 bg-gradient-to-br from-amber-500 to-yellow-500 rounded-lg flex items-center justify-center shadow-md">
+                  <Zap className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
                 </div>
-                <div>
-                  <h1 className="text-lg font-semibold text-slate-800">Quick Quote</h1>
-                </div>
+                <h1 className="text-base sm:text-lg font-semibold text-slate-800">Quick Quote</h1>
               </div>
 
-              {/* Date & Quote Number */}
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <Label className="text-xs text-slate-500">Date</Label>
+              {/* Date & Quote Number - inline on mobile, larger on desktop */}
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="flex items-center gap-1 sm:gap-2">
+                  <Label className="text-[10px] sm:text-xs text-slate-500 hidden xs:inline">Date</Label>
                   <Input
                     type="date"
                     value={quotationMeta.date}
                     onChange={(e) => setQuotationDate(e.target.value)}
-                    className="h-8 w-36"
+                    className="h-7 sm:h-8 w-28 sm:w-36 text-xs sm:text-sm"
                   />
                 </div>
-                <div className="flex items-center gap-2">
-                  <Label className="text-xs text-slate-500">Quote #</Label>
+                <div className="flex items-center gap-1 sm:gap-2">
+                  <Label className="text-[10px] sm:text-xs text-slate-500 hidden xs:inline">#</Label>
                   <Input
                     value={quotationMeta.number}
                     onChange={(e) => setQuotationNumber(e.target.value)}
-                    className="h-8 w-32 font-mono"
+                    className="h-7 sm:h-8 w-20 sm:w-32 font-mono text-xs sm:text-sm"
                   />
                 </div>
               </div>
             </div>
 
-            {/* Right: Actions */}
-            <div className="flex items-center gap-2">
+            {/* Right: Actions - scrollable on mobile */}
+            <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto scrollbar-hide -mx-2 px-2 sm:mx-0 sm:px-0">
               {/* Undo/Redo */}
-              <div className="flex items-center border-r pr-2 mr-2">
+              <div className="flex items-center border-r pr-1 sm:pr-2 mr-1 sm:mr-2 flex-shrink-0">
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8"
+                  className="h-7 w-7 sm:h-8 sm:w-8"
                   onClick={undo}
                   disabled={!canUndo()}
                   title="Undo (Ctrl+Z)"
                 >
-                  <Undo2 className="h-4 w-4" />
+                  <Undo2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 </Button>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8"
+                  className="h-7 w-7 sm:h-8 sm:w-8"
                   onClick={redo}
                   disabled={!canRedo()}
                   title="Redo (Ctrl+Y)"
                 >
-                  <Redo2 className="h-4 w-4" />
+                  <Redo2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 </Button>
               </div>
 
               {/* New */}
-              <Button variant="outline" size="sm" onClick={handleNewQuotation}>
-                <Plus className="h-4 w-4 mr-1" />
-                New
+              <Button variant="outline" size="sm" onClick={handleNewQuotation} className="h-7 sm:h-8 px-2 sm:px-3 flex-shrink-0">
+                <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-1" />
+                <span className="hidden sm:inline">New</span>
               </Button>
 
               {/* Shortcuts */}
@@ -192,9 +191,10 @@ function QuickQuotationContent() {
                 variant="outline"
                 size="sm"
                 onClick={() => setActiveDialog('shortcuts')}
+                className="h-7 sm:h-8 px-2 sm:px-3 flex-shrink-0"
               >
-                <Keyboard className="h-4 w-4 mr-1" />
-                Shortcuts
+                <Keyboard className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-1" />
+                <span className="hidden md:inline">Shortcuts</span>
               </Button>
 
               {/* Clients */}
@@ -202,9 +202,10 @@ function QuickQuotationContent() {
                 variant="outline"
                 size="sm"
                 onClick={() => setActiveDialog('clients')}
+                className="h-7 sm:h-8 px-2 sm:px-3 flex-shrink-0"
               >
-                <FolderOpen className="h-4 w-4 mr-1" />
-                Saved
+                <FolderOpen className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-1" />
+                <span className="hidden md:inline">Saved</span>
               </Button>
 
               {/* Bank */}
@@ -212,19 +213,20 @@ function QuickQuotationContent() {
                 variant="outline"
                 size="sm"
                 onClick={() => setActiveDialog('bank')}
+                className="h-7 sm:h-8 px-2 sm:px-3 flex-shrink-0"
               >
-                <Building className="h-4 w-4 mr-1" />
-                Bank
+                <Building className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-1" />
+                <span className="hidden md:inline">Bank</span>
               </Button>
 
               {/* Export PDF */}
               <Button
                 onClick={handleExportPDF}
                 disabled={ui.isGeneratingPdf}
-                className="bg-gradient-to-r from-blue-600 to-indigo-600"
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 h-7 sm:h-8 px-2 sm:px-3 flex-shrink-0"
               >
-                <FileDown className="h-4 w-4 mr-1" />
-                {ui.isGeneratingPdf ? 'Generating...' : 'Export PDF'}
+                <FileDown className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-1" />
+                <span className="hidden sm:inline">{ui.isGeneratingPdf ? 'Generating...' : 'Export PDF'}</span>
               </Button>
             </div>
           </div>
@@ -232,7 +234,7 @@ function QuickQuotationContent() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 py-3 space-y-3">
+      <main className="max-w-7xl mx-auto px-2 sm:px-4 py-2 sm:py-3 space-y-2 sm:space-y-3">
         {/* Top: Client Info */}
         <ClientInfoCard />
 
@@ -248,14 +250,14 @@ function QuickQuotationContent() {
 
       {/* Footer */}
       <footer className="border-t bg-white mt-4">
-        <div className="max-w-7xl mx-auto px-4 py-2">
-          <div className="flex items-center justify-between text-xs text-slate-500">
-            <div className="flex items-center gap-3">
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 py-2">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-1 text-[10px] sm:text-xs text-slate-500">
+            <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
               <span>{settings.contactInfo.phone}</span>
-              <span>{settings.contactInfo.email}</span>
-              <span>{settings.contactInfo.location}</span>
+              <span className="hidden xs:inline">{settings.contactInfo.email}</span>
+              <span className="hidden sm:inline">{settings.contactInfo.location}</span>
             </div>
-            <div>
+            <div className="text-slate-400 sm:text-slate-500">
               Auto-saved · <kbd className="px-1 py-0.5 bg-slate-100 rounded text-[10px]">Ctrl+S</kbd>
             </div>
           </div>

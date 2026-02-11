@@ -31,6 +31,7 @@ import {
   GitBranch,
   Save,
   FolderOpen,
+  Ruler,
   CreditCard,
   FileSpreadsheet,
   User,
@@ -389,73 +390,73 @@ export default function QuotationsPage() {
     <div className="h-screen overflow-hidden bg-gradient-to-br from-slate-100 via-slate-50 to-indigo-50/30 flex flex-col">
       {/* Header */}
       <header className="flex-shrink-0 bg-white/80 backdrop-blur-lg border-b border-slate-200/60 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-2">
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 py-2">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               <button
                 onClick={() => navigate('/')}
-                className="h-8 w-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors"
+                className="h-8 w-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors flex-shrink-0"
               >
                 <ChevronLeft className="h-5 w-5 text-slate-600" />
               </button>
-              <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-                <FolderOpen className="h-5 w-5 text-white" />
+              <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/20 flex-shrink-0">
+                <FolderOpen className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
               </div>
-              <div>
-                <h1 className="text-base font-bold text-slate-900">Client Folders</h1>
-                <p className="text-xs text-slate-500">{stats.total} clients</p>
+              <div className="min-w-0">
+                <h1 className="text-sm sm:text-base font-bold text-slate-900 truncate">Client Folders</h1>
+                <p className="text-[10px] sm:text-xs text-slate-500">{stats.total} clients</p>
               </div>
             </div>
             <Button
               onClick={handleCreate}
-              className="h-8 px-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-lg shadow-lg shadow-indigo-500/20"
+              className="h-8 px-2 sm:px-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-lg shadow-lg shadow-indigo-500/20 text-xs sm:text-sm"
             >
-              <Plus className="h-4 w-4 mr-1.5" />
-              New Client
+              <Plus className="h-4 w-4 sm:mr-1.5" />
+              <span className="hidden sm:inline">New Client</span>
             </Button>
           </div>
         </div>
       </header>
 
-      <main className="flex-1 overflow-hidden max-w-7xl mx-auto w-full px-4 py-3 flex flex-col">
+      <main className="flex-1 overflow-hidden max-w-7xl mx-auto w-full px-2 sm:px-4 py-2 sm:py-3 flex flex-col">
         {/* Stats Row */}
-        <div className="flex-shrink-0 grid grid-cols-4 gap-3 mb-3">
-          <div className="bg-white rounded-xl border border-slate-200 px-3 py-2 shadow-sm">
-            <p className="text-[10px] text-slate-500">Total Value</p>
-            <p className="text-base font-bold text-slate-800">₹{stats.totalValue.toLocaleString('en-IN')}</p>
+        <div className="flex-shrink-0 grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-2 sm:mb-3">
+          <div className="bg-white rounded-xl border border-slate-200 px-2 sm:px-3 py-1.5 sm:py-2 shadow-sm">
+            <p className="text-[9px] sm:text-[10px] text-slate-500">Total Value</p>
+            <p className="text-sm sm:text-base font-bold text-slate-800">₹{stats.totalValue.toLocaleString('en-IN')}</p>
           </div>
-          <div className="bg-white rounded-xl border border-slate-200 px-3 py-2 shadow-sm">
-            <p className="text-[10px] text-slate-500">Received</p>
-            <p className="text-base font-bold text-emerald-600">₹{stats.totalReceived.toLocaleString('en-IN')}</p>
+          <div className="bg-white rounded-xl border border-slate-200 px-2 sm:px-3 py-1.5 sm:py-2 shadow-sm">
+            <p className="text-[9px] sm:text-[10px] text-slate-500">Received</p>
+            <p className="text-sm sm:text-base font-bold text-emerald-600">₹{stats.totalReceived.toLocaleString('en-IN')}</p>
           </div>
-          <div className="bg-white rounded-xl border border-slate-200 px-3 py-2 shadow-sm">
-            <p className="text-[10px] text-slate-500">Pending</p>
-            <p className="text-base font-bold text-amber-600">₹{stats.totalPending.toLocaleString('en-IN')}</p>
+          <div className="bg-white rounded-xl border border-slate-200 px-2 sm:px-3 py-1.5 sm:py-2 shadow-sm">
+            <p className="text-[9px] sm:text-[10px] text-slate-500">Pending</p>
+            <p className="text-sm sm:text-base font-bold text-amber-600">₹{stats.totalPending.toLocaleString('en-IN')}</p>
           </div>
-          <div className="bg-white rounded-xl border border-slate-200 px-3 py-2 shadow-sm">
-            <p className="text-[10px] text-slate-500">Approved</p>
-            <p className="text-base font-bold text-indigo-600">{stats.approved}/{stats.total}</p>
+          <div className="bg-white rounded-xl border border-slate-200 px-2 sm:px-3 py-1.5 sm:py-2 shadow-sm">
+            <p className="text-[9px] sm:text-[10px] text-slate-500">Approved</p>
+            <p className="text-sm sm:text-base font-bold text-indigo-600">{stats.approved}/{stats.total}</p>
           </div>
         </div>
 
         {/* Search & Filters */}
-        <div className="flex-shrink-0 flex gap-2 mb-3">
+        <div className="flex-shrink-0 flex flex-col sm:flex-row gap-2 mb-2 sm:mb-3">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <Input
-              placeholder="Search by name, mobile, or quotation..."
+              placeholder="Search by name, mobile..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9 h-9 bg-white border-slate-200"
             />
           </div>
-          <div className="flex gap-1 bg-white border border-slate-200 rounded-lg p-1">
+          <div className="flex gap-1 bg-white border border-slate-200 rounded-lg p-1 overflow-x-auto scrollbar-hide">
             {(['ALL', 'DRAFT', 'SENT', 'APPROVED', 'REJECTED'] as const).map((status) => (
               <button
                 key={status}
                 onClick={() => setStatusFilter(status)}
                 className={cn(
-                  'px-3 py-1 text-xs font-medium rounded transition-colors',
+                  'px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-medium rounded transition-colors whitespace-nowrap flex-shrink-0',
                   statusFilter === status
                     ? 'bg-indigo-100 text-indigo-700'
                     : 'text-slate-600 hover:bg-slate-50'
@@ -468,25 +469,25 @@ export default function QuotationsPage() {
         </div>
 
         {/* Main Content Area - Fill remaining height */}
-        <div className="flex-1 flex gap-4 min-h-0 overflow-hidden">
-          {/* Folders List - Left Side */}
+        <div className="flex-1 flex gap-2 sm:gap-4 min-h-0 overflow-hidden">
+          {/* Folders List - Left Side (hidden on mobile when folder is open) */}
           <div className={cn(
             'transition-all duration-300 overflow-y-auto',
-            openFolderId ? 'w-80 flex-shrink-0' : 'w-full'
+            openFolderId ? 'hidden md:block w-80 flex-shrink-0' : 'w-full'
           )}>
             {filteredQuotations.length === 0 ? (
-              <div className="bg-white rounded-xl border border-slate-200 p-6 text-center shadow-sm">
-                <FolderOpen className="h-10 w-10 text-slate-300 mx-auto mb-3" />
-                <p className="text-slate-500">No clients found</p>
-                <Button onClick={handleCreate} variant="outline" className="mt-3">
+              <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-6 text-center shadow-sm">
+                <FolderOpen className="h-8 sm:h-10 w-8 sm:w-10 text-slate-300 mx-auto mb-2 sm:mb-3" />
+                <p className="text-sm sm:text-base text-slate-500">No clients found</p>
+                <Button onClick={handleCreate} variant="outline" className="mt-2 sm:mt-3 text-xs sm:text-sm">
                   <Plus className="h-4 w-4 mr-1" />
                   Add First Client
                 </Button>
               </div>
             ) : (
               <div className={cn(
-                'grid gap-3',
-                openFolderId ? 'grid-cols-1' : 'grid-cols-3'
+                'grid gap-2 sm:gap-3',
+                openFolderId ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
               )}>
                 {filteredQuotations.map((q) => {
                   const statusConfig = STATUS_CONFIG[q.status];
@@ -506,7 +507,7 @@ export default function QuotationsPage() {
                     >
                       {/* Folder Tab */}
                       <div className={cn(
-                        'absolute -top-3 left-4 px-3 py-1 rounded-t-lg text-xs font-medium z-10 transition-colors',
+                        'absolute -top-3 left-3 sm:left-4 px-2 sm:px-3 py-0.5 sm:py-1 rounded-t-lg text-[10px] sm:text-xs font-medium z-10 transition-colors',
                         isOpen
                           ? 'bg-indigo-500 text-white'
                           : 'bg-amber-100 text-amber-700 group-hover:bg-amber-200'
@@ -523,44 +524,44 @@ export default function QuotationsPage() {
                           : 'border-slate-200 hover:border-indigo-300 hover:shadow-md'
                       )}>
                         {/* Folder Header */}
-                        <div className="p-3 pt-4">
+                        <div className="p-2 sm:p-3 pt-3 sm:pt-4">
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex-1 min-w-0">
-                              <h3 className="font-semibold text-slate-900 truncate">
+                              <h3 className="font-semibold text-sm sm:text-base text-slate-900 truncate">
                                 {q.clientName || 'Unnamed Client'}
                               </h3>
-                              <div className="flex items-center gap-2 mt-1 text-xs text-slate-500">
+                              <div className="flex items-center gap-2 mt-0.5 sm:mt-1 text-[10px] sm:text-xs text-slate-500">
                                 <Phone className="h-3 w-3" />
                                 <span>{q.clientMobile || 'No phone'}</span>
                               </div>
                             </div>
                             <span className={cn(
-                              'flex-shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium',
+                              'flex-shrink-0 inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-[9px] sm:text-[10px] font-medium',
                               statusConfig.bg, statusConfig.color
                             )}>
-                              <StatusIcon className="h-3 w-3" />
-                              {statusConfig.label}
+                              <StatusIcon className="h-2.5 sm:h-3 w-2.5 sm:w-3" />
+                              <span className="hidden xs:inline">{statusConfig.label}</span>
                             </span>
                           </div>
 
                           {/* Amount Bar */}
-                          <div className="mt-3">
-                            <div className="flex items-center justify-between text-sm mb-1">
+                          <div className="mt-2 sm:mt-3">
+                            <div className="flex items-center justify-between text-xs sm:text-sm mb-1">
                               <span className="font-bold text-slate-800">
                                 {formatCurrency(q.finalTotal)}
                               </span>
                               {q.pendingAmount > 0 ? (
-                                <span className="text-amber-600 font-medium text-xs">
+                                <span className="text-amber-600 font-medium text-[10px] sm:text-xs">
                                   {formatCurrency(q.pendingAmount)} due
                                 </span>
                               ) : (
-                                <span className="text-emerald-600 font-medium text-xs flex items-center gap-1">
+                                <span className="text-emerald-600 font-medium text-[10px] sm:text-xs flex items-center gap-1">
                                   <Check className="h-3 w-3" />
                                   Paid
                                 </span>
                               )}
                             </div>
-                            <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                            <div className="h-1.5 sm:h-2 bg-slate-200 rounded-full overflow-hidden">
                               <div
                                 className={cn(
                                   'h-full rounded-full transition-all',
@@ -573,9 +574,9 @@ export default function QuotationsPage() {
                             </div>
                           </div>
 
-                          {/* Quick Stats (when collapsed) */}
+                          {/* Quick Stats (when collapsed) - hidden on mobile to save space */}
                           {!openFolderId && (
-                            <div className="flex items-center gap-3 mt-3 pt-3 border-t border-slate-100 text-xs text-slate-500">
+                            <div className="hidden sm:flex items-center gap-3 mt-3 pt-3 border-t border-slate-100 text-xs text-slate-500">
                               <div className="flex items-center gap-1">
                                 <Calendar className="h-3 w-3" />
                                 {q.date}
@@ -613,31 +614,58 @@ export default function QuotationsPage() {
             )}
           </div>
 
-          {/* Open Folder Content - Right Side */}
+          {/* Open Folder Content - Right Side (full width on mobile) */}
           {openFolderId && openFolder && (
             <div className="flex-1 bg-white rounded-xl border-2 border-indigo-200 shadow-lg overflow-hidden flex flex-col min-h-0">
               {/* Folder Content Header */}
-              <div className="flex-shrink-0 bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-4 py-3">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <h2 className="text-base font-bold truncate">{openFolder.clientName || 'Unnamed Client'}</h2>
+              <div className="flex-shrink-0 bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-2 sm:px-4 py-2 sm:py-3">
+                <div className="flex items-center justify-between mb-2 sm:mb-3">
+                  <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
+                    {/* Back button on mobile */}
+                    <button
+                      onClick={closeFolder}
+                      className="md:hidden h-7 w-7 rounded-lg flex-shrink-0 bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <h2 className="text-sm sm:text-base font-bold truncate">{openFolder.clientName || 'Unnamed Client'}</h2>
                     {isQuickQuote(openFolder) && (
-                      <span className="flex-shrink-0 px-2 py-0.5 rounded-full bg-amber-400 text-amber-900 text-[10px] font-bold">
-                        Quick Quote
+                      <span className="hidden xs:flex flex-shrink-0 px-1.5 sm:px-2 py-0.5 rounded-full bg-amber-400 text-amber-900 text-[9px] sm:text-[10px] font-bold">
+                        Quick
                       </span>
                     )}
-                    <span className="text-indigo-200 text-xs">• {openFolder.quotationNumber}</span>
+                    <span className="hidden sm:inline text-indigo-200 text-xs">• {openFolder.quotationNumber}</span>
                   </div>
-                  <button
-                    onClick={closeFolder}
-                    className="h-7 w-7 rounded-lg flex-shrink-0 bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
+                  <div className="flex items-center gap-1.5 sm:gap-2">
+                    {openFolder.status === 'APPROVED' && (
+                      <Button
+                        onClick={() => {
+                          const params = new URLSearchParams({
+                            clientName: openFolder.clientName || '',
+                            clientPhone: openFolder.clientMobile || '',
+                            clientLocation: openFolder.clientLocation || '',
+                            quoteNo: openFolder.quotationNumber || '',
+                          });
+                          navigate(`/2d-quotation?${params.toString()}`);
+                        }}
+                        size="sm"
+                        className="h-6 sm:h-7 px-2 sm:px-3 bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] sm:text-xs font-medium"
+                      >
+                        <Ruler className="h-3 sm:h-3.5 w-3 sm:w-3.5 sm:mr-1" />
+                        <span className="hidden sm:inline">Start Design</span>
+                      </Button>
+                    )}
+                    <button
+                      onClick={closeFolder}
+                      className="hidden md:flex h-7 w-7 rounded-lg flex-shrink-0 bg-white/20 hover:bg-white/30 items-center justify-center transition-colors"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
 
-                {/* Single Row Tabs */}
-                <div className="flex gap-1 bg-white/10 p-1 rounded-lg">
+                {/* Single Row Tabs - scrollable on mobile */}
+                <div className="flex gap-1 bg-white/10 p-0.5 sm:p-1 rounded-lg overflow-x-auto scrollbar-hide">
                   {FOLDER_TABS.map((tab) => {
                     const TabIcon = tab.icon;
                     const isActive = activeTab === tab.id;
@@ -647,17 +675,17 @@ export default function QuotationsPage() {
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id)}
                         className={cn(
-                          'flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-md text-xs font-medium transition-all relative',
+                          'flex-shrink-0 sm:flex-1 flex items-center justify-center gap-0.5 sm:gap-1 px-2 sm:px-2 py-1 sm:py-1.5 rounded-md text-[10px] sm:text-xs font-medium transition-all relative',
                           isActive
                             ? 'bg-white text-indigo-600 shadow-sm'
                             : 'text-white/80 hover:bg-white/10'
                         )}
                       >
-                        <TabIcon className="h-3.5 w-3.5" />
-                        <span className="hidden sm:inline">{tab.label}</span>
+                        <TabIcon className="h-3 sm:h-3.5 w-3 sm:w-3.5" />
+                        <span className="hidden xs:inline">{tab.label}</span>
                         {badge !== null && badge > 0 && (
                           <span className={cn(
-                            'px-1.5 py-0.5 rounded-full text-[9px] font-bold',
+                            'px-1 sm:px-1.5 py-0.5 rounded-full text-[8px] sm:text-[9px] font-bold',
                             isActive ? 'bg-indigo-100 text-indigo-700' : 'bg-white/20 text-white'
                           )}>
                             {badge}
@@ -669,33 +697,11 @@ export default function QuotationsPage() {
                 </div>
               </div>
 
-              {/* Tab Content - Scrollable */}
-              <div className="flex-1 overflow-y-auto p-3">
+              {/* Tab Content */}
+              <div className="flex-1 p-2 sm:p-3 overflow-y-auto">
                 {/* Payment Tab */}
                 {activeTab === 'payment' && (
-                  <div className="space-y-3">
-                    {/* Summary Row */}
-                    <div className="flex gap-2 text-center">
-                      <div className="flex-1 bg-slate-50 rounded-lg px-2 py-1.5">
-                        <p className="text-[10px] text-slate-400">Subtotal</p>
-                        <p className="text-sm font-bold text-slate-700">{formatCurrency(openFolder.subtotal)}</p>
-                      </div>
-                      <div className="flex-1 bg-indigo-50 rounded-lg px-2 py-1.5">
-                        <p className="text-[10px] text-slate-400">Final</p>
-                        <p className="text-sm font-bold text-indigo-600">{formatCurrency(openFolder.finalTotal)}</p>
-                      </div>
-                      <div className="flex-1 bg-emerald-50 rounded-lg px-2 py-1.5">
-                        <p className="text-[10px] text-slate-400">Paid</p>
-                        <p className="text-sm font-bold text-emerald-600">{formatCurrency(openFolder.totalPaid)}</p>
-                      </div>
-                      <div className={cn('flex-1 rounded-lg px-2 py-1.5', openFolder.pendingAmount > 0 ? 'bg-amber-50' : 'bg-emerald-50')}>
-                        <p className="text-[10px] text-slate-400">Due</p>
-                        <p className={cn('text-sm font-bold', openFolder.pendingAmount > 0 ? 'text-amber-600' : 'text-emerald-600')}>
-                          {formatCurrency(Math.max(0, openFolder.pendingAmount))}
-                        </p>
-                      </div>
-                    </div>
-
+                  <div className="h-full flex flex-col gap-2 sm:gap-3">
                     {/* Payment Section Component */}
                     <PaymentSection
                       quotation={openFolder}
@@ -741,35 +747,35 @@ export default function QuotationsPage() {
 
                 {/* Versions Tab - Visual Version Cards */}
                 {activeTab === 'versions' && (
-                  <div className="space-y-4">
+                  <div className="space-y-3 sm:space-y-4">
                     {/* Current Version */}
-                    <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-4 border-2 border-indigo-200">
-                      <div className="flex items-center justify-between mb-3">
+                    <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-3 sm:p-4 border-2 border-indigo-200">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                         <div className="flex items-center gap-2">
-                          <span className="px-3 py-1 rounded-full bg-indigo-500 text-white text-sm font-bold">
+                          <span className="px-2 sm:px-3 py-0.5 sm:py-1 rounded-full bg-indigo-500 text-white text-xs sm:text-sm font-bold">
                             CURRENT
                           </span>
-                          <span className="text-sm text-slate-500">Last updated: {openFolder.updatedAt.split('T')[0]}</span>
+                          <span className="text-[10px] sm:text-sm text-slate-500">Updated: {openFolder.updatedAt.split('T')[0]}</span>
                         </div>
                         {!isQuickQuote(openFolder) && (
                           <Button
                             onClick={handleSaveVersion}
                             size="sm"
-                            className="bg-indigo-500 hover:bg-indigo-600"
+                            className="bg-indigo-500 hover:bg-indigo-600 h-7 sm:h-8 text-xs"
                           >
-                            <Save className="h-3.5 w-3.5 mr-1" />
-                            Save as Version
+                            <Save className="h-3 sm:h-3.5 w-3 sm:w-3.5 mr-1" />
+                            Save Version
                           </Button>
                         )}
                       </div>
-                      <div className="grid grid-cols-4 gap-4">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
                         <div>
-                          <p className="text-xs text-slate-500">Subtotal</p>
-                          <p className="text-lg font-bold text-slate-800">{formatCurrency(openFolder.subtotal)}</p>
+                          <p className="text-[10px] sm:text-xs text-slate-500">Subtotal</p>
+                          <p className="text-sm sm:text-lg font-bold text-slate-800">{formatCurrency(openFolder.subtotal)}</p>
                         </div>
                         <div>
-                          <p className="text-xs text-slate-500">Discount</p>
-                          <p className="text-lg font-bold text-orange-600">
+                          <p className="text-[10px] sm:text-xs text-slate-500">Discount</p>
+                          <p className="text-sm sm:text-lg font-bold text-orange-600">
                             {openFolder.discountPercent > 0 ? `${openFolder.discountPercent}%` : ''}
                             {openFolder.discountPercent > 0 && openFolder.discountFlat > 0 ? ' + ' : ''}
                             {openFolder.discountFlat > 0 ? formatCurrency(openFolder.discountFlat) : ''}
@@ -777,12 +783,12 @@ export default function QuotationsPage() {
                           </p>
                         </div>
                         <div>
-                          <p className="text-xs text-slate-500">Final Total</p>
-                          <p className="text-lg font-bold text-indigo-600">{formatCurrency(openFolder.finalTotal)}</p>
+                          <p className="text-[10px] sm:text-xs text-slate-500">Final Total</p>
+                          <p className="text-sm sm:text-lg font-bold text-indigo-600">{formatCurrency(openFolder.finalTotal)}</p>
                         </div>
                         <div>
-                          <p className="text-xs text-slate-500">Status</p>
-                          <span className={cn('inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium', STATUS_CONFIG[openFolder.status].bg, STATUS_CONFIG[openFolder.status].color)}>
+                          <p className="text-[10px] sm:text-xs text-slate-500">Status</p>
+                          <span className={cn('inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-medium', STATUS_CONFIG[openFolder.status].bg, STATUS_CONFIG[openFolder.status].color)}>
                             {STATUS_CONFIG[openFolder.status].label}
                           </span>
                         </div>
@@ -791,46 +797,44 @@ export default function QuotationsPage() {
 
                     {/* Previous Versions */}
                     <div>
-                      <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
-                        <GitBranch className="h-4 w-4" />
+                      <h3 className="text-xs sm:text-sm font-semibold text-slate-700 mb-2 sm:mb-3 flex items-center gap-2">
+                        <GitBranch className="h-3.5 sm:h-4 w-3.5 sm:w-4" />
                         Previous Versions ({openFolder.versions?.length || 0})
                       </h3>
 
                       {(openFolder.versions?.length || 0) > 0 ? (
-                        <div className="space-y-3">
+                        <div className="space-y-2 sm:space-y-3">
                           {[...(openFolder.versions || [])].reverse().map((v, idx) => (
-                            <div key={v.id} className="bg-white rounded-xl p-4 border border-slate-200 hover:border-indigo-200 transition-colors">
-                              <div className="flex items-center justify-between mb-3">
-                                <div className="flex items-center gap-3">
-                                  <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-sm font-bold">
+                            <div key={v.id} className="bg-white rounded-xl p-3 sm:p-4 border border-slate-200 hover:border-indigo-200 transition-colors">
+                              <div className="flex items-center justify-between mb-2 sm:mb-3">
+                                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                                  <span className="px-2 sm:px-3 py-0.5 sm:py-1 rounded-full bg-slate-100 text-slate-700 text-xs sm:text-sm font-bold">
                                     v{v.version}
                                   </span>
-                                  <span className="text-sm text-slate-500">{v.date}</span>
+                                  <span className="text-[10px] sm:text-sm text-slate-500">{v.date}</span>
                                   {v.note && (
-                                    <span className="text-xs text-slate-400 italic">"{v.note}"</span>
+                                    <span className="hidden sm:inline text-xs text-slate-400 italic">"{v.note}"</span>
                                   )}
                                 </div>
-                                <div className="flex items-center gap-2">
-                                  <Button
-                                    onClick={() => handleDeleteVersion(v.id)}
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 text-slate-400 hover:text-red-500"
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </Button>
-                                </div>
+                                <Button
+                                  onClick={() => handleDeleteVersion(v.id)}
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 sm:h-7 w-6 sm:w-7 p-0 text-slate-400 hover:text-red-500"
+                                >
+                                  <Trash2 className="h-3 sm:h-3.5 w-3 sm:w-3.5" />
+                                </Button>
                               </div>
-                              <div className="grid grid-cols-3 gap-4 text-sm">
+                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-4 text-xs sm:text-sm">
                                 <div>
-                                  <p className="text-xs text-slate-500">Subtotal</p>
+                                  <p className="text-[10px] sm:text-xs text-slate-500">Subtotal</p>
                                   <p className="font-semibold text-slate-700">{formatCurrency(v.subtotal)}</p>
                                 </div>
                                 <div>
-                                  <p className="text-xs text-slate-500">Final Total</p>
+                                  <p className="text-[10px] sm:text-xs text-slate-500">Final Total</p>
                                   <p className="font-semibold text-indigo-600">{formatCurrency(v.finalTotal)}</p>
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="hidden sm:flex items-center gap-2">
                                   {idx < (openFolder.versions?.length || 0) - 1 && (
                                     <div className="flex items-center gap-1 text-xs">
                                       <ArrowLeftRight className="h-3 w-3 text-slate-400" />
@@ -851,10 +855,10 @@ export default function QuotationsPage() {
                           ))}
                         </div>
                       ) : (
-                        <div className="text-center py-8 bg-slate-50 rounded-xl">
-                          <Layers className="h-12 w-12 text-slate-300 mx-auto mb-2" />
-                          <p className="text-slate-500">No versions saved yet</p>
-                          <p className="text-xs text-slate-400 mt-1">Save a version to track quotation changes</p>
+                        <div className="text-center py-6 sm:py-8 bg-slate-50 rounded-xl">
+                          <Layers className="h-10 sm:h-12 w-10 sm:w-12 text-slate-300 mx-auto mb-2" />
+                          <p className="text-sm sm:text-base text-slate-500">No versions saved yet</p>
+                          <p className="text-[10px] sm:text-xs text-slate-400 mt-1">Save a version to track changes</p>
                         </div>
                       )}
                     </div>
@@ -972,68 +976,68 @@ export default function QuotationsPage() {
 
                 {/* Documents Tab */}
                 {activeTab === 'documents' && (
-                  <div className="space-y-4">
+                  <div className="space-y-3 sm:space-y-4">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                        <FileImage className="h-4 w-4" />
+                      <h3 className="text-xs sm:text-sm font-semibold text-slate-700 flex items-center gap-2">
+                        <FileImage className="h-3.5 sm:h-4 w-3.5 sm:w-4" />
                         Documents & Photos
                       </h3>
-                      <Button size="sm" variant="outline">
-                        <Upload className="h-3.5 w-3.5 mr-1" />
+                      <Button size="sm" variant="outline" className="h-7 sm:h-8 text-xs">
+                        <Upload className="h-3 sm:h-3.5 w-3 sm:w-3.5 mr-1" />
                         Upload
                       </Button>
                     </div>
 
                     {/* Document Categories */}
-                    <div className="grid grid-cols-3 gap-3">
-                      <div className="bg-blue-50 rounded-xl p-4 text-center border-2 border-dashed border-blue-200 hover:border-blue-400 cursor-pointer transition-colors">
-                        <FileText className="h-8 w-8 text-blue-400 mx-auto mb-2" />
-                        <p className="text-sm font-medium text-blue-700">Contracts</p>
-                        <p className="text-xs text-blue-500">0 files</p>
+                    <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                      <div className="bg-blue-50 rounded-xl p-2 sm:p-4 text-center border-2 border-dashed border-blue-200 hover:border-blue-400 cursor-pointer transition-colors">
+                        <FileText className="h-6 sm:h-8 w-6 sm:w-8 text-blue-400 mx-auto mb-1 sm:mb-2" />
+                        <p className="text-[10px] sm:text-sm font-medium text-blue-700">Contracts</p>
+                        <p className="text-[9px] sm:text-xs text-blue-500">0 files</p>
                       </div>
-                      <div className="bg-amber-50 rounded-xl p-4 text-center border-2 border-dashed border-amber-200 hover:border-amber-400 cursor-pointer transition-colors">
-                        <Camera className="h-8 w-8 text-amber-400 mx-auto mb-2" />
-                        <p className="text-sm font-medium text-amber-700">Site Photos</p>
-                        <p className="text-xs text-amber-500">0 files</p>
+                      <div className="bg-amber-50 rounded-xl p-2 sm:p-4 text-center border-2 border-dashed border-amber-200 hover:border-amber-400 cursor-pointer transition-colors">
+                        <Camera className="h-6 sm:h-8 w-6 sm:w-8 text-amber-400 mx-auto mb-1 sm:mb-2" />
+                        <p className="text-[10px] sm:text-sm font-medium text-amber-700">Photos</p>
+                        <p className="text-[9px] sm:text-xs text-amber-500">0 files</p>
                       </div>
-                      <div className="bg-emerald-50 rounded-xl p-4 text-center border-2 border-dashed border-emerald-200 hover:border-emerald-400 cursor-pointer transition-colors">
-                        <Receipt className="h-8 w-8 text-emerald-400 mx-auto mb-2" />
-                        <p className="text-sm font-medium text-emerald-700">Receipts</p>
-                        <p className="text-xs text-emerald-500">{openFolder.payments.length} receipts</p>
+                      <div className="bg-emerald-50 rounded-xl p-2 sm:p-4 text-center border-2 border-dashed border-emerald-200 hover:border-emerald-400 cursor-pointer transition-colors">
+                        <Receipt className="h-6 sm:h-8 w-6 sm:w-8 text-emerald-400 mx-auto mb-1 sm:mb-2" />
+                        <p className="text-[10px] sm:text-sm font-medium text-emerald-700">Receipts</p>
+                        <p className="text-[9px] sm:text-xs text-emerald-500">{openFolder.payments.length}</p>
                       </div>
                     </div>
 
                     {/* Empty State */}
-                    <div className="text-center py-8 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200">
-                      <Upload className="h-12 w-12 text-slate-300 mx-auto mb-2" />
-                      <p className="text-slate-500">Drop files here or click to upload</p>
-                      <p className="text-xs text-slate-400 mt-1">Supports: PDF, JPG, PNG (max 10MB)</p>
+                    <div className="text-center py-6 sm:py-8 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200">
+                      <Upload className="h-10 sm:h-12 w-10 sm:w-12 text-slate-300 mx-auto mb-2" />
+                      <p className="text-sm sm:text-base text-slate-500">Drop files here or click to upload</p>
+                      <p className="text-[10px] sm:text-xs text-slate-400 mt-1">PDF, JPG, PNG (max 10MB)</p>
                     </div>
                   </div>
                 )}
 
                 {/* Notes Tab */}
                 {activeTab === 'notes' && (
-                  <div className="space-y-4">
+                  <div className="space-y-3 sm:space-y-4">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                        <MessageSquare className="h-4 w-4" />
+                      <h3 className="text-xs sm:text-sm font-semibold text-slate-700 flex items-center gap-2">
+                        <MessageSquare className="h-3.5 sm:h-4 w-3.5 sm:w-4" />
                         Notes & Comments
                       </h3>
-                      <Button size="sm" variant="outline">
-                        <Plus className="h-3.5 w-3.5 mr-1" />
-                        Add Note
+                      <Button size="sm" variant="outline" className="h-7 sm:h-8 text-xs">
+                        <Plus className="h-3 sm:h-3.5 w-3 sm:w-3.5 mr-1" />
+                        Add
                       </Button>
                     </div>
 
                     {/* Existing Notes */}
                     {openFolder.notes ? (
-                      <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-200">
-                        <div className="flex items-start gap-3">
-                          <StickyNote className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                      <div className="bg-yellow-50 rounded-xl p-3 sm:p-4 border border-yellow-200">
+                        <div className="flex items-start gap-2 sm:gap-3">
+                          <StickyNote className="h-4 sm:h-5 w-4 sm:w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
                           <div>
-                            <p className="text-sm text-slate-700">{openFolder.notes}</p>
-                            <p className="text-xs text-slate-400 mt-2">Added on {openFolder.createdAt.split('T')[0]}</p>
+                            <p className="text-xs sm:text-sm text-slate-700">{openFolder.notes}</p>
+                            <p className="text-[10px] sm:text-xs text-slate-400 mt-1 sm:mt-2">Added on {openFolder.createdAt.split('T')[0]}</p>
                           </div>
                         </div>
                       </div>
@@ -1041,12 +1045,12 @@ export default function QuotationsPage() {
 
                     {/* Quick Notes Templates */}
                     <div>
-                      <p className="text-xs font-medium text-slate-500 mb-2">Quick Notes</p>
-                      <div className="flex flex-wrap gap-2">
-                        {['Site visit scheduled', 'Waiting for approval', 'Design changes requested', 'Production started', 'Installation date confirmed'].map((note) => (
+                      <p className="text-[10px] sm:text-xs font-medium text-slate-500 mb-1.5 sm:mb-2">Quick Notes</p>
+                      <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                        {['Site visit', 'Waiting approval', 'Design changes', 'Production', 'Installation'].map((note) => (
                           <button
                             key={note}
-                            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-full text-xs text-slate-600 transition-colors"
+                            className="px-2 sm:px-3 py-1 sm:py-1.5 bg-slate-100 hover:bg-slate-200 rounded-full text-[10px] sm:text-xs text-slate-600 transition-colors"
                           >
                             {note}
                           </button>
@@ -1055,15 +1059,15 @@ export default function QuotationsPage() {
                     </div>
 
                     {/* Add Note Input */}
-                    <div className="bg-slate-50 rounded-xl p-4">
+                    <div className="bg-slate-50 rounded-xl p-3 sm:p-4">
                       <textarea
                         placeholder="Add a note about this client..."
-                        className="w-full bg-white rounded-lg border border-slate-200 p-3 text-sm resize-none h-24 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full bg-white rounded-lg border border-slate-200 p-2 sm:p-3 text-xs sm:text-sm resize-none h-20 sm:h-24 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       />
                       <div className="flex justify-end mt-2">
-                        <Button size="sm" className="bg-indigo-500 hover:bg-indigo-600">
-                          <Save className="h-3.5 w-3.5 mr-1" />
-                          Save Note
+                        <Button size="sm" className="bg-indigo-500 hover:bg-indigo-600 h-7 sm:h-8 text-xs">
+                          <Save className="h-3 sm:h-3.5 w-3 sm:w-3.5 mr-1" />
+                          Save
                         </Button>
                       </div>
                     </div>
@@ -1072,82 +1076,83 @@ export default function QuotationsPage() {
 
                 {/* Client Info Tab */}
                 {activeTab === 'info' && (
-                  <div className="space-y-4">
+                  <div className="space-y-3 sm:space-y-4">
                     {/* Client Details Card */}
-                    <div className="bg-gradient-to-r from-slate-50 to-indigo-50/50 rounded-xl p-4">
-                      <h3 className="font-semibold text-slate-800 flex items-center gap-2 mb-4">
-                        <User className="h-4 w-4 text-indigo-500" />
+                    <div className="bg-gradient-to-r from-slate-50 to-indigo-50/50 rounded-xl p-3 sm:p-4">
+                      <h3 className="font-semibold text-xs sm:text-base text-slate-800 flex items-center gap-2 mb-3 sm:mb-4">
+                        <User className="h-3.5 sm:h-4 w-3.5 sm:w-4 text-indigo-500" />
                         Client Details
                       </h3>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-white rounded-lg p-3 border border-slate-100">
-                          <p className="text-[10px] text-slate-500 uppercase tracking-wide">Name</p>
-                          <p className="font-semibold text-slate-800">{openFolder.clientName || '-'}</p>
+                      <div className="grid grid-cols-2 gap-2 sm:gap-4">
+                        <div className="bg-white rounded-lg p-2 sm:p-3 border border-slate-100">
+                          <p className="text-[9px] sm:text-[10px] text-slate-500 uppercase tracking-wide">Name</p>
+                          <p className="font-semibold text-xs sm:text-base text-slate-800 truncate">{openFolder.clientName || '-'}</p>
                         </div>
-                        <div className="bg-white rounded-lg p-3 border border-slate-100">
-                          <p className="text-[10px] text-slate-500 uppercase tracking-wide">Phone</p>
-                          <div className="flex items-center gap-2">
-                            <Phone className="h-3.5 w-3.5 text-indigo-400" />
-                            <p className="font-semibold text-slate-800">{openFolder.clientMobile || '-'}</p>
+                        <div className="bg-white rounded-lg p-2 sm:p-3 border border-slate-100">
+                          <p className="text-[9px] sm:text-[10px] text-slate-500 uppercase tracking-wide">Phone</p>
+                          <div className="flex items-center gap-1 sm:gap-2">
+                            <Phone className="h-3 sm:h-3.5 w-3 sm:w-3.5 text-indigo-400" />
+                            <p className="font-semibold text-xs sm:text-base text-slate-800">{openFolder.clientMobile || '-'}</p>
                           </div>
                         </div>
-                        <div className="bg-white rounded-lg p-3 border border-slate-100">
-                          <p className="text-[10px] text-slate-500 uppercase tracking-wide">Location</p>
-                          <div className="flex items-center gap-2">
-                            <MapPin className="h-3.5 w-3.5 text-indigo-400" />
-                            <p className="font-semibold text-slate-800">{openFolder.clientLocation || '-'}</p>
+                        <div className="bg-white rounded-lg p-2 sm:p-3 border border-slate-100">
+                          <p className="text-[9px] sm:text-[10px] text-slate-500 uppercase tracking-wide">Location</p>
+                          <div className="flex items-center gap-1 sm:gap-2">
+                            <MapPin className="h-3 sm:h-3.5 w-3 sm:w-3.5 text-indigo-400" />
+                            <p className="font-semibold text-xs sm:text-base text-slate-800 truncate">{openFolder.clientLocation || '-'}</p>
                           </div>
                         </div>
-                        <div className="bg-white rounded-lg p-3 border border-slate-100">
-                          <p className="text-[10px] text-slate-500 uppercase tracking-wide">Email</p>
-                          <p className="font-semibold text-slate-800">{openFolder.clientEmail || '-'}</p>
+                        <div className="bg-white rounded-lg p-2 sm:p-3 border border-slate-100">
+                          <p className="text-[9px] sm:text-[10px] text-slate-500 uppercase tracking-wide">Email</p>
+                          <p className="font-semibold text-xs sm:text-base text-slate-800 truncate">{openFolder.clientEmail || '-'}</p>
                         </div>
                       </div>
                     </div>
 
                     {/* Quotation Details Card */}
-                    <div className="bg-gradient-to-r from-purple-50/50 to-indigo-50 rounded-xl p-4">
-                      <h3 className="font-semibold text-slate-800 flex items-center gap-2 mb-4">
-                        <FileText className="h-4 w-4 text-purple-500" />
+                    <div className="bg-gradient-to-r from-purple-50/50 to-indigo-50 rounded-xl p-3 sm:p-4">
+                      <h3 className="font-semibold text-xs sm:text-base text-slate-800 flex items-center gap-2 mb-3 sm:mb-4">
+                        <FileText className="h-3.5 sm:h-4 w-3.5 sm:w-4 text-purple-500" />
                         Quotation Details
                       </h3>
-                      <div className="grid grid-cols-3 gap-3">
-                        <div className="bg-white rounded-lg p-3 border border-slate-100">
-                          <p className="text-[10px] text-slate-500 uppercase tracking-wide">Quote #</p>
-                          <p className="font-mono font-semibold text-slate-800">{openFolder.quotationNumber}</p>
+                      <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                        <div className="bg-white rounded-lg p-2 sm:p-3 border border-slate-100">
+                          <p className="text-[9px] sm:text-[10px] text-slate-500 uppercase tracking-wide">Quote #</p>
+                          <p className="font-mono font-semibold text-[10px] sm:text-base text-slate-800 truncate">{openFolder.quotationNumber}</p>
                         </div>
-                        <div className="bg-white rounded-lg p-3 border border-slate-100">
-                          <p className="text-[10px] text-slate-500 uppercase tracking-wide">Date</p>
-                          <div className="flex items-center gap-2">
-                            <Calendar className="h-3.5 w-3.5 text-purple-400" />
-                            <p className="font-semibold text-slate-800">{openFolder.date}</p>
+                        <div className="bg-white rounded-lg p-2 sm:p-3 border border-slate-100">
+                          <p className="text-[9px] sm:text-[10px] text-slate-500 uppercase tracking-wide">Date</p>
+                          <div className="flex items-center gap-1 sm:gap-2">
+                            <Calendar className="hidden sm:block h-3.5 w-3.5 text-purple-400" />
+                            <p className="font-semibold text-[10px] sm:text-base text-slate-800">{openFolder.date}</p>
                           </div>
                         </div>
-                        <div className="bg-white rounded-lg p-3 border border-slate-100">
-                          <p className="text-[10px] text-slate-500 uppercase tracking-wide">Valid Till</p>
-                          <div className="flex items-center gap-2">
-                            <Clock className="h-3.5 w-3.5 text-purple-400" />
-                            <p className="font-semibold text-slate-800">{openFolder.validityDate}</p>
+                        <div className="bg-white rounded-lg p-2 sm:p-3 border border-slate-100">
+                          <p className="text-[9px] sm:text-[10px] text-slate-500 uppercase tracking-wide">Valid</p>
+                          <div className="flex items-center gap-1 sm:gap-2">
+                            <Clock className="hidden sm:block h-3.5 w-3.5 text-purple-400" />
+                            <p className="font-semibold text-[10px] sm:text-base text-slate-800">{openFolder.validityDate}</p>
                           </div>
                         </div>
                       </div>
                     </div>
 
                     {/* Status Actions */}
-                    <div className="bg-gradient-to-r from-emerald-50/50 to-teal-50 rounded-xl p-4">
-                      <h3 className="font-semibold text-slate-800 mb-3 flex items-center gap-2">
-                        <Check className="h-4 w-4 text-emerald-500" />
+                    <div className="bg-gradient-to-r from-emerald-50/50 to-teal-50 rounded-xl p-3 sm:p-4">
+                      <h3 className="font-semibold text-xs sm:text-base text-slate-800 mb-2 sm:mb-3 flex items-center gap-2">
+                        <Check className="h-3.5 sm:h-4 w-3.5 sm:w-4 text-emerald-500" />
                         Status & Actions
                       </h3>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap gap-1.5 sm:gap-2">
                         {!isQuickQuote(openFolder) && (
                           <Button
                             onClick={handleEdit}
                             variant="outline"
                             size="sm"
+                            className="h-7 sm:h-8 text-[10px] sm:text-xs"
                           >
-                            <Edit3 className="h-3.5 w-3.5 mr-1" />
-                            Edit Client
+                            <Edit3 className="h-3 sm:h-3.5 w-3 sm:w-3.5 mr-1" />
+                            Edit
                           </Button>
                         )}
                         {openFolder.status !== 'SENT' && (
@@ -1155,19 +1160,19 @@ export default function QuotationsPage() {
                             onClick={() => handleStatusChange('SENT')}
                             variant="outline"
                             size="sm"
-                            className="border-blue-200 text-blue-600 hover:bg-blue-50"
+                            className="h-7 sm:h-8 text-[10px] sm:text-xs border-blue-200 text-blue-600 hover:bg-blue-50"
                           >
-                            <Send className="h-3.5 w-3.5 mr-1" />
-                            Mark Sent
+                            <Send className="h-3 sm:h-3.5 w-3 sm:w-3.5 mr-1" />
+                            Sent
                           </Button>
                         )}
                         {openFolder.status !== 'APPROVED' && (
                           <Button
                             onClick={() => handleStatusChange('APPROVED')}
                             size="sm"
-                            className="bg-emerald-500 hover:bg-emerald-600"
+                            className="h-7 sm:h-8 text-[10px] sm:text-xs bg-emerald-500 hover:bg-emerald-600"
                           >
-                            <Check className="h-3.5 w-3.5 mr-1" />
+                            <Check className="h-3 sm:h-3.5 w-3 sm:w-3.5 mr-1" />
                             Approve
                           </Button>
                         )}
@@ -1176,9 +1181,9 @@ export default function QuotationsPage() {
                             onClick={() => handleStatusChange('REJECTED')}
                             variant="outline"
                             size="sm"
-                            className="text-red-600 border-red-200 hover:bg-red-50"
+                            className="h-7 sm:h-8 text-[10px] sm:text-xs text-red-600 border-red-200 hover:bg-red-50"
                           >
-                            <XCircle className="h-3.5 w-3.5 mr-1" />
+                            <XCircle className="h-3 sm:h-3.5 w-3 sm:w-3.5 mr-1" />
                             Reject
                           </Button>
                         )}
@@ -1186,18 +1191,18 @@ export default function QuotationsPage() {
                     </div>
 
                     {/* Source Info */}
-                    <div className="bg-slate-100 rounded-lg p-3 flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-xs text-slate-500">
+                    <div className="bg-slate-100 rounded-lg p-2 sm:p-3 flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs text-slate-500">
                         <span>Source:</span>
                         <span className={cn(
-                          'px-2 py-0.5 rounded-full font-medium',
+                          'px-1.5 sm:px-2 py-0.5 rounded-full font-medium',
                           isQuickQuote(openFolder) ? 'bg-amber-100 text-amber-700' : 'bg-indigo-100 text-indigo-700'
                         )}>
-                          {isQuickQuote(openFolder) ? 'Quick Quote' : 'Native'}
+                          {isQuickQuote(openFolder) ? 'Quick' : 'Native'}
                         </span>
                       </div>
-                      <div className="text-xs text-slate-400">
-                        Created: {openFolder.createdAt.split('T')[0]}
+                      <div className="text-[10px] sm:text-xs text-slate-400">
+                        {openFolder.createdAt.split('T')[0]}
                       </div>
                     </div>
                   </div>
@@ -1210,101 +1215,110 @@ export default function QuotationsPage() {
 
       {/* Create/Edit Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto mx-2 sm:mx-auto">
           <DialogHeader>
-            <DialogTitle>{editMode ? 'Edit Client' : 'New Client'}</DialogTitle>
+            <DialogTitle className="text-sm sm:text-base">{editMode ? 'Edit Client' : 'New Client'}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-3 sm:space-y-4 py-2 sm:py-4">
             {/* Client Info */}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
               <div>
-                <label className="text-xs font-medium text-slate-600 mb-1 block">Client Name</label>
+                <label className="text-[10px] sm:text-xs font-medium text-slate-600 mb-1 block">Client Name</label>
                 <Input
                   value={formData.clientName || ''}
                   onChange={(e) => setFormData({ ...formData, clientName: e.target.value })}
                   placeholder="Name"
+                  className="h-8 sm:h-9 text-sm"
                 />
               </div>
               <div>
-                <label className="text-xs font-medium text-slate-600 mb-1 block">Mobile</label>
+                <label className="text-[10px] sm:text-xs font-medium text-slate-600 mb-1 block">Mobile</label>
                 <Input
                   value={formData.clientMobile || ''}
                   onChange={(e) => setFormData({ ...formData, clientMobile: e.target.value })}
                   placeholder="9876543210"
+                  className="h-8 sm:h-9 text-sm"
                 />
               </div>
               <div>
-                <label className="text-xs font-medium text-slate-600 mb-1 block">Location</label>
+                <label className="text-[10px] sm:text-xs font-medium text-slate-600 mb-1 block">Location</label>
                 <Input
                   value={formData.clientLocation || ''}
                   onChange={(e) => setFormData({ ...formData, clientLocation: e.target.value })}
                   placeholder="City"
+                  className="h-8 sm:h-9 text-sm"
                 />
               </div>
             </div>
 
             {/* Quotation Details */}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
               <div>
-                <label className="text-xs font-medium text-slate-600 mb-1 block">Quotation No.</label>
+                <label className="text-[10px] sm:text-xs font-medium text-slate-600 mb-1 block">Quotation No.</label>
                 <Input
                   value={formData.quotationNumber || ''}
                   onChange={(e) => setFormData({ ...formData, quotationNumber: e.target.value })}
                   placeholder="Q-2026-001"
+                  className="h-8 sm:h-9 text-sm"
                 />
               </div>
               <div>
-                <label className="text-xs font-medium text-slate-600 mb-1 block">Date</label>
+                <label className="text-[10px] sm:text-xs font-medium text-slate-600 mb-1 block">Date</label>
                 <Input
                   type="date"
                   value={formData.date || ''}
                   onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                  className="h-8 sm:h-9 text-sm"
                 />
               </div>
               <div>
-                <label className="text-xs font-medium text-slate-600 mb-1 block">Valid Till</label>
+                <label className="text-[10px] sm:text-xs font-medium text-slate-600 mb-1 block">Valid Till</label>
                 <Input
                   type="date"
                   value={formData.validityDate || ''}
                   onChange={(e) => setFormData({ ...formData, validityDate: e.target.value })}
+                  className="h-8 sm:h-9 text-sm"
                 />
               </div>
             </div>
 
             {/* Amounts */}
-            <div className="bg-slate-50 rounded-xl p-3 space-y-3">
-              <div className="grid grid-cols-3 gap-3">
+            <div className="bg-slate-50 rounded-xl p-2 sm:p-3 space-y-2 sm:space-y-3">
+              <div className="grid grid-cols-3 gap-2 sm:gap-3">
                 <div>
-                  <label className="text-xs font-medium text-slate-600 mb-1 block">Subtotal (₹)</label>
+                  <label className="text-[10px] sm:text-xs font-medium text-slate-600 mb-1 block">Subtotal (₹)</label>
                   <Input
                     type="number"
                     value={formData.subtotal || ''}
                     onChange={(e) => setFormData({ ...formData, subtotal: Number(e.target.value) || 0 })}
                     placeholder="0"
+                    className="h-8 sm:h-9 text-sm"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-slate-600 mb-1 block">Discount %</label>
+                  <label className="text-[10px] sm:text-xs font-medium text-slate-600 mb-1 block">Discount %</label>
                   <Input
                     type="number"
                     value={formData.discountPercent || ''}
                     onChange={(e) => setFormData({ ...formData, discountPercent: Number(e.target.value) || 0 })}
                     placeholder="0"
+                    className="h-8 sm:h-9 text-sm"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-slate-600 mb-1 block">Discount Flat (₹)</label>
+                  <label className="text-[10px] sm:text-xs font-medium text-slate-600 mb-1 block">Flat (₹)</label>
                   <Input
                     type="number"
                     value={formData.discountFlat || ''}
                     onChange={(e) => setFormData({ ...formData, discountFlat: Number(e.target.value) || 0 })}
                     placeholder="0"
+                    className="h-8 sm:h-9 text-sm"
                   />
                 </div>
               </div>
               <div className="text-right">
-                <span className="text-sm text-slate-600">Final: </span>
-                <span className="text-lg font-bold text-indigo-600">
+                <span className="text-xs sm:text-sm text-slate-600">Final: </span>
+                <span className="text-sm sm:text-lg font-bold text-indigo-600">
                   ₹{(
                     (formData.subtotal || 0) -
                     ((formData.subtotal || 0) * (formData.discountPercent || 0) / 100) -
@@ -1316,20 +1330,21 @@ export default function QuotationsPage() {
 
             {/* Notes */}
             <div>
-              <label className="text-xs font-medium text-slate-600 mb-1 block">Notes</label>
+              <label className="text-[10px] sm:text-xs font-medium text-slate-600 mb-1 block">Notes</label>
               <Input
                 value={formData.notes || ''}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                 placeholder="Terms, conditions..."
+                className="h-8 sm:h-9 text-sm"
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowCreateDialog(false)} className="h-8 sm:h-9 text-xs sm:text-sm">
               Cancel
             </Button>
-            <Button onClick={handleSave} className="bg-indigo-600 hover:bg-indigo-700">
-              {editMode ? 'Save Changes' : 'Create'}
+            <Button onClick={handleSave} className="bg-indigo-600 hover:bg-indigo-700 h-8 sm:h-9 text-xs sm:text-sm">
+              {editMode ? 'Save' : 'Create'}
             </Button>
           </DialogFooter>
         </DialogContent>

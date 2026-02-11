@@ -30,6 +30,9 @@ interface CSS3DCanvasProps {
   drawnUnits: DrawnUnit[];
   activeUnitIndex: number;
   setActiveUnitIndex: (index: number) => void;
+  onDeleteUnit?: (index: number) => void;
+  onUndo?: () => void;
+  onRedo?: () => void;
   dimensions: { width: number; height: number };
   unitType: string;
 }
@@ -185,6 +188,8 @@ const CSS3DKitchenBase: React.FC<{
  */
 const CSS3DRoom: React.FC<{
   activeUnit: DrawnUnit | null;
+  isUnitSelected?: boolean;
+  onUnitClick?: () => void;
   kitchenModules?: KitchenModule[];
   selectedModuleIds?: Set<string>;
   onModuleClick?: (id: string) => void;
@@ -192,7 +197,7 @@ const CSS3DRoom: React.FC<{
   drawModeEnabled?: boolean;
   zoomScale?: number;
   panOffset?: { x: number; y: number };
-}> = ({ activeUnit, kitchenModules = [], selectedModuleIds = new Set(), onModuleClick, onFloorClick, drawModeEnabled, zoomScale = 1, panOffset = { x: 0, y: 0 } }) => {
+}> = ({ activeUnit, isUnitSelected, onUnitClick, kitchenModules = [], selectedModuleIds = new Set(), onModuleClick, onFloorClick, drawModeEnabled, zoomScale = 1, panOffset = { x: 0, y: 0 } }) => {
   // Calculate wardrobe dimensions based on unit
   const shutterCount = activeUnit?.shutterCount || 3;
   const hasLoft = activeUnit?.loftEnabled;
@@ -276,7 +281,16 @@ const CSS3DRoom: React.FC<{
         {/* WARDROBE UNIT */}
         {activeUnit && !activeUnit.loftOnly && (
           <div
-            className={cn(styles.wardrobeBase, "absolute")}
+            className={cn(
+              styles.wardrobeBase,
+              "absolute cursor-pointer transition-all hover:brightness-110",
+              isUnitSelected && "ring-4 ring-blue-400 ring-offset-2 ring-offset-slate-800"
+            )}
+            onClick={(e) => {
+              e.stopPropagation();
+              onUnitClick?.();
+            }}
+            title="Click to select wardrobe"
           >
             {/* Wardrobe shadow on floor */}
             <div className={cn(styles.wardrobeShadow, "absolute bg-slate-400/20 blur-sm")} />
@@ -383,6 +397,9 @@ export const CSS3DCanvas: React.FC<CSS3DCanvasProps> = ({
   drawnUnits,
   activeUnitIndex,
   setActiveUnitIndex,
+  onDeleteUnit,
+  onUndo,
+  onRedo,
   dimensions,
   unitType,
 }) => {
@@ -562,6 +579,20 @@ export const CSS3DCanvas: React.FC<CSS3DCanvasProps> = ({
       }
       return;
     }
+    // Ctrl+Z = Undo
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !e.shiftKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      onUndo?.();
+      return;
+    }
+    // Ctrl+Y or Ctrl+Shift+Z = Redo
+    if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === "y" || (e.key.toLowerCase() === "z" && e.shiftKey))) {
+      e.preventDefault();
+      e.stopPropagation();
+      onRedo?.();
+      return;
+    }
     // Ctrl+F or Cmd+F = Fit to screen
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
       e.preventDefault();
@@ -589,16 +620,29 @@ export const CSS3DCanvas: React.FC<CSS3DCanvasProps> = ({
       return;
     }
     // Delete or Backspace = Delete selected
-    if ((e.key === "Delete" || e.key === "Backspace") && selectedModuleIds.size > 0) {
-      e.preventDefault();
-      setKitchenModules((prev) => prev.filter((m) => !selectedModuleIds.has(m.id)));
-      setSelectedModuleIds(new Set());
-      return;
+    if (e.key === "Delete" || e.key === "Backspace") {
+      // Delete kitchen modules if any selected
+      if (selectedModuleIds.size > 0) {
+        e.preventDefault();
+        setKitchenModules((prev) => prev.filter((m) => !selectedModuleIds.has(m.id)));
+        setSelectedModuleIds(new Set());
+        return;
+      }
+      // Delete active wardrobe unit if selected
+      if (activeUnitIndex >= 0 && onDeleteUnit) {
+        e.preventDefault();
+        onDeleteUnit(activeUnitIndex);
+        return;
+      }
     }
     // Escape = Deselect all
     if (e.key === "Escape") {
       setSelectedModuleIds(new Set());
       setDrawModeEnabled(false);
+      // Also deselect wardrobe unit
+      if (activeUnitIndex >= 0) {
+        setActiveUnitIndex(-1);
+      }
     }
   };
 
@@ -718,6 +762,17 @@ export const CSS3DCanvas: React.FC<CSS3DCanvasProps> = ({
         {/* CSS 3D Room */}
         <CSS3DRoom
           activeUnit={activeUnit}
+          isUnitSelected={activeUnitIndex >= 0 && activeUnit !== null}
+          onUnitClick={() => {
+            // Click on wardrobe: ensure it's selected
+            // Find the index of the activeUnit in drawnUnits
+            const unitIndex = drawnUnits.findIndex((u) => u.id === activeUnit?.id);
+            if (unitIndex >= 0) {
+              setActiveUnitIndex(unitIndex);
+            } else if (drawnUnits.length > 0) {
+              setActiveUnitIndex(0);
+            }
+          }}
           kitchenModules={kitchenModules}
           selectedModuleIds={selectedModuleIds}
           onModuleClick={handleModuleClick}
