@@ -37,6 +37,8 @@ import {
   Menu,
   Home,
   Layers,
+  Library,
+  StickyNote,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -70,6 +72,7 @@ import { FLOOR_OPTIONS, ROOM_OPTIONS, formatUnitTypeLabel } from "../../constant
 import { CSS3DCanvas } from "./CSS3DCanvas";
 import { Quotation2DThumbnails } from "./Quotation2DThumbnails";
 import ViewToggle from "../../components/ViewToggle/ViewToggle";
+import { ClientNotesSheet } from "../../components/ClientNotesSheet";
 
 type ViewMode = "photo" | "css3d";
 
@@ -78,6 +81,7 @@ const Quotation2DPage: React.FC = () => {
   const [viewMode, setViewMode] = useState<ViewMode>("photo");
   const [showConfig, setShowConfig] = useState(false);
   const [showAddUnitTypeInput, setShowAddUnitTypeInput] = useState(false);
+  const [showNotes, setShowNotes] = useState(false);
 
   // Export hook
   const {
@@ -451,10 +455,8 @@ const Quotation2DPage: React.FC = () => {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* Library Quick Picker - Load saved wardrobe templates - hidden on mobile */}
-          <div className="hidden md:block">
-            <LibraryQuickPicker onSelectModule={handleAddLibraryUnit} />
-          </div>
+          {/* Library Quick Picker - Load saved wardrobe templates */}
+          <LibraryQuickPicker onSelectModule={handleAddLibraryUnit} />
 
           {/* Rate Card quick access - hidden on mobile */}
           <Button
@@ -466,6 +468,21 @@ const Quotation2DPage: React.FC = () => {
             <Calculator className="h-3 w-3 mr-1" />
             Rates
           </Button>
+
+          {/* Client Notes Button */}
+          <button
+            onClick={() => setShowNotes(true)}
+            className={cn(
+              "h-7 px-1.5 sm:px-2 rounded flex items-center gap-0.5 sm:gap-1 transition-colors",
+              showNotes
+                ? "bg-orange-600 text-white"
+                : "text-orange-400 hover:text-orange-300 hover:bg-orange-500/10"
+            )}
+            title="Client Notes"
+          >
+            <StickyNote className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline text-[11px]">Notes</span>
+          </button>
 
           <button
             onClick={() => setShowConfig(!showConfig)}
@@ -525,6 +542,19 @@ const Quotation2DPage: React.FC = () => {
                 )}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setIsFullscreen(!isFullscreen)} className="text-xs sm:hidden">
+                {isFullscreen ? (
+                  <>
+                    <Minimize2 className="h-3.5 w-3.5 mr-2" />
+                    Exit Fullscreen
+                  </>
+                ) : (
+                  <>
+                    <Maximize2 className="h-3.5 w-3.5 mr-2" />
+                    Fullscreen Mode
+                  </>
+                )}
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={handleNew} className="text-xs">
                 <FilePlus className="h-3.5 w-3.5 mr-2" />
                 New Canvas
@@ -596,10 +626,8 @@ const Quotation2DPage: React.FC = () => {
 
           <div className="w-px h-5 bg-slate-600 hidden md:block" />
 
-          {/* 2D/3D Page Toggle - hidden on small mobile */}
-          <div className="hidden sm:block">
-            <ViewToggle />
-          </div>
+          {/* 2D/3D Page Toggle - visible on all screens */}
+          <ViewToggle />
         </div>
       </header>
 
@@ -1022,25 +1050,87 @@ const Quotation2DPage: React.FC = () => {
                   </div>
                 )}
 
-                {/* Mobile: Floating photo buttons */}
+                {/* Mobile: Floating photo buttons with camera/upload options */}
                 <div className="sm:hidden absolute bottom-3 right-3 flex flex-col gap-2">
-                  {/* Main Photo Upload */}
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="h-10 w-10 rounded-full bg-blue-600 text-white shadow-lg flex items-center justify-center hover:bg-blue-500 active:scale-95 transition-transform"
-                    title="Upload Main Photo"
-                  >
-                    <Image className="h-5 w-5" />
-                  </button>
+                  {/* Main Photo - Dropdown with Camera/Upload */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        className="h-10 w-10 rounded-full bg-blue-600 text-white shadow-lg flex items-center justify-center hover:bg-blue-500 active:scale-95 transition-transform"
+                        title="Add Main Photo"
+                      >
+                        <Image className="h-5 w-5" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" side="left" className="w-40">
+                      <DropdownMenuLabel className="text-[10px] text-slate-500">Main Photo</DropdownMenuLabel>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          if (fileInputRef.current) {
+                            fileInputRef.current.setAttribute('capture', 'environment');
+                            fileInputRef.current.click();
+                          }
+                        }}
+                        className="text-xs"
+                      >
+                        <Cuboid className="h-3.5 w-3.5 mr-2" />
+                        Camera
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          if (fileInputRef.current) {
+                            fileInputRef.current.removeAttribute('capture');
+                            fileInputRef.current.click();
+                          }
+                        }}
+                        className="text-xs"
+                      >
+                        <Image className="h-3.5 w-3.5 mr-2" />
+                        Gallery
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
 
-                  {/* Reference Photos Upload */}
-                  <button
-                    onClick={() => refFileInputRef.current?.click()}
-                    className="h-9 w-9 rounded-full bg-purple-600 text-white shadow-lg flex items-center justify-center hover:bg-purple-500 active:scale-95 transition-transform"
-                    title="Add Reference Photos"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </button>
+                  {/* Reference Photos - Dropdown with Camera/Upload */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        className="h-9 w-9 rounded-full bg-purple-600 text-white shadow-lg flex items-center justify-center hover:bg-purple-500 active:scale-95 transition-transform"
+                        title="Add Reference Photo"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" side="left" className="w-40">
+                      <DropdownMenuLabel className="text-[10px] text-slate-500">Reference Photo</DropdownMenuLabel>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          if (refFileInputRef.current) {
+                            refFileInputRef.current.setAttribute('capture', 'environment');
+                            refFileInputRef.current.removeAttribute('multiple');
+                            refFileInputRef.current.click();
+                          }
+                        }}
+                        className="text-xs"
+                      >
+                        <Cuboid className="h-3.5 w-3.5 mr-2" />
+                        Camera
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          if (refFileInputRef.current) {
+                            refFileInputRef.current.removeAttribute('capture');
+                            refFileInputRef.current.setAttribute('multiple', 'true');
+                            refFileInputRef.current.click();
+                          }
+                        }}
+                        className="text-xs"
+                      >
+                        <Image className="h-3.5 w-3.5 mr-2" />
+                        Gallery
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
 
                   {/* Photo count indicator */}
                   {(roomPhoto || referencePhotos.length > 0) && (
@@ -1125,6 +1215,9 @@ const Quotation2DPage: React.FC = () => {
       {/* Hidden file inputs */}
       <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleMainPhotoUpload} />
       <input ref={refFileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleRefPhotoUpload} />
+
+      {/* Client Notes Sheet */}
+      <ClientNotesSheet open={showNotes} onOpenChange={setShowNotes} />
     </div>
   );
 };
