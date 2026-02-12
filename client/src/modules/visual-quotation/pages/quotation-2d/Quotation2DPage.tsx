@@ -649,13 +649,15 @@ const Quotation2DPage: React.FC = () => {
         {/* Canvas Area */}
         <div className="flex-1 flex flex-col min-w-0 min-h-0">
           {/* Current Location Indicator - Always visible with dropdowns */}
-          <div className="flex-shrink-0 bg-blue-600 px-2 sm:px-3 py-1 sm:py-1.5 flex items-center gap-1 overflow-x-auto scrollbar-hide">
+          <div className="flex-shrink-0 bg-blue-600 px-1 sm:px-3 py-0.5 sm:py-1.5 flex items-center gap-0.5 sm:gap-1 overflow-x-auto scrollbar-hide">
             {/* Floor Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="text-[10px] sm:text-xs text-white/90 hover:text-white hover:bg-blue-500 px-1.5 sm:px-2 py-0.5 rounded flex items-center gap-0.5 sm:gap-1 transition-colors flex-shrink-0">
-                  {getAllFloors().find(f => f.value === floor)?.label || floor.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
-                  <ChevronDown className="h-3 w-3" />
+                <button className="text-[9px] sm:text-xs text-white/90 hover:text-white hover:bg-blue-500 px-1 sm:px-2 py-0.5 rounded flex items-center gap-0.5 transition-colors flex-shrink-0">
+                  <span className="max-w-[50px] sm:max-w-none truncate">
+                    {getAllFloors().find(f => f.value === floor)?.label || floor.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                  </span>
+                  <ChevronDown className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-40">
@@ -681,20 +683,22 @@ const Quotation2DPage: React.FC = () => {
             {/* Add New Floor Button */}
             <button
               onClick={addCustomFloor}
-              className="text-[10px] px-1 sm:px-1.5 py-0.5 rounded bg-blue-500 text-white hover:bg-blue-400 transition-colors flex-shrink-0"
+              className="h-5 w-5 sm:h-6 sm:w-6 rounded bg-blue-500 text-white hover:bg-blue-400 transition-colors flex-shrink-0 flex items-center justify-center"
               title="Add new floor"
             >
-              <Plus className="h-3 w-3" />
+              <Plus className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
             </button>
 
-            <ChevronRight className="h-3 w-3 text-white/50 flex-shrink-0" />
+            <ChevronRight className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-white/50 flex-shrink-0" />
 
             {/* Room Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="text-[10px] sm:text-xs text-white font-medium hover:bg-blue-500 px-1.5 sm:px-2 py-0.5 rounded flex items-center gap-0.5 sm:gap-1 transition-colors flex-shrink-0">
-                  {getAllRooms().find(r => r.value === room)?.label || room.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
-                  <ChevronDown className="h-3 w-3" />
+                <button className="text-[9px] sm:text-xs text-white font-medium hover:bg-blue-500 px-1 sm:px-2 py-0.5 rounded flex items-center gap-0.5 transition-colors flex-shrink-0">
+                  <span className="max-w-[60px] sm:max-w-none truncate">
+                    {getAllRooms().find(r => r.value === room)?.label || room.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                  </span>
+                  <ChevronDown className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-44 max-h-64 overflow-y-auto">
@@ -726,24 +730,26 @@ const Quotation2DPage: React.FC = () => {
             {/* Add New Room Button */}
             <button
               onClick={addCustomRoom}
-              className="text-[10px] px-1 sm:px-1.5 py-0.5 rounded bg-blue-500 text-white hover:bg-blue-400 transition-colors flex-shrink-0"
+              className="h-5 w-5 sm:h-6 sm:w-6 rounded bg-blue-500 text-white hover:bg-blue-400 transition-colors flex-shrink-0 flex items-center justify-center"
               title="Add new room"
             >
-              <Plus className="h-3 w-3" />
+              <Plus className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
             </button>
 
             {/* Unit Type Dropdown - always shown, changes selected unit or sets default for new units */}
-            <ChevronRight className="h-3 w-3 text-white/50 flex-shrink-0" />
+            <ChevronRight className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-white/50 flex-shrink-0" />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className={cn(
-                  "text-[10px] font-medium hover:bg-blue-500 px-1.5 sm:px-2 py-0.5 rounded flex items-center gap-0.5 sm:gap-1 transition-colors flex-shrink-0",
+                  "text-[9px] sm:text-[10px] font-medium hover:bg-blue-500 px-1 sm:px-2 py-0.5 rounded flex items-center gap-0.5 transition-colors flex-shrink-0",
                   activeDrawnUnit
                     ? "text-yellow-300 border border-yellow-400/50"
                     : "text-white/80 border border-white/30"
                 )}>
-                  {formatUnitTypeLabel(activeDrawnUnit?.unitType || unitType || 'wardrobe')}
-                  <ChevronDown className="h-3 w-3" />
+                  <span className="max-w-[55px] sm:max-w-none truncate">
+                    {formatUnitTypeLabel(activeDrawnUnit?.unitType || unitType || 'wardrobe')}
+                  </span>
+                  <ChevronDown className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-44 max-h-64 overflow-y-auto">
@@ -832,29 +838,30 @@ const Quotation2DPage: React.FC = () => {
             {/* Add New Canvas Button - right next to Unit Type dropdown */}
             <button
               onClick={addNewCanvas}
-              className="text-[10px] px-1 sm:px-1.5 py-0.5 rounded bg-emerald-600 text-white hover:bg-emerald-500 transition-colors flex-shrink-0"
+              className="h-5 w-5 sm:h-6 sm:w-6 rounded bg-emerald-600 text-white hover:bg-emerald-500 transition-colors flex-shrink-0 flex items-center justify-center"
               title="Add new canvas"
             >
-              <Plus className="h-3 w-3" />
+              <Plus className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
             </button>
 
             {/* Units - show all units as clickable chips - hidden on very small screens */}
             {drawnUnits.length > 0 && (
               <>
-                <ChevronRight className="h-3 w-3 text-white/50 flex-shrink-0 hidden xs:block" />
-                <div className="hidden xs:flex items-center gap-1 overflow-x-auto max-w-[150px] sm:max-w-[300px] md:max-w-[400px] scrollbar-hide">
+                <ChevronRight className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-white/50 flex-shrink-0 hidden xs:block" />
+                <div className="hidden xs:flex items-center gap-0.5 sm:gap-1 overflow-x-auto max-w-[100px] sm:max-w-[300px] md:max-w-[400px] scrollbar-hide">
                   {drawnUnits.map((unit, idx) => (
                     <button
                       key={unit.id}
                       onClick={() => setActiveUnitIndex(idx)}
                       className={cn(
-                        "text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded whitespace-nowrap transition-colors flex-shrink-0",
+                        "text-[8px] sm:text-[10px] px-1 sm:px-2 py-0.5 rounded whitespace-nowrap transition-colors flex-shrink-0",
                         activeUnitIndex === idx
                           ? "bg-yellow-400 text-slate-900 font-semibold"
                           : "bg-blue-500/50 text-white/80 hover:bg-blue-400/70 hover:text-white"
                       )}
                     >
-                      {formatUnitTypeLabel(unit.unitType || 'wardrobe').split(' ')[0]}
+                      <span className="hidden sm:inline">{formatUnitTypeLabel(unit.unitType || 'wardrobe').split(' ')[0]}</span>
+                      <span className="sm:hidden">W</span>
                       {unit.unitType === 'wardrobe_carcass' ? '(C)' : ''}
                       #{idx + 1}
                     </button>
@@ -865,29 +872,30 @@ const Quotation2DPage: React.FC = () => {
 
             {/* Canvas Tabs - Multiple canvases per room (only show if more than 1 canvas) */}
             {getCanvasNames().length > 1 && (
-              <div className="ml-auto flex items-center gap-1 flex-shrink-0 overflow-x-auto scrollbar-hide">
+              <div className="ml-auto flex items-center gap-0.5 sm:gap-1 flex-shrink-0 overflow-x-auto scrollbar-hide">
                 {getCanvasNames().map(({ index, name }) => (
                   <div
                     key={`canvas-${index}`}
                     className={cn(
-                      "text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded whitespace-nowrap transition-colors flex items-center gap-0.5 sm:gap-1 flex-shrink-0",
+                      "text-[8px] sm:text-[10px] px-1 sm:px-2 py-0.5 rounded whitespace-nowrap transition-colors flex items-center gap-0.5 flex-shrink-0",
                       activeCanvasIndex === index
                         ? "bg-emerald-500 text-white font-semibold"
                         : "bg-slate-600 text-white/70 hover:bg-slate-500 hover:text-white"
                     )}
                   >
                     <button onClick={() => switchCanvas(index)} className="hover:underline">
-                      {name}
+                      <span className="hidden sm:inline">{name}</span>
+                      <span className="sm:hidden">C{index + 1}</span>
                     </button>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         deleteCanvas(index);
                       }}
-                      className="hover:bg-red-500 hover:text-white rounded-full p-0.5 -mr-1"
+                      className="hover:bg-red-500 hover:text-white rounded-full p-0.5 -mr-0.5"
                       title="Delete canvas (Ctrl+Z to undo)"
                     >
-                      <X className="h-2.5 w-2.5" />
+                      <X className="h-2 w-2 sm:h-2.5 sm:w-2.5" />
                     </button>
                   </div>
                 ))}
@@ -1008,10 +1016,31 @@ const Quotation2DPage: React.FC = () => {
 
                 {/* Draw mode indicator */}
                 {drawMode && (
-                  <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-xs px-3 py-1 rounded-full">
-                    Draw Mode - Click and drag to create unit
+                  <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-[10px] sm:text-xs px-2 sm:px-3 py-1 rounded-full">
+                    <span className="hidden sm:inline">Draw Mode - Click and drag to create unit</span>
+                    <span className="sm:hidden">Draw - Drag to create</span>
                   </div>
                 )}
+
+                {/* Mobile: Floating photo upload button */}
+                <div className="sm:hidden absolute bottom-3 right-3 flex flex-col gap-2">
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="h-10 w-10 rounded-full bg-blue-600 text-white shadow-lg flex items-center justify-center hover:bg-blue-500 active:scale-95 transition-transform"
+                    title="Upload Photo"
+                  >
+                    <Image className="h-5 w-5" />
+                  </button>
+                  {roomPhoto && (
+                    <button
+                      onClick={clearRoomPhoto}
+                      className="h-8 w-8 rounded-full bg-red-500 text-white shadow-lg flex items-center justify-center hover:bg-red-400 active:scale-95 transition-transform"
+                      title="Remove Photo"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 
