@@ -1022,25 +1022,86 @@ const Quotation2DPage: React.FC = () => {
                   </div>
                 )}
 
-                {/* Mobile: Floating photo upload button */}
+                {/* Mobile: Floating photo buttons */}
                 <div className="sm:hidden absolute bottom-3 right-3 flex flex-col gap-2">
+                  {/* Main Photo Upload */}
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     className="h-10 w-10 rounded-full bg-blue-600 text-white shadow-lg flex items-center justify-center hover:bg-blue-500 active:scale-95 transition-transform"
-                    title="Upload Photo"
+                    title="Upload Main Photo"
                   >
                     <Image className="h-5 w-5" />
                   </button>
+
+                  {/* Reference Photos Upload */}
+                  <button
+                    onClick={() => refFileInputRef.current?.click()}
+                    className="h-9 w-9 rounded-full bg-purple-600 text-white shadow-lg flex items-center justify-center hover:bg-purple-500 active:scale-95 transition-transform"
+                    title="Add Reference Photos"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+
+                  {/* Photo count indicator */}
+                  {(roomPhoto || referencePhotos.length > 0) && (
+                    <div className="h-8 px-2 rounded-full bg-slate-800/90 text-white shadow-lg flex items-center justify-center text-[10px] font-medium">
+                      {roomPhoto ? '1' : '0'}+{referencePhotos.length}
+                    </div>
+                  )}
+
+                  {/* Clear main photo */}
                   {roomPhoto && (
                     <button
                       onClick={clearRoomPhoto}
                       className="h-8 w-8 rounded-full bg-red-500 text-white shadow-lg flex items-center justify-center hover:bg-red-400 active:scale-95 transition-transform"
-                      title="Remove Photo"
+                      title="Remove Main Photo"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
                   )}
                 </div>
+
+                {/* Mobile: Photo thumbnails strip at bottom */}
+                {(roomPhoto || referencePhotos.length > 0) && (
+                  <div className="sm:hidden absolute bottom-3 left-3 right-16 flex gap-1.5 overflow-x-auto scrollbar-hide">
+                    {/* Main photo thumbnail */}
+                    {roomPhoto && (
+                      <div className="relative flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden border-2 border-blue-500 shadow-lg">
+                        <img
+                          src={roomPhoto.src}
+                          alt="Main"
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute bottom-0 left-0 right-0 bg-blue-600 text-white text-[8px] text-center py-0.5">
+                          Main
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Reference photo thumbnails */}
+                    {referencePhotos.map((photo, idx) => (
+                      <div
+                        key={photo.id}
+                        className="relative flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden border border-purple-400 shadow-lg group"
+                      >
+                        <img
+                          src={photo.src}
+                          alt={`Ref ${idx + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                        <button
+                          onClick={() => removeReferencePhoto(photo.id)}
+                          className="absolute top-0.5 right-0.5 h-4 w-4 rounded-full bg-red-500 text-white flex items-center justify-center opacity-80"
+                        >
+                          <X className="h-2.5 w-2.5" />
+                        </button>
+                        <div className="absolute bottom-0 left-0 right-0 bg-purple-600/80 text-white text-[8px] text-center py-0.5">
+                          Ref {idx + 1}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
