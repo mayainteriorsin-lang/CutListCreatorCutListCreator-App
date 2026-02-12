@@ -280,6 +280,46 @@ export class AuthService {
 
         return result.rowCount || 0;
     }
+
+    /**
+     * Reset password for a user by email
+     * Returns true if successful, throws error if user not found
+     */
+    async resetPassword(email: string, newPassword: string): Promise<boolean> {
+        const user = await db.query.users.findFirst({
+            where: eq(users.email, email),
+        });
+
+        if (!user) {
+            throw new Error('User not found');
+        }
+
+        // Hash new password
+        const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+
+        // Update password
+        await db.update(users)
+            .set({
+                passwordHash,
+                updatedAt: new Date()
+            })
+            .where(eq(users.id, user.id));
+
+        // Revoke all existing tokens for security
+        await this.revokeAllUserTokens(user.id);
+
+        return true;
+    }
+
+    /**
+     * Admin: Reset password to default
+     * Only for admin use - resets to a known default password
+     */
+    async adminResetPassword(email: string): Promise<string> {
+        const defaultPassword = 'Reset@123';
+        await this.resetPassword(email, defaultPassword);
+        return defaultPassword;
+    }
 }
 
 export const authService = new AuthService();

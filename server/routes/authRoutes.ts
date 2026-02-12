@@ -217,6 +217,106 @@ router.get('/me', authenticate, async (req: AuthRequest, res) => {
 });
 
 /**
+ * POST /api/auth/reset-password
+ * Reset password (public - for forgot password flow)
+ */
+router.post('/reset-password', async (req, res) => {
+    try {
+        const { email, newPassword } = req.body;
+
+        if (!email || !newPassword) {
+            return res.status(400).json({
+                success: false,
+                error: 'Email and new password required'
+            });
+        }
+
+        if (newPassword.length < 8) {
+            return res.status(400).json({
+                success: false,
+                error: 'Password must be at least 8 characters'
+            });
+        }
+
+        await authService.resetPassword(email, newPassword);
+
+        // Log password reset
+        try {
+            await auditService.log({
+                tenantId: undefined,
+                userId: undefined,
+                action: 'user.password_reset',
+                resourceType: 'user',
+                changes: { email },
+                ipAddress: req.ip,
+                userAgent: req.get('user-agent'),
+            });
+        } catch (auditError) {
+            console.error('[Auth] Audit log failed:', auditError);
+        }
+
+        res.json({
+            success: true,
+            message: 'Password reset successfully'
+        });
+    } catch (error: any) {
+        res.status(400).json({
+            success: false,
+            error: error.message || 'Password reset failed'
+        });
+    }
+});
+
+/**
+ * POST /api/auth/admin-reset-password
+ * Admin reset password to default (requires authentication)
+ */
+router.post('/admin-reset-password', authenticate, async (req: AuthRequest, res) => {
+    try {
+        // Only admins can use this
+        if (req.user?.role !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                error: 'Admin access required'
+            });
+        }
+
+        const { email } = req.body;
+
+        if (!email) {
+            return res.status(400).json({
+                success: false,
+                error: 'Email required'
+            });
+        }
+
+        const defaultPassword = await authService.adminResetPassword(email);
+
+        // Log admin password reset
+        await auditService.log({
+            tenantId: req.user.tenantId,
+            userId: req.user.userId,
+            action: 'admin.password_reset',
+            resourceType: 'user',
+            changes: { targetEmail: email },
+            ipAddress: req.ip,
+            userAgent: req.get('user-agent'),
+        });
+
+        res.json({
+            success: true,
+            message: 'Password reset to default',
+            defaultPassword // Only return in response for admin to see
+        });
+    } catch (error: any) {
+        res.status(400).json({
+            success: false,
+            error: error.message || 'Password reset failed'
+        });
+    }
+});
+
+/**
  * POST /api/auth/logout-all
  * Revoke all refresh tokens for current user
  */

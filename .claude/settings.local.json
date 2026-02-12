@@ -73,7 +73,9 @@
       "Bash(npm run lint:client:*)",
       "Bash(git rev-parse:*)",
       "Bash(npm run build:client:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(git ls-tree:*)",
+      "Bash(git check-ignore:*)"
     ],
     "additionalDirectories": [
       "c:\\Users\\hi\\workspace\\CutListCreator"
