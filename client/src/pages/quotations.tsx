@@ -637,24 +637,23 @@ export default function QuotationsPage() {
                     <span className="hidden sm:inline text-indigo-200 text-xs">• {openFolder.quotationNumber}</span>
                   </div>
                   <div className="flex items-center gap-1.5 sm:gap-2">
-                    {openFolder.status === 'APPROVED' && (
-                      <Button
-                        onClick={() => {
-                          const params = new URLSearchParams({
-                            clientName: openFolder.clientName || '',
-                            clientPhone: openFolder.clientMobile || '',
-                            clientLocation: openFolder.clientLocation || '',
-                            quoteNo: openFolder.quotationNumber || '',
-                          });
-                          navigate(`/2d-quotation?${params.toString()}`);
-                        }}
-                        size="sm"
-                        className="h-6 sm:h-7 px-2 sm:px-3 bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] sm:text-xs font-medium"
-                      >
-                        <Ruler className="h-3 sm:h-3.5 w-3 sm:w-3.5 sm:mr-1" />
-                        <span className="hidden sm:inline">Start Design</span>
-                      </Button>
-                    )}
+                    {/* 2D Quotation Link - Always visible */}
+                    <Button
+                      onClick={() => {
+                        const params = new URLSearchParams({
+                          clientName: openFolder.clientName || '',
+                          clientPhone: openFolder.clientMobile || '',
+                          clientLocation: openFolder.clientLocation || '',
+                          quoteNo: openFolder.quotationNumber || '',
+                        });
+                        navigate(`/2d-quotation?${params.toString()}`);
+                      }}
+                      size="sm"
+                      className="h-6 sm:h-7 px-2 sm:px-3 bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] sm:text-xs font-medium"
+                    >
+                      <Ruler className="h-3 sm:h-3.5 w-3 sm:w-3.5 sm:mr-1" />
+                      <span className="hidden sm:inline">2D Design</span>
+                    </Button>
                     <button
                       onClick={closeFolder}
                       className="hidden md:flex h-7 w-7 rounded-lg flex-shrink-0 bg-white/20 hover:bg-white/30 items-center justify-center transition-colors"
@@ -1135,6 +1134,33 @@ export default function QuotationsPage() {
                           </div>
                         </div>
                       </div>
+                    </div>
+
+                    {/* Quick Actions - 2D Design Link */}
+                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-3 sm:p-4">
+                      <h3 className="font-semibold text-xs sm:text-base text-slate-800 mb-2 sm:mb-3 flex items-center gap-2">
+                        <Ruler className="h-3.5 sm:h-4 w-3.5 sm:w-4 text-blue-500" />
+                        Design Tools
+                      </h3>
+                      <Button
+                        onClick={() => {
+                          const params = new URLSearchParams({
+                            clientName: openFolder.clientName || '',
+                            clientPhone: openFolder.clientMobile || '',
+                            clientLocation: openFolder.clientLocation || '',
+                            quoteNo: openFolder.quotationNumber || '',
+                          });
+                          navigate(`/2d-quotation?${params.toString()}`);
+                        }}
+                        className="w-full h-10 sm:h-12 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white text-sm sm:text-base font-medium"
+                      >
+                        <Ruler className="h-4 sm:h-5 w-4 sm:w-5 mr-2" />
+                        Open 2D Quotation Designer
+                        <ArrowRight className="h-4 sm:h-5 w-4 sm:w-5 ml-2" />
+                      </Button>
+                      <p className="text-[10px] sm:text-xs text-slate-500 mt-2 text-center">
+                        Client details will be auto-filled
+                      </p>
                     </div>
 
                     {/* Status Actions */}
