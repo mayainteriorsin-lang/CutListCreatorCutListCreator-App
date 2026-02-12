@@ -2,7 +2,7 @@
 // Centralized to avoid duplication across files
 
 export const UNIT_TYPE_LABELS: Record<string, string> = {
-  wardrobe_carcass: "Wardrobe (Carcass)",
+  wardrobe_carcass: "Wardrobe (Shutter)",
   wardrobe: "Wardrobe",
   kitchen: "Kitchen",
   tv_unit: "TV Unit",

@@ -5,7 +5,7 @@
  * Handles localStorage persistence via storageService.
  */
 
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useDesignCanvasStore } from "../../../store/v2/useDesignCanvasStore";
 import { useQuotationMetaStore } from "../../../store/v2/useQuotationMetaStore";
 import { useRoomStore } from "../../../store/v2/useRoomStore";
@@ -27,6 +27,7 @@ import {
   type GaddiSettings,
   type UnitGapSettings,
 } from "../../../services/storageService";
+import type { DrawnUnit, QuotationRoom } from "../../../types";
 import {
   buildCadGroups,
   calculateGapAdjustedDimensions,
@@ -36,6 +37,50 @@ import {
   DEFAULT_GAP_MM,
   type CadGroup,
 } from "../../../services/productionService";
+
+/**
+ * Extract panelGaddi settings from library modules' libraryConfig.
+ * This allows gaddi settings saved in Design Studio to be auto-loaded in Production Page.
+ */
+function extractLibraryGaddiSettings(
+  quotationRooms: QuotationRoom[],
+  currentDrawnUnits: DrawnUnit[],
+  activeRoomIndex: number
+): GaddiSettings {
+  const gaddiFromLibrary: GaddiSettings = {};
+
+  // Helper to process units
+  const processUnits = (units: DrawnUnit[]) => {
+    units.forEach((unit) => {
+      // Check if unit has libraryConfig with panelGaddi
+      if (unit.libraryConfig && typeof unit.libraryConfig === "object") {
+        const lc = unit.libraryConfig as Record<string, unknown>;
+        const panelGaddi = lc.panelGaddi as Record<string, boolean> | undefined;
+
+        if (panelGaddi && typeof panelGaddi === "object") {
+          // Copy gaddi settings from library module
+          Object.entries(panelGaddi).forEach(([panelId, gaddiEnabled]) => {
+            if (typeof gaddiEnabled === "boolean") {
+              gaddiFromLibrary[panelId] = gaddiEnabled;
+            }
+          });
+        }
+      }
+    });
+  };
+
+  // Process all rooms
+  if (quotationRooms && quotationRooms.length > 0) {
+    quotationRooms.forEach((room, index) => {
+      const units = index === activeRoomIndex ? currentDrawnUnits : room.drawnUnits;
+      processUnits(units);
+    });
+  } else {
+    processUnits(currentDrawnUnits);
+  }
+
+  return gaddiFromLibrary;
+}
 
 export interface EditingState {
   unitKey: string;
@@ -127,9 +172,20 @@ export function useProductionState(): UseProductionStateReturn {
 
   // Panel state from localStorage
   const [panelOverrides, setPanelOverrides] = useState<PanelOverrides>(() => loadPanelOverrides());
-  const [gaddiSettings, setGaddiSettings] = useState<GaddiSettings>(() => loadGaddiSettings());
   const [deletedPanels, setDeletedPanels] = useState<Set<string>>(() => loadDeletedPanels());
   const [unitGapSettings, setUnitGapSettings] = useState<UnitGapSettings>(() => loadUnitGapSettings());
+
+  // Gaddi settings - merge library module settings with localStorage
+  // Library settings provide defaults, localStorage overrides take priority
+  const [gaddiSettings, setGaddiSettings] = useState<GaddiSettings>(() => {
+    const localStorageGaddi = loadGaddiSettings();
+    const libraryGaddi = extractLibraryGaddiSettings(quotationRooms, drawnUnits, activeRoomIndex);
+    // Merge: library provides defaults, localStorage overrides
+    return { ...libraryGaddi, ...localStorageGaddi };
+  });
+
+  // Track if we've synced library gaddi settings (to avoid re-merging on every render)
+  const hasInitializedLibraryGaddiRef = useRef(false);
 
   // Grain settings (read-only for now)
   const [grainSettings] = useState<Record<string, boolean>>({});
@@ -146,6 +202,34 @@ export function useProductionState(): UseProductionStateReturn {
   useEffect(() => { saveGaddiSettings(gaddiSettings); }, [gaddiSettings]);
   useEffect(() => { saveUnitGapSettings(unitGapSettings); }, [unitGapSettings]);
   useEffect(() => { saveDeletedPanels(deletedPanels); }, [deletedPanels]);
+
+  // Auto-load gaddi settings from library modules when units change
+  // This merges library gaddi settings with existing settings (without overwriting user changes)
+  useEffect(() => {
+    // Skip on initial render (already handled in state initialization)
+    if (!hasInitializedLibraryGaddiRef.current) {
+      hasInitializedLibraryGaddiRef.current = true;
+      return;
+    }
+
+    const libraryGaddi = extractLibraryGaddiSettings(quotationRooms, drawnUnits, activeRoomIndex);
+
+    // Only add new gaddi settings from library, don't overwrite existing
+    setGaddiSettings((prev) => {
+      const merged = { ...prev };
+      let hasChanges = false;
+
+      Object.entries(libraryGaddi).forEach(([panelId, gaddiEnabled]) => {
+        // Only add if not already set by user
+        if (!(panelId in prev)) {
+          merged[panelId] = gaddiEnabled;
+          hasChanges = true;
+        }
+      });
+
+      return hasChanges ? merged : prev;
+    });
+  }, [quotationRooms, drawnUnits, activeRoomIndex]);
 
   // Build production items
   const allItems = useMemo(

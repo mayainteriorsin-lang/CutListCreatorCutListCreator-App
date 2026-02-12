@@ -34,6 +34,7 @@ export interface LibraryModule {
 
   // Configuration summary
   shutterCount?: number;
+  shutterEnabled?: boolean;
   loftEnabled?: boolean;
   loftHeightMm?: number;
   sectionCount?: number;

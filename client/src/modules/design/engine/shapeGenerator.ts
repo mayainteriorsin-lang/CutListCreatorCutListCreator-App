@@ -90,6 +90,10 @@ export interface ModuleConfig {
   skirtingEnabled?: boolean;
   skirtingHeightMm?: number;
   gaddiEnabled?: boolean;
+  /** Per-panel gaddi overrides (keyed by panel id) */
+  panelGaddi?: Record<string, boolean>;
+  /** Shutter panels enabled for cutting list */
+  shutterEnabled?: boolean;
 }
 
 // ── Defaults from Library Presets ─────────────────────────────────────

@@ -243,6 +243,7 @@ export default function ModuleConfigPanel(_props: ModuleConfigPanelProps) {
 
       // Configuration
       shutterCount: moduleConfig.shutterCount,
+      shutterEnabled: moduleConfig.shutterEnabled,
       sectionCount: moduleConfig.sectionCount,
       loftEnabled: moduleConfig.loftEnabled,
       loftHeightMm: moduleConfig.loftHeightMm,

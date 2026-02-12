@@ -260,7 +260,15 @@ export default function ModuleConfigPanelUI({
                 <span style={{ fontSize: 11, fontWeight: 500, color: "#334155" }}>Center Posts</span>
                 <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 0 }}>
                   <button
-                    onClick={() => update({ centerPostCount: Math.max(0, (config.centerPostCount ?? 0) - 1) })}
+                    onClick={() => {
+                      const newCount = Math.max(0, (config.centerPostCount ?? 0) - 1);
+                      // Auto-sync shutter count if shutters are enabled
+                      const updates: Partial<typeof config> = { centerPostCount: newCount };
+                      if (config.shutterEnabled) {
+                        updates.shutterCount = newCount + 1;
+                      }
+                      update(updates);
+                    }}
                     disabled={(config.centerPostCount ?? 0) <= 0}
                     style={{
                       width: 32,
@@ -295,7 +303,15 @@ export default function ModuleConfigPanelUI({
                     {config.centerPostCount ?? 0}
                   </div>
                   <button
-                    onClick={() => update({ centerPostCount: Math.min(9, (config.centerPostCount ?? 0) + 1) })}
+                    onClick={() => {
+                      const newCount = Math.min(9, (config.centerPostCount ?? 0) + 1);
+                      // Auto-sync shutter count if shutters are enabled
+                      const updates: Partial<typeof config> = { centerPostCount: newCount };
+                      if (config.shutterEnabled) {
+                        updates.shutterCount = newCount + 1;
+                      }
+                      update(updates);
+                    }}
                     disabled={(config.centerPostCount ?? 0) >= 9}
                     style={{
                       width: 32,
@@ -318,6 +334,130 @@ export default function ModuleConfigPanelUI({
               <div style={{ fontSize: 10, color: "#94a3b8" }}>
                 Range: 0-9 center posts
               </div>
+            </div>
+            {/* Shutter Toggle */}
+            <div style={{
+              padding: "8px 10px",
+              background: "#f8fafc",
+              borderRadius: 6,
+              border: "1px solid #e2e8f0",
+              marginBottom: 8
+            }}>
+              <div style={rowStyle}>
+                <label style={{ ...labelStyle, marginBottom: 0 }}>Shutters</label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newEnabled = !config.shutterEnabled;
+                    // When enabling, set shutterCount to center posts + 1 (default sections)
+                    const shutterCount = newEnabled ? (config.centerPostCount ?? 0) + 1 : 0;
+                    update({ shutterEnabled: newEnabled, shutterCount });
+                  }}
+                  style={{
+                    width: 50,
+                    height: 26,
+                    borderRadius: 13,
+                    border: "none",
+                    background: config.shutterEnabled ? "#16a34a" : "#d1d5db",
+                    cursor: "pointer",
+                    position: "relative",
+                    transition: "background 0.2s",
+                  }}
+                  title={config.shutterEnabled ? "Shutters enabled" : "Shutters disabled"}
+                >
+                  <span
+                    style={{
+                      position: "absolute",
+                      top: 3,
+                      left: config.shutterEnabled ? 27 : 3,
+                      width: 20,
+                      height: 20,
+                      borderRadius: 10,
+                      background: "#fff",
+                      transition: "left 0.2s",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                    }}
+                  />
+                </button>
+              </div>
+              {/* Shutter Size Display - shown when enabled */}
+              {config.shutterEnabled && (() => {
+                // Shutter = Full Width / Count, Height minus skirting (if enabled)
+                const mainH = config.loftEnabled ? config.heightMm - (config.loftHeightMm ?? 400) : config.heightMm;
+                const skirtingDeduct = config.skirtingEnabled ? (config.skirtingHeightMm ?? 115) : 0;
+                const shutterCount = config.shutterCount || ((config.centerPostCount ?? 0) + 1);
+                const shutterW = Math.round(config.widthMm / shutterCount);
+                const shutterH = mainH - skirtingDeduct;
+                return (
+                  <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px dashed #e2e8f0" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                      <span style={{ fontSize: 10, color: "#64748b" }}>Count</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
+                        <button
+                          onClick={() => update({ shutterCount: Math.max(1, shutterCount - 1) })}
+                          disabled={shutterCount <= 1}
+                          style={{
+                            width: 24,
+                            height: 22,
+                            border: "1px solid #e2e8f0",
+                            borderRadius: "4px 0 0 4px",
+                            background: shutterCount <= 1 ? "#f1f5f9" : "#fff",
+                            color: shutterCount <= 1 ? "#cbd5e1" : "#334155",
+                            fontSize: 12,
+                            cursor: shutterCount <= 1 ? "not-allowed" : "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          −
+                        </button>
+                        <div style={{
+                          width: 28,
+                          height: 22,
+                          border: "1px solid #e2e8f0",
+                          borderLeft: "none",
+                          borderRight: "none",
+                          background: "#fff",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: 11,
+                          fontWeight: 600,
+                          color: "#334155",
+                        }}>
+                          {shutterCount}
+                        </div>
+                        <button
+                          onClick={() => update({ shutterCount: Math.min(10, shutterCount + 1) })}
+                          disabled={shutterCount >= 10}
+                          style={{
+                            width: 24,
+                            height: 22,
+                            border: "1px solid #e2e8f0",
+                            borderRadius: "0 4px 4px 0",
+                            background: shutterCount >= 10 ? "#f1f5f9" : "#fff",
+                            color: shutterCount >= 10 ? "#cbd5e1" : "#334155",
+                            fontSize: 12,
+                            cursor: shutterCount >= 10 ? "not-allowed" : "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontSize: 10, color: "#64748b" }}>Size (W × H)</span>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: "#334155", fontFamily: "monospace" }}>
+                        {shutterW} × {shutterH} mm
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
             <div style={rowStyle}>
               <label style={{ ...labelStyle, marginBottom: 0 }}>Carcass</label>
@@ -392,7 +532,18 @@ export default function ModuleConfigPanelUI({
         )}
 
         {/* Cutting List Preview - shown for all unit types */}
-        <CuttingListPreview config={config} />
+        <CuttingListPreview
+          config={config}
+          panelGaddi={config.panelGaddi}
+          onGaddiChange={(panelId, gaddi) => {
+            update({
+              panelGaddi: {
+                ...config.panelGaddi,
+                [panelId]: gaddi,
+              },
+            });
+          }}
+        />
         {config.unitType !== "wardrobe" && config.unitType !== "wardrobe_carcass" && (
           <div style={rowStyle}>
             <label style={{ ...labelStyle, marginBottom: 0 }}>Sections</label>

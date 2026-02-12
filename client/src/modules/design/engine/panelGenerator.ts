@@ -38,9 +38,12 @@ export interface ModuleCutlistPanel {
              "drawer_bottom" | "back" | "shutter" | "loft_shutter";
   material: string;
   grainDirection: boolean;
+  /** Gaddi enabled for optimizer */
+  gaddi: boolean;
 }
 
 export interface CuttingListItem {
+  id: string;
   name: string;
   qty: number;
   width: number;
@@ -48,6 +51,8 @@ export interface CuttingListItem {
   thickness: number;
   material: string;
   fits: boolean;
+  /** Gaddi enabled for optimizer */
+  gaddi: boolean;
 }
 
 export interface BackPanelLayout {
@@ -62,8 +67,8 @@ export interface BackPanelLayout {
 // HELPER FUNCTIONS
 // ═══════════════════════════════════════════════════════════════════════════
 
-/** Generate unique panel ID */
-const uid = () => `PNL-${Math.random().toString(36).slice(2, 9)}`;
+/** Generate deterministic panel ID based on name */
+const panelId = (name: string, index = 0) => `PNL-${name.replace(/\s+/g, '-').toUpperCase()}-${index}`;
 
 /**
  * Ensure number is valid and positive
@@ -104,6 +109,8 @@ export function fitsInSheet(w: number, h: number): boolean {
  * - Ensures positive dimensions (minimum 10mm)
  * - Ensures positive quantity (minimum 1)
  * - Ensures valid thickness
+ * - Sets gaddi based on panel type (false for back panels)
+ * - Uses deterministic ID based on panel name for consistent gaddi tracking
  */
 function makePanel(
   name: string,
@@ -112,10 +119,14 @@ function makePanel(
   thickness: number,
   qty: number,
   panelType: ModuleCutlistPanel["panelType"],
-  material: string
+  material: string,
+  index = 0
 ): ModuleCutlistPanel {
+  // Back panels have gaddi OFF by default, others ON
+  const defaultGaddi = panelType !== "back";
+
   return {
-    id: uid(),
+    id: panelId(name, index),
     name: name || "Panel",
     widthMm: Math.round(clamp(safe(width, 100), 10, 6000)),
     heightMm: Math.round(clamp(safe(height, 100), 10, 6000)),
@@ -124,6 +135,7 @@ function makePanel(
     panelType,
     material: material || "plywood",
     grainDirection: true,
+    gaddi: defaultGaddi,
   };
 }
 
@@ -136,10 +148,15 @@ function makePanel(
  * Includes sheet fit check for each panel
  *
  * @param config - Module configuration
+ * @param gaddiOverrides - Optional per-panel gaddi overrides (keyed by panel id)
  * @returns Array of cutting list items with dimensions and fit status
  */
-export function generateCuttingList(config: ModuleConfig): CuttingListItem[] {
+export function generateCuttingList(
+  config: ModuleConfig,
+  gaddiOverrides?: Record<string, boolean>
+): CuttingListItem[] {
   return generateModuleCutlistPanels(config).map(p => ({
+    id: p.id,
     name: p.name,
     qty: p.qty,
     width: p.widthMm,
@@ -147,6 +164,7 @@ export function generateCuttingList(config: ModuleConfig): CuttingListItem[] {
     thickness: p.thicknessMm,
     material: p.material,
     fits: fitsInSheet(p.widthMm, p.heightMm),
+    gaddi: gaddiOverrides?.[p.id] ?? p.gaddi,
   }));
 }
 
@@ -513,9 +531,19 @@ export function generateModuleCutlistPanels(config: ModuleConfig): ModuleCutlist
   // 4. SHUTTERS
   // ─────────────────────────────────────────────────────────────────────────
 
-  if (config.shutterCount > 0) {
-    const shutterW = Math.round(innerW / config.shutterCount);
-    panels.push(makePanel("Shutter", shutterW, mainH - T, T, config.shutterCount, "shutter", config.shutterMaterial));
+  // For wardrobe_carcass, shutters are only included when shutterEnabled is ON
+  // For other types, use shutterCount > 0
+  const shouldIncludeShutters = config.unitType === "wardrobe_carcass"
+    ? config.shutterEnabled && config.shutterCount > 0
+    : config.shutterCount > 0;
+
+  if (shouldIncludeShutters) {
+    // Shutter dimensions: Full wardrobe width / count
+    // Height: Full height minus skirting (if enabled)
+    const shutterW = Math.round(W / config.shutterCount);
+    const skirtingDeduct = config.skirtingEnabled ? (config.skirtingHeightMm ?? 115) : 0;
+    const shutterH = mainH - skirtingDeduct;
+    panels.push(makePanel("Shutter", shutterW, shutterH, T, config.shutterCount, "shutter", config.shutterMaterial));
   }
 
   return panels;
