@@ -74,56 +74,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.warn('[SECURITY WARNING] Dev authentication bypass is ENABLED. Do NOT use in production!');
   }
 
-  app.post("/api/auth/login", async (req, res, next) => {
-    const { email, password } = req.body || {};
-
-    if (isDevAuthEnabled &&
-      email === 'admin@cutlist.pro' &&
-      password === 'admin123') {
-
-      try {
-        const jwt = await import('jsonwebtoken');
-        const { nanoid } = await import('nanoid');
-
-        const JWT_SECRET = process.env.JWT_SECRET;
-        if (!JWT_SECRET || JWT_SECRET === 'dev-secret-change-in-production') {
-          console.error('[Auth] JWT_SECRET not configured properly');
-          return res.status(500).json({ success: false, error: 'Server configuration error' });
-        }
-
-        const devUser = {
-          userId: 'dev-admin-001',
-          email: 'admin@cutlist.pro',
-          role: 'admin',
-          tenantId: 'dev-tenant-001',
-        };
-
-        const accessToken = jwt.default.sign(devUser, JWT_SECRET, { expiresIn: '15m' });
-        const refreshToken = jwt.default.sign(
-          { ...devUser, tokenId: nanoid(64) },
-          JWT_SECRET,
-          { expiresIn: '7d' }
-        );
-
-        console.log('[Auth] Dev mode login successful for:', email);
-
-        return res.json({
-          success: true,
-          data: {
-            accessToken,
-            refreshToken,
-            user: devUser,
-          }
-        });
-      } catch (err) {
-        console.error('[Auth] Dev login error:', err);
-        return res.status(500).json({ success: false, error: 'Dev login failed' });
-      }
-    }
-
-    // Not dev credentials or dev auth disabled - pass to authRouter
-    next();
-  });
+  // Dev auth bypass is handled in authRoutes.ts - no inline handler needed
 
   // ==========================================================================
   // ROUTE MODULE REGISTRATION
