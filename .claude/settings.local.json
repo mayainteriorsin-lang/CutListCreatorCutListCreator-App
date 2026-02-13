@@ -76,7 +76,8 @@
       "Bash(npm run:*)",
       "Bash(git ls-tree:*)",
       "Bash(git check-ignore:*)",
-      "Bash(npx tsx:*)"
+      "Bash(npx tsx:*)",
+      "Bash(xxd:*)"
     ],
     "additionalDirectories": [
       "c:\\Users\\hi\\workspace\\CutListCreator"

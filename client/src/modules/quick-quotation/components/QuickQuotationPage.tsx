@@ -4,7 +4,8 @@
  * Complete quotation editor replacing the iframe-based version.
  */
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -37,10 +38,12 @@ import { ShortcutsDialog } from './ShortcutsDialog';
 import { useToast } from '@/hooks/use-toast';
 
 function QuickQuotationContent() {
+  const [searchParams] = useSearchParams();
   const quotationMeta = useQuotationMeta();
   const ui = useUI();
   const settings = useSettings();
   const { toast } = useToast();
+  const hasAppliedUrlParams = useRef(false);
 
   // Store actions
   const loadFromLocalStorage = useQuickQuotationStore(state => state.loadFromLocalStorage);
@@ -53,6 +56,7 @@ function QuickQuotationContent() {
   const canUndo = useQuickQuotationStore(state => state.canUndo);
   const canRedo = useQuickQuotationStore(state => state.canRedo);
   const setGeneratingPdf = useQuickQuotationStore(state => state.setGeneratingPdf);
+  const setClient = useQuickQuotationStore(state => state.setClient);
   const client = useQuickQuotationStore(state => state.client);
   const mainItems = useQuickQuotationStore(state => state.mainItems);
   const additionalItems = useQuickQuotationStore(state => state.additionalItems);
@@ -64,10 +68,37 @@ function QuickQuotationContent() {
   // Enable auto-save
   useAutoSave();
 
-  // Load saved state on mount
+  // Load saved state on mount, then apply URL params if present
   useEffect(() => {
     loadFromLocalStorage();
   }, [loadFromLocalStorage]);
+
+  // Apply URL params for client auto-fill (runs after localStorage load)
+  useEffect(() => {
+    if (hasAppliedUrlParams.current) return;
+
+    const clientName = searchParams.get('clientName');
+    const clientPhone = searchParams.get('clientPhone');
+    const clientEmail = searchParams.get('clientEmail');
+    const clientLocation = searchParams.get('clientLocation');
+    const quoteNo = searchParams.get('quoteNo');
+
+    // Only auto-fill if at least client name is provided
+    if (clientName) {
+      hasAppliedUrlParams.current = true;
+
+      setClient({
+        name: clientName,
+        contact: clientPhone || '',
+        email: clientEmail || '',
+        address: clientLocation || '',
+      });
+
+      if (quoteNo) {
+        setQuotationNumber(quoteNo);
+      }
+    }
+  }, [searchParams, setClient, setQuotationNumber]);
 
   const handleExportPDF = async () => {
     if (!client.name) {

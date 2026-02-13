@@ -637,7 +637,25 @@ export default function QuotationsPage() {
                     <span className="hidden sm:inline text-indigo-200 text-xs">• {openFolder.quotationNumber}</span>
                   </div>
                   <div className="flex items-center gap-1.5 sm:gap-2">
-                    {/* 2D Quotation Link - Always visible */}
+                    {/* Quick Quote Link */}
+                    <Button
+                      onClick={() => {
+                        const params = new URLSearchParams({
+                          clientName: openFolder.clientName || '',
+                          clientPhone: openFolder.clientMobile || '',
+                          clientEmail: openFolder.clientEmail || '',
+                          clientLocation: openFolder.clientLocation || '',
+                          quoteNo: openFolder.quotationNumber || '',
+                        });
+                        navigate(`/quick-quotation?${params.toString()}`);
+                      }}
+                      size="sm"
+                      className="h-6 sm:h-7 px-2 sm:px-3 bg-amber-500 hover:bg-amber-600 text-white text-[10px] sm:text-xs font-medium"
+                    >
+                      <Zap className="h-3 sm:h-3.5 w-3 sm:w-3.5 sm:mr-1" />
+                      <span className="hidden sm:inline">Quick Quote</span>
+                    </Button>
+                    {/* 2D Quotation Link */}
                     <Button
                       onClick={() => {
                         const params = new URLSearchParams({
@@ -674,14 +692,14 @@ export default function QuotationsPage() {
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id)}
                         className={cn(
-                          'flex-shrink-0 sm:flex-1 flex items-center justify-center gap-0.5 sm:gap-1 px-2 sm:px-2 py-1 sm:py-1.5 rounded-md text-[10px] sm:text-xs font-medium transition-all relative',
+                          'flex-shrink-0 sm:flex-1 flex items-center justify-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 rounded-md text-[10px] sm:text-xs font-medium transition-all relative',
                           isActive
                             ? 'bg-white text-indigo-600 shadow-sm'
                             : 'text-white/80 hover:bg-white/10'
                         )}
                       >
-                        <TabIcon className="h-3 sm:h-3.5 w-3 sm:w-3.5" />
-                        <span className="hidden xs:inline">{tab.label}</span>
+                        <TabIcon className="h-3.5 sm:h-4 w-3.5 sm:w-4" />
+                        <span>{tab.label}</span>
                         {badge !== null && badge > 0 && (
                           <span className={cn(
                             'px-1 sm:px-1.5 py-0.5 rounded-full text-[8px] sm:text-[9px] font-bold',
@@ -1136,28 +1154,47 @@ export default function QuotationsPage() {
                       </div>
                     </div>
 
-                    {/* Quick Actions - 2D Design Link */}
+                    {/* Quick Actions - Design Tools */}
                     <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-3 sm:p-4">
                       <h3 className="font-semibold text-xs sm:text-base text-slate-800 mb-2 sm:mb-3 flex items-center gap-2">
                         <Ruler className="h-3.5 sm:h-4 w-3.5 sm:w-4 text-blue-500" />
                         Design Tools
                       </h3>
-                      <Button
-                        onClick={() => {
-                          const params = new URLSearchParams({
-                            clientName: openFolder.clientName || '',
-                            clientPhone: openFolder.clientMobile || '',
-                            clientLocation: openFolder.clientLocation || '',
-                            quoteNo: openFolder.quotationNumber || '',
-                          });
-                          navigate(`/2d-quotation?${params.toString()}`);
-                        }}
-                        className="w-full h-10 sm:h-12 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white text-sm sm:text-base font-medium"
-                      >
-                        <Ruler className="h-4 sm:h-5 w-4 sm:w-5 mr-2" />
-                        Open 2D Quotation Designer
-                        <ArrowRight className="h-4 sm:h-5 w-4 sm:w-5 ml-2" />
-                      </Button>
+                      <div className="space-y-2">
+                        <Button
+                          onClick={() => {
+                            const params = new URLSearchParams({
+                              clientName: openFolder.clientName || '',
+                              clientPhone: openFolder.clientMobile || '',
+                              clientLocation: openFolder.clientLocation || '',
+                              quoteNo: openFolder.quotationNumber || '',
+                            });
+                            navigate(`/2d-quotation?${params.toString()}`);
+                          }}
+                          className="w-full h-10 sm:h-12 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white text-sm sm:text-base font-medium"
+                        >
+                          <Ruler className="h-4 sm:h-5 w-4 sm:w-5 mr-2" />
+                          Open 2D Quotation Designer
+                          <ArrowRight className="h-4 sm:h-5 w-4 sm:w-5 ml-2" />
+                        </Button>
+                        <Button
+                          onClick={() => {
+                            const params = new URLSearchParams({
+                              clientName: openFolder.clientName || '',
+                              clientPhone: openFolder.clientMobile || '',
+                              clientEmail: openFolder.clientEmail || '',
+                              clientLocation: openFolder.clientLocation || '',
+                              quoteNo: openFolder.quotationNumber || '',
+                            });
+                            navigate(`/quick-quotation?${params.toString()}`);
+                          }}
+                          className="w-full h-10 sm:h-12 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-white text-sm sm:text-base font-medium"
+                        >
+                          <Zap className="h-4 sm:h-5 w-4 sm:w-5 mr-2" />
+                          Open Quick Quote
+                          <ArrowRight className="h-4 sm:h-5 w-4 sm:w-5 ml-2" />
+                        </Button>
+                      </div>
                       <p className="text-[10px] sm:text-xs text-slate-500 mt-2 text-center">
                         Client details will be auto-filled
                       </p>
