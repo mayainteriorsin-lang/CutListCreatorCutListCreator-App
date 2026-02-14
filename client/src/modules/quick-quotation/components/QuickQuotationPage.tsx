@@ -20,12 +20,17 @@ import {
   Plus,
   Building,
   Keyboard,
+  Share2,
+  Printer,
+  Copy,
+  Search,
 } from 'lucide-react';
 
 import { useQuickQuotationStore, useQuotationMeta, useUI, useSettings } from '../store/quickQuotationStore';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { useAutoSave } from '../hooks/useAutoSave';
 import { generateQuotationPDF } from '../engine/pdfGenerator';
+import { saveVersionToQuickQuote } from '../storage/storage';
 
 import { QuickQuotationErrorBoundary } from './ErrorBoundary';
 import { ClientInfoCard } from './ClientInfoCard';
@@ -71,34 +76,35 @@ function QuickQuotationContent() {
   // Load saved state on mount, then apply URL params if present
   useEffect(() => {
     loadFromLocalStorage();
-  }, [loadFromLocalStorage]);
 
-  // Apply URL params for client auto-fill (runs after localStorage load)
-  useEffect(() => {
-    if (hasAppliedUrlParams.current) return;
+    // Apply URL params after localStorage load (with small delay to ensure state is ready)
+    if (!hasAppliedUrlParams.current) {
+      const clientName = searchParams.get('clientName');
+      const clientPhone = searchParams.get('clientPhone');
+      const clientEmail = searchParams.get('clientEmail');
+      const clientLocation = searchParams.get('clientLocation');
+      const quoteNo = searchParams.get('quoteNo');
 
-    const clientName = searchParams.get('clientName');
-    const clientPhone = searchParams.get('clientPhone');
-    const clientEmail = searchParams.get('clientEmail');
-    const clientLocation = searchParams.get('clientLocation');
-    const quoteNo = searchParams.get('quoteNo');
+      // Only auto-fill if at least client name is provided
+      if (clientName) {
+        hasAppliedUrlParams.current = true;
 
-    // Only auto-fill if at least client name is provided
-    if (clientName) {
-      hasAppliedUrlParams.current = true;
+        // Use setTimeout to ensure this runs after localStorage state is applied
+        setTimeout(() => {
+          setClient({
+            name: clientName,
+            contact: clientPhone || '',
+            email: clientEmail || '',
+            address: clientLocation || '',
+          });
 
-      setClient({
-        name: clientName,
-        contact: clientPhone || '',
-        email: clientEmail || '',
-        address: clientLocation || '',
-      });
-
-      if (quoteNo) {
-        setQuotationNumber(quoteNo);
+          if (quoteNo) {
+            setQuotationNumber(quoteNo);
+          }
+        }, 50);
       }
     }
-  }, [searchParams, setClient, setQuotationNumber]);
+  }, [loadFromLocalStorage, searchParams, setClient, setQuotationNumber]);
 
   const handleExportPDF = async () => {
     if (!client.name) {
@@ -112,6 +118,11 @@ function QuickQuotationContent() {
 
     try {
       setGeneratingPdf(true);
+
+      // Auto-save a version before exporting PDF
+      // This captures the exact state that was shared with the client
+      const version = saveVersionToQuickQuote(quotationMeta.number, 'Shared via PDF');
+
       await generateQuotationPDF({
         client,
         quotationMeta,
@@ -120,10 +131,18 @@ function QuickQuotationContent() {
         settings,
         totals: getTotals(),
       });
-      toast({
-        title: 'PDF Exported',
-        description: 'Quotation PDF has been downloaded.',
-      });
+
+      if (version) {
+        toast({
+          title: 'PDF Exported',
+          description: `Downloaded and saved as v${version.version}`,
+        });
+      } else {
+        toast({
+          title: 'PDF Exported',
+          description: 'Quotation PDF has been downloaded.',
+        });
+      }
     } catch (error) {
       console.error('PDF export error:', error);
       toast({
@@ -143,6 +162,103 @@ function QuickQuotationContent() {
         title: 'New Quotation',
         description: 'Started a new quotation.',
       });
+    }
+  };
+
+  const handleDuplicateQuotation = () => {
+    // Keep all items but clear client info and generate new quote number
+    const newQuoteNumber = `MI-${new Date().getFullYear()}-${Math.floor(Math.random() * 900) + 100}`;
+    setQuotationNumber(newQuoteNumber);
+    setClient({
+      name: '',
+      contact: '',
+      email: '',
+      address: '',
+    });
+    toast({
+      title: 'Quotation Duplicated',
+      description: 'Items copied. Enter new client details.',
+    });
+  };
+
+  const handleWhatsAppShare = () => {
+    if (!client.name) {
+      toast({
+        variant: 'destructive',
+        title: 'Client Name Required',
+        description: 'Please enter a client name before sharing.',
+      });
+      return;
+    }
+
+    const totals = getTotals();
+    const itemCount = mainItems.filter(i => i.type === 'item').length +
+                      additionalItems.filter(i => i.type === 'item').length;
+
+    // Create WhatsApp message
+    const message = `*MAYA INTERIORS - Quotation*
+
+*Quote No:* ${quotationMeta.number}
+*Date:* ${quotationMeta.date}
+*Client:* ${client.name}
+${client.address ? `*Location:* ${client.address}` : ''}
+
+*Items:* ${itemCount} items
+*Total:* ₹${totals.grandTotal.toLocaleString('en-IN')}
+${totals.gstAmount > 0 ? `(Incl. GST: ₹${totals.gstAmount.toLocaleString('en-IN')})` : ''}
+
+Please download PDF for detailed quotation.
+
+_Maya Interiors_
+${settings.contactInfo.phone}`;
+
+    const whatsappUrl = client.contact
+      ? `https://wa.me/91${client.contact.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`
+      : `https://wa.me/?text=${encodeURIComponent(message)}`;
+
+    window.open(whatsappUrl, '_blank');
+  };
+
+  const handlePrint = async () => {
+    if (!client.name) {
+      toast({
+        variant: 'destructive',
+        title: 'Client Name Required',
+        description: 'Please enter a client name before printing.',
+      });
+      return;
+    }
+
+    try {
+      setGeneratingPdf(true);
+
+      // Generate PDF blob for printing
+      const { jsPDF } = await import('jspdf');
+      const doc = new jsPDF();
+
+      // Use the same PDF generation but open print dialog
+      await generateQuotationPDF({
+        client,
+        quotationMeta,
+        mainItems,
+        additionalItems,
+        settings,
+        totals: getTotals(),
+      });
+
+      toast({
+        title: 'PDF Ready',
+        description: 'Open the downloaded PDF and press Ctrl+P to print.',
+      });
+    } catch (error) {
+      console.error('Print error:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Print Failed',
+        description: 'Could not prepare document for printing.',
+      });
+    } finally {
+      setGeneratingPdf(false);
     }
   };
 
@@ -217,6 +333,12 @@ function QuickQuotationContent() {
                 <span className="hidden sm:inline">New</span>
               </Button>
 
+              {/* Duplicate */}
+              <Button variant="outline" size="sm" onClick={handleDuplicateQuotation} className="h-7 sm:h-8 px-2 sm:px-3 flex-shrink-0" title="Duplicate for new client">
+                <Copy className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-1" />
+                <span className="hidden lg:inline">Duplicate</span>
+              </Button>
+
               {/* Shortcuts */}
               <Button
                 variant="outline"
@@ -250,6 +372,31 @@ function QuickQuotationContent() {
                 <span className="hidden md:inline">Bank</span>
               </Button>
 
+              {/* WhatsApp Share */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleWhatsAppShare}
+                className="h-7 sm:h-8 px-2 sm:px-3 flex-shrink-0 text-green-600 border-green-200 hover:bg-green-50 hover:text-green-700"
+                title="Share via WhatsApp"
+              >
+                <Share2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-1" />
+                <span className="hidden lg:inline">WhatsApp</span>
+              </Button>
+
+              {/* Print */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handlePrint}
+                disabled={ui.isGeneratingPdf}
+                className="h-7 sm:h-8 px-2 sm:px-3 flex-shrink-0"
+                title="Print quotation"
+              >
+                <Printer className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-1" />
+                <span className="hidden lg:inline">Print</span>
+              </Button>
+
               {/* Export PDF */}
               <Button
                 onClick={handleExportPDF}
@@ -279,8 +426,8 @@ function QuickQuotationContent() {
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t bg-white mt-4">
+      {/* Desktop Footer - Hidden on mobile */}
+      <footer className="hidden sm:block border-t bg-white mt-4">
         <div className="max-w-7xl mx-auto px-2 sm:px-4 py-2">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-1 text-[10px] sm:text-xs text-slate-500">
             <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
@@ -294,6 +441,55 @@ function QuickQuotationContent() {
           </div>
         </div>
       </footer>
+
+      {/* Mobile Sticky Bottom Bar - Quick Actions */}
+      <div className="sm:hidden fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-50">
+        <div className="flex items-center justify-around py-2 px-3 max-w-md mx-auto">
+          {/* WhatsApp */}
+          <button
+            onClick={handleWhatsAppShare}
+            className="flex flex-col items-center justify-center w-14 h-14 rounded-full bg-green-50 text-green-600 active:bg-green-100 transition-colors"
+            title="Share via WhatsApp"
+          >
+            <Share2 className="h-5 w-5" />
+            <span className="text-[9px] font-medium mt-0.5">WhatsApp</span>
+          </button>
+
+          {/* PDF Export */}
+          <button
+            onClick={handleExportPDF}
+            disabled={ui.isGeneratingPdf}
+            className="flex flex-col items-center justify-center w-14 h-14 rounded-full bg-blue-50 text-blue-600 active:bg-blue-100 transition-colors disabled:opacity-50"
+            title="Export PDF"
+          >
+            <FileDown className="h-5 w-5" />
+            <span className="text-[9px] font-medium mt-0.5">PDF</span>
+          </button>
+
+          {/* Saved Clients */}
+          <button
+            onClick={() => setActiveDialog('clients')}
+            className="flex flex-col items-center justify-center w-14 h-14 rounded-full bg-amber-50 text-amber-600 active:bg-amber-100 transition-colors"
+            title="Saved Clients"
+          >
+            <FolderOpen className="h-5 w-5" />
+            <span className="text-[9px] font-medium mt-0.5">Saved</span>
+          </button>
+
+          {/* New Quote */}
+          <button
+            onClick={handleNewQuotation}
+            className="flex flex-col items-center justify-center w-14 h-14 rounded-full bg-slate-100 text-slate-600 active:bg-slate-200 transition-colors"
+            title="New Quotation"
+          >
+            <Plus className="h-5 w-5" />
+            <span className="text-[9px] font-medium mt-0.5">New</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile bottom bar spacer */}
+      <div className="sm:hidden h-20" />
 
       {/* Dialogs */}
       <ClientManagerDialog />

@@ -8,6 +8,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Stage, Layer, Rect, Line, Group, Image as KonvaImage } from "react-konva";
+import type { KonvaEventObject } from "konva/lib/Node";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,6 +40,9 @@ import {
   Layers,
   Library,
   StickyNote,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -56,7 +60,7 @@ import { useQuotationMetaStore } from "../../store/v2/useQuotationMetaStore";
 import type { DrawnUnit } from "../../types";
 
 // Hooks
-import { useQuotation2DExport, useQuotation2DDrawing, useQuotation2DState } from "./hooks";
+import { useQuotation2DExport, useQuotation2DDrawing, useQuotation2DState, useCanvasZoom } from "./hooks";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 
 // Error Boundary
@@ -140,10 +144,48 @@ const Quotation2DPage: React.FC = () => {
     handleMouseDown,
     handleMouseMove,
     handleMouseUp,
-    handleTouchStart,
-    handleTouchMove,
-    handleTouchEnd,
+    handleTouchStart: drawTouchStart,
+    handleTouchMove: drawTouchMove,
+    handleTouchEnd: drawTouchEnd,
   } = useQuotation2DDrawing({ canvasFocused });
+
+  // Canvas zoom hook (pinch-to-zoom for mobile)
+  const {
+    scale: canvasScale,
+    position: canvasPosition,
+    handleWheel: handleCanvasWheel,
+    handleTouchStart: zoomTouchStart,
+    handleTouchMove: zoomTouchMove,
+    handleTouchEnd: zoomTouchEnd,
+    resetZoom,
+    zoomIn,
+    zoomOut,
+    isZoomed,
+  } = useCanvasZoom({ stageRef, minScale: 0.5, maxScale: 3 });
+
+  // Combined touch handlers - prioritize pinch zoom over drawing
+  const handleTouchStart = (e: KonvaEventObject<TouchEvent>) => {
+    if (e.evt.touches.length === 2) {
+      zoomTouchStart(e);
+    } else if (drawMode) {
+      drawTouchStart(e);
+    }
+  };
+
+  const handleTouchMove = (e: KonvaEventObject<TouchEvent>) => {
+    if (e.evt.touches.length === 2) {
+      zoomTouchMove(e);
+    } else if (drawMode) {
+      drawTouchMove(e);
+    }
+  };
+
+  const handleTouchEnd = (e: KonvaEventObject<TouchEvent>) => {
+    zoomTouchEnd(e);
+    if (drawMode) {
+      drawTouchEnd();
+    }
+  };
 
   // Store values
   const {
@@ -212,22 +254,22 @@ const Quotation2DPage: React.FC = () => {
       "h-screen flex flex-col overflow-hidden bg-slate-900",
       isFullscreen && "fixed inset-0 z-50"
     )}>
-      {/* Single Compact Toolbar */}
-      <header className="flex-shrink-0 h-10 bg-slate-800/95 backdrop-blur border-b border-slate-700/50 px-1 sm:px-2 flex items-center justify-between z-20">
+      {/* Single Compact Toolbar - taller on mobile for touch */}
+      <header className="flex-shrink-0 h-12 sm:h-10 bg-slate-800/95 backdrop-blur border-b border-slate-700/50 px-1 sm:px-2 flex items-center justify-between z-20">
         {/* Left: Back + Menu + Client */}
         <div className="flex items-center gap-1 sm:gap-2">
           <button
             onClick={() => navigate("/")}
-            className="h-7 w-7 rounded-md bg-slate-700/50 hover:bg-slate-600 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
+            className="h-10 w-10 sm:h-8 sm:w-8 rounded-md bg-slate-700/50 hover:bg-slate-600 flex items-center justify-center text-slate-400 hover:text-white transition-colors active:bg-slate-500"
           >
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft className="h-5 w-5 sm:h-4 sm:w-4" />
           </button>
 
           {/* Hamburger Menu - New Canvas, Floor, Room */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="h-7 w-7 rounded-md bg-slate-700/50 hover:bg-slate-600 flex items-center justify-center text-slate-400 hover:text-white transition-colors">
-                <Menu className="h-4 w-4" />
+              <button className="h-10 w-10 sm:h-8 sm:w-8 rounded-md bg-slate-700/50 hover:bg-slate-600 flex items-center justify-center text-slate-400 hover:text-white transition-colors active:bg-slate-500">
+                <Menu className="h-5 w-5 sm:h-4 sm:w-4" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-48">
@@ -329,26 +371,26 @@ const Quotation2DPage: React.FC = () => {
         {/* Center: View Mode Toggle */}
         <div className="flex items-center gap-1 sm:gap-1.5">
 
-          {/* View Mode Toggle */}
-          <div className="flex items-center bg-slate-700/50 rounded p-0.5">
+          {/* View Mode Toggle - larger on mobile */}
+          <div className="flex items-center bg-slate-700/50 rounded p-0.5 sm:p-0.5">
             <button
               onClick={() => viewMode === "photo" ? fileInputRef.current?.click() : setViewMode("photo")}
               className={cn(
-                "h-6 px-1.5 sm:px-2 rounded text-[10px] sm:text-[11px] flex items-center gap-0.5 sm:gap-1 transition-colors",
+                "h-9 sm:h-7 px-2.5 sm:px-2 rounded text-xs sm:text-[11px] flex items-center gap-1 sm:gap-1 transition-colors active:opacity-80",
                 viewMode === "photo" ? "bg-blue-600 text-white" : "text-slate-400 hover:text-white"
               )}
             >
-              <Image className="h-3 w-3" />
+              <Image className="h-4 w-4 sm:h-3 sm:w-3" />
               <span className="hidden xs:inline">Photo</span>
             </button>
             <button
               onClick={() => setViewMode("css3d")}
               className={cn(
-                "h-6 px-1.5 sm:px-2 rounded text-[10px] sm:text-[11px] flex items-center gap-0.5 sm:gap-1 transition-colors",
+                "h-9 sm:h-7 px-2.5 sm:px-2 rounded text-xs sm:text-[11px] flex items-center gap-1 sm:gap-1 transition-colors active:opacity-80",
                 viewMode === "css3d" ? "bg-purple-600 text-white" : "text-slate-400 hover:text-white"
               )}
             >
-              <Cuboid className="h-3 w-3" />
+              <Cuboid className="h-4 w-4 sm:h-3 sm:w-3" />
               <span className="hidden xs:inline">Iso</span>
             </button>
           </div>
@@ -356,9 +398,9 @@ const Quotation2DPage: React.FC = () => {
           {roomPhoto && (
             <button
               onClick={clearRoomPhoto}
-              className="h-6 w-6 rounded text-red-400 hover:text-red-300 hover:bg-red-500/10 flex items-center justify-center"
+              className="h-9 w-9 sm:h-7 sm:w-7 rounded text-red-400 hover:text-red-300 hover:bg-red-500/10 flex items-center justify-center active:bg-red-500/20"
             >
-              <Trash2 className="h-3 w-3" />
+              <Trash2 className="h-4 w-4 sm:h-3 sm:w-3" />
             </button>
           )}
         </div>
@@ -372,13 +414,13 @@ const Quotation2DPage: React.FC = () => {
                 variant="ghost"
                 size="sm"
                 className={cn(
-                  "h-7 px-1.5 sm:px-2 text-[10px] sm:text-[11px] gap-0.5 sm:gap-1",
+                  "h-9 sm:h-8 px-2 sm:px-2 text-xs sm:text-[11px] gap-1 sm:gap-1",
                   drawMode ? "bg-blue-600 text-white" : "text-slate-400 hover:text-white"
                 )}
               >
-                <Grid3X3 className="h-3 w-3" />
+                <Grid3X3 className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
                 <span className="hidden sm:inline">Draw</span>
-                <ChevronDown className="h-3 w-3" />
+                <ChevronDown className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-44">
@@ -473,32 +515,32 @@ const Quotation2DPage: React.FC = () => {
           <button
             onClick={() => setShowNotes(true)}
             className={cn(
-              "h-7 px-1.5 sm:px-2 rounded flex items-center gap-0.5 sm:gap-1 transition-colors",
+              "h-9 sm:h-8 px-2.5 sm:px-2 rounded flex items-center gap-1 sm:gap-1 transition-colors active:opacity-80",
               showNotes
                 ? "bg-orange-600 text-white"
                 : "text-orange-400 hover:text-orange-300 hover:bg-orange-500/10"
             )}
             title="Client Notes"
           >
-            <StickyNote className="h-3.5 w-3.5" />
+            <StickyNote className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
             <span className="hidden sm:inline text-[11px]">Notes</span>
           </button>
 
           <button
             onClick={() => setShowConfig(!showConfig)}
             className={cn(
-              "h-7 w-7 rounded flex items-center justify-center transition-colors",
+              "h-9 w-9 sm:h-8 sm:w-8 rounded flex items-center justify-center transition-colors active:opacity-80",
               showConfig ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-white hover:bg-slate-700"
             )}
           >
-            <Settings2 className="h-3.5 w-3.5" />
+            <Settings2 className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
           </button>
 
           {/* More Tools Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="h-7 w-7 rounded flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700 transition-colors">
-                <MoreVertical className="h-3.5 w-3.5" />
+              <button className="h-9 w-9 sm:h-8 sm:w-8 rounded flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700 transition-colors active:opacity-80">
+                <MoreVertical className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
@@ -572,10 +614,10 @@ const Quotation2DPage: React.FC = () => {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
-                className="h-7 px-1.5 sm:px-2 rounded flex items-center gap-0.5 sm:gap-1 text-[10px] sm:text-[11px] text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 transition-colors"
+                className="h-9 sm:h-8 px-2.5 sm:px-2 rounded flex items-center gap-1 sm:gap-1 text-xs sm:text-[11px] text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 transition-colors active:opacity-80"
                 disabled={isExporting}
               >
-                {isExporting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
+                {isExporting ? <Loader2 className="h-4 w-4 sm:h-3.5 sm:w-3.5 animate-spin" /> : <Download className="h-4 w-4 sm:h-3.5 sm:w-3.5" />}
                 <span className="hidden sm:inline">Export</span>
               </button>
             </DropdownMenuTrigger>
@@ -649,13 +691,13 @@ const Quotation2DPage: React.FC = () => {
               "md:static md:h-full md:w-[280px]"
             )}>
               {/* Panel Header with Close Button */}
-              <div className="flex items-center justify-between px-3 py-2 border-b border-slate-200 bg-slate-50">
-                <span className="text-xs font-semibold text-slate-600">Configuration</span>
+              <div className="flex items-center justify-between px-3 py-2.5 sm:py-2 border-b border-slate-200 bg-slate-50">
+                <span className="text-sm sm:text-xs font-semibold text-slate-600">Configuration</span>
                 <button
                   onClick={() => setShowConfig(false)}
-                  className="h-6 w-6 rounded hover:bg-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-600"
+                  className="h-10 w-10 sm:h-7 sm:w-7 rounded hover:bg-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-600 active:bg-slate-300"
                 >
-                  <X className="h-4 w-4 md:hidden" />
+                  <X className="h-5 w-5 sm:h-4 sm:w-4 md:hidden" />
                   <ChevronLeft className="h-4 w-4 hidden md:block" />
                 </button>
               </div>
@@ -711,10 +753,10 @@ const Quotation2DPage: React.FC = () => {
             {/* Add New Floor Button */}
             <button
               onClick={addCustomFloor}
-              className="h-5 w-5 sm:h-6 sm:w-6 rounded bg-blue-500 text-white hover:bg-blue-400 transition-colors flex-shrink-0 flex items-center justify-center"
+              className="h-7 w-7 sm:h-6 sm:w-6 rounded bg-blue-500 text-white hover:bg-blue-400 transition-colors flex-shrink-0 flex items-center justify-center active:bg-blue-300"
               title="Add new floor"
             >
-              <Plus className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+              <Plus className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
             </button>
 
             <ChevronRight className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-white/50 flex-shrink-0" />
@@ -758,10 +800,10 @@ const Quotation2DPage: React.FC = () => {
             {/* Add New Room Button */}
             <button
               onClick={addCustomRoom}
-              className="h-5 w-5 sm:h-6 sm:w-6 rounded bg-blue-500 text-white hover:bg-blue-400 transition-colors flex-shrink-0 flex items-center justify-center"
+              className="h-7 w-7 sm:h-6 sm:w-6 rounded bg-blue-500 text-white hover:bg-blue-400 transition-colors flex-shrink-0 flex items-center justify-center active:bg-blue-300"
               title="Add new room"
             >
-              <Plus className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+              <Plus className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
             </button>
 
             {/* Unit Type Dropdown - always shown, changes selected unit or sets default for new units */}
@@ -866,26 +908,26 @@ const Quotation2DPage: React.FC = () => {
             {/* Add New Canvas Button - right next to Unit Type dropdown */}
             <button
               onClick={addNewCanvas}
-              className="h-5 w-5 sm:h-6 sm:w-6 rounded bg-emerald-600 text-white hover:bg-emerald-500 transition-colors flex-shrink-0 flex items-center justify-center"
+              className="h-7 w-7 sm:h-6 sm:w-6 rounded bg-emerald-600 text-white hover:bg-emerald-500 transition-colors flex-shrink-0 flex items-center justify-center active:bg-emerald-400"
               title="Add new canvas"
             >
-              <Plus className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+              <Plus className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
             </button>
 
             {/* Units - show all units as clickable chips - hidden on very small screens */}
             {drawnUnits.length > 0 && (
               <>
                 <ChevronRight className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-white/50 flex-shrink-0 hidden xs:block" />
-                <div className="hidden xs:flex items-center gap-0.5 sm:gap-1 overflow-x-auto max-w-[100px] sm:max-w-[300px] md:max-w-[400px] scrollbar-hide">
+                <div className="hidden xs:flex items-center gap-1 sm:gap-1 overflow-x-auto max-w-[120px] sm:max-w-[300px] md:max-w-[400px] scrollbar-hide">
                   {drawnUnits.map((unit, idx) => (
                     <button
                       key={unit.id}
                       onClick={() => setActiveUnitIndex(idx)}
                       className={cn(
-                        "text-[8px] sm:text-[10px] px-1 sm:px-2 py-0.5 rounded whitespace-nowrap transition-colors flex-shrink-0",
+                        "text-[9px] sm:text-[10px] px-2 sm:px-2 py-1 sm:py-0.5 rounded whitespace-nowrap transition-colors flex-shrink-0 min-h-[28px] sm:min-h-0",
                         activeUnitIndex === idx
                           ? "bg-yellow-400 text-slate-900 font-semibold"
-                          : "bg-blue-500/50 text-white/80 hover:bg-blue-400/70 hover:text-white"
+                          : "bg-blue-500/50 text-white/80 hover:bg-blue-400/70 hover:text-white active:bg-blue-300/70"
                       )}
                     >
                       <span className="hidden sm:inline">{formatUnitTypeLabel(unit.unitType || 'wardrobe').split(' ')[0]}</span>
@@ -964,10 +1006,15 @@ const Quotation2DPage: React.FC = () => {
                   ref={stageRef}
                   width={dimensions.width}
                   height={dimensions.height}
+                  scaleX={canvasScale}
+                  scaleY={canvasScale}
+                  x={canvasPosition.x}
+                  y={canvasPosition.y}
                   onMouseDown={handleMouseDown}
                   onMouseMove={handleMouseMove}
                   onMouseUp={handleMouseUp}
                   onMouseLeave={handleMouseUp}
+                  onWheel={handleCanvasWheel}
                   onTouchStart={handleTouchStart}
                   onTouchMove={handleTouchMove}
                   onTouchEnd={handleTouchEnd}
@@ -1049,6 +1096,39 @@ const Quotation2DPage: React.FC = () => {
                     <span className="sm:hidden">Draw - Drag to create</span>
                   </div>
                 )}
+
+                {/* Mobile Zoom Controls */}
+                <div className="sm:hidden absolute top-2 left-2 flex flex-col gap-1.5">
+                  <button
+                    onClick={zoomIn}
+                    className="h-10 w-10 rounded-lg bg-slate-800/80 text-white shadow-lg flex items-center justify-center active:bg-slate-700"
+                    title="Zoom In"
+                  >
+                    <ZoomIn className="h-5 w-5" />
+                  </button>
+                  <button
+                    onClick={zoomOut}
+                    className="h-10 w-10 rounded-lg bg-slate-800/80 text-white shadow-lg flex items-center justify-center active:bg-slate-700"
+                    title="Zoom Out"
+                  >
+                    <ZoomOut className="h-5 w-5" />
+                  </button>
+                  {isZoomed && (
+                    <button
+                      onClick={resetZoom}
+                      className="h-10 w-10 rounded-lg bg-amber-500/90 text-white shadow-lg flex items-center justify-center active:bg-amber-400"
+                      title="Reset Zoom"
+                    >
+                      <RotateCcw className="h-5 w-5" />
+                    </button>
+                  )}
+                  {/* Zoom level indicator */}
+                  {canvasScale !== 1 && (
+                    <div className="h-8 px-2 rounded-lg bg-slate-800/80 text-white shadow-lg flex items-center justify-center text-xs font-medium">
+                      {Math.round(canvasScale * 100)}%
+                    </div>
+                  )}
+                </div>
 
                 {/* Mobile: Floating photo buttons with camera/upload options */}
                 <div className="sm:hidden absolute bottom-3 right-3 flex flex-col gap-2">

@@ -154,3 +154,39 @@
   padding: 6px 8px;
   backdrop-filter: blur(4px);
 }
+
+/* Mobile: Vertical layout with larger buttons */
+@media (max-width: 639px) {
+  .floatingControls {
+    flex-direction: column;
+    top: 8px;
+    left: 8px;
+    right: auto;
+    gap: 8px;
+    padding: 8px;
+    border-radius: 12px;
+  }
+}
+
+/* Mobile touch hint */
+.mobileHint {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 16px;
+  background-color: rgba(0, 0, 0, 0.6);
+  border-radius: 20px;
+  color: white;
+  font-size: 12px;
+  white-space: nowrap;
+  backdrop-filter: blur(4px);
+  pointer-events: none;
+  animation: fadeOut 3s forwards;
+  animation-delay: 2s;
+}
+
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; visibility: hidden; }
+}

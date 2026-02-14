@@ -12,9 +12,23 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import type { DrawnUnit } from "../../types";
-import { Maximize2, RotateCcw, Plus, Minus, Move } from "lucide-react";
+import { Maximize2, RotateCcw, Plus, Minus, Move, Hand } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import styles from "./CSS3DCanvas.module.css";
+
+// Touch gesture helpers for pinch-to-zoom
+function getDistance(t1: Touch, t2: Touch): number {
+  return Math.sqrt(
+    Math.pow(t2.clientX - t1.clientX, 2) + Math.pow(t2.clientY - t1.clientY, 2)
+  );
+}
+
+function getCenter(t1: Touch, t2: Touch): { x: number; y: number } {
+  return {
+    x: (t1.clientX + t2.clientX) / 2,
+    y: (t1.clientY + t2.clientY) / 2,
+  };
+}
 
 // Kitchen Base unit type for 3D drawing
 interface KitchenModule {
@@ -423,6 +437,11 @@ export const CSS3DCanvas: React.FC<CSS3DCanvasProps> = ({
   const [dragModeEnabled, setDragModeEnabled] = useState(false);
   const [spacePressed, setSpacePressed] = useState(false);
 
+  // Touch state for mobile pinch-to-zoom
+  const lastTouchDistRef = useRef<number | null>(null);
+  const lastTouchCenterRef = useRef<{ x: number; y: number } | null>(null);
+  const [showMobileHint, setShowMobileHint] = useState(true);
+
   // Handle floor click to place Kitchen Base
   const handleFloorClick = (gridX: number, gridY: number) => {
     const newModule: KitchenModule = {
@@ -552,6 +571,65 @@ export const CSS3DCanvas: React.FC<CSS3DCanvasProps> = ({
     setIsPanning(false);
   }, []);
 
+  // Touch handlers for mobile pinch-to-zoom and pan
+  const handleTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    setShowMobileHint(false);
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      lastTouchDistRef.current = getDistance(e.touches[0], e.touches[1]);
+      lastTouchCenterRef.current = getCenter(e.touches[0], e.touches[1]);
+    } else if (e.touches.length === 1) {
+      // Single finger pan
+      setIsPanning(true);
+      setPanStart({
+        x: e.touches[0].clientX - panOffset.x,
+        y: e.touches[0].clientY - panOffset.y,
+      });
+    }
+  }, [panOffset]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      const newDist = getDistance(e.touches[0], e.touches[1]);
+      const newCenter = getCenter(e.touches[0], e.touches[1]);
+
+      if (lastTouchDistRef.current && lastTouchCenterRef.current) {
+        // Calculate scale change
+        const scaleFactor = newDist / lastTouchDistRef.current;
+        setZoomScale((prev) => Math.max(0.4, Math.min(2.5, prev * scaleFactor)));
+
+        // Calculate pan movement
+        const deltaX = newCenter.x - lastTouchCenterRef.current.x;
+        const deltaY = newCenter.y - lastTouchCenterRef.current.y;
+        setPanOffset((prev) => ({
+          x: prev.x + deltaX,
+          y: prev.y + deltaY,
+        }));
+        setIsFitToScreen(false);
+      }
+
+      lastTouchDistRef.current = newDist;
+      lastTouchCenterRef.current = newCenter;
+    } else if (e.touches.length === 1 && isPanning) {
+      // Single finger pan
+      setPanOffset({
+        x: e.touches[0].clientX - panStart.x,
+        y: e.touches[0].clientY - panStart.y,
+      });
+    }
+  }, [isPanning, panStart]);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length < 2) {
+      lastTouchDistRef.current = null;
+      lastTouchCenterRef.current = null;
+    }
+    if (e.touches.length === 0) {
+      setIsPanning(false);
+    }
+  }, []);
+
   // Prevent context menu on right click (used for panning)
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -670,15 +748,18 @@ export const CSS3DCanvas: React.FC<CSS3DCanvasProps> = ({
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
       onContextMenu={handleContextMenu}
       className={cn(
-        "flex-1 min-w-0 min-h-0 relative bg-slate-800 flex outline-none",
+        "flex-1 min-w-0 min-h-0 relative bg-slate-800 flex outline-none touch-none",
         (dragModeEnabled || spacePressed) && "cursor-grab",
         isPanning && "cursor-grabbing"
       )}>
       {/* Main 3D View Area */}
       <div className="flex-1 relative flex items-center justify-center overflow-visible">
-        {/* Small floating controls for 3D specific actions */}
+        {/* Floating controls for 3D - larger on mobile */}
         <div className={styles.floatingControls}>
           {/* Drag/Pan Mode Button */}
           <Button
@@ -691,14 +772,14 @@ export const CSS3DCanvas: React.FC<CSS3DCanvasProps> = ({
               }
             }}
             className={cn(
-              "h-6 w-6 p-0",
+              "h-10 w-10 sm:h-7 sm:w-7 p-0",
               dragModeEnabled
                 ? "bg-green-500 hover:bg-green-600 text-white"
                 : "text-slate-300 hover:text-white hover:bg-slate-700"
             )}
-            title="Drag to pan (Space key)"
+            title="Drag to pan"
           >
-            <Move className="w-3.5 h-3.5" />
+            <Move className="w-5 h-5 sm:w-4 sm:h-4" />
           </Button>
 
           {/* Zoom Out Button */}
@@ -707,14 +788,14 @@ export const CSS3DCanvas: React.FC<CSS3DCanvasProps> = ({
             variant="ghost"
             onClick={handleZoomOut}
             disabled={zoomScale <= 0.4}
-            className="h-6 w-6 p-0 text-slate-300 hover:text-white hover:bg-slate-700 disabled:opacity-40"
-            title="Zoom Out (-)"
+            className="h-10 w-10 sm:h-7 sm:w-7 p-0 text-slate-300 hover:text-white hover:bg-slate-700 disabled:opacity-40"
+            title="Zoom Out"
           >
-            <Minus className="w-3.5 h-3.5" />
+            <Minus className="w-5 h-5 sm:w-4 sm:h-4" />
           </Button>
 
           {/* Zoom Level Display */}
-          <div className="px-1.5 py-0.5 text-[10px] font-medium text-slate-300 min-w-[40px] text-center">
+          <div className="px-2 py-1 sm:px-1.5 sm:py-0.5 text-xs sm:text-[10px] font-medium text-slate-300 min-w-[48px] sm:min-w-[40px] text-center">
             {Math.round(zoomScale * 100)}%
           </div>
 
@@ -724,10 +805,10 @@ export const CSS3DCanvas: React.FC<CSS3DCanvasProps> = ({
             variant="ghost"
             onClick={handleZoomIn}
             disabled={zoomScale >= 2.5}
-            className="h-6 w-6 p-0 text-slate-300 hover:text-white hover:bg-slate-700 disabled:opacity-40"
-            title="Zoom In (+)"
+            className="h-10 w-10 sm:h-7 sm:w-7 p-0 text-slate-300 hover:text-white hover:bg-slate-700 disabled:opacity-40"
+            title="Zoom In"
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Plus className="w-5 h-5 sm:w-4 sm:h-4" />
           </Button>
 
           {/* Fit to Screen Button */}
@@ -736,14 +817,14 @@ export const CSS3DCanvas: React.FC<CSS3DCanvasProps> = ({
             variant="ghost"
             onClick={handleFitToScreen}
             className={cn(
-              "h-6 w-6 p-0",
+              "h-10 w-10 sm:h-7 sm:w-7 p-0",
               isFitToScreen
                 ? "bg-blue-500 hover:bg-blue-600 text-white"
                 : "text-slate-300 hover:text-white hover:bg-slate-700"
             )}
-            title="Fit to Screen (Ctrl+F)"
+            title="Fit to Screen"
           >
-            <Maximize2 className="w-3.5 h-3.5" />
+            <Maximize2 className="w-5 h-5 sm:w-4 sm:h-4" />
           </Button>
 
           {/* Reset Zoom Button */}
@@ -752,12 +833,19 @@ export const CSS3DCanvas: React.FC<CSS3DCanvasProps> = ({
             variant="ghost"
             onClick={handleResetZoom}
             disabled={zoomScale === 1 && panOffset.x === 0 && panOffset.y === 0}
-            className="h-6 w-6 p-0 text-slate-300 hover:text-white hover:bg-slate-700 disabled:opacity-40"
-            title="Reset (Ctrl+R)"
+            className="h-10 w-10 sm:h-7 sm:w-7 p-0 text-slate-300 hover:text-white hover:bg-slate-700 disabled:opacity-40"
+            title="Reset"
           >
-            <RotateCcw className="w-3.5 h-3.5" />
+            <RotateCcw className="w-5 h-5 sm:w-4 sm:h-4" />
           </Button>
         </div>
+
+        {/* Mobile hint - shows once */}
+        {showMobileHint && (
+          <div className={cn(styles.mobileHint, "sm:hidden")}>
+            Pinch to zoom · Drag to pan
+          </div>
+        )}
 
         {/* CSS 3D Room */}
         <CSS3DRoom

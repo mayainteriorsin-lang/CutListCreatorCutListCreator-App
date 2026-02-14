@@ -10,6 +10,10 @@ import { runBootCheck } from '@/lib/system/bootCheck'
 // PATCH 49: Validate critical config on startup
 runBootCheck();
 
+// Initialize dictionary for spell checking (loads in background)
+import { initializeDictionary } from '@/modules/dictionary';
+initializeDictionary().catch(console.error);
+
 // PATCH Phase 3: Initialize Sentry
 import { logger } from '@/modules/visual-quotation/services/logger';
 const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN;
