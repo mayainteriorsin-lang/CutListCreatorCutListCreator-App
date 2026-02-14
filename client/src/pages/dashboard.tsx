@@ -26,6 +26,8 @@ import {
   CreditCard,
   BookOpen,
   LogOut,
+  Menu,
+  X,
 } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 
@@ -36,6 +38,7 @@ type HomePageProps = {
 export default function HomePage({ summary }: HomePageProps) {
   const navigate = useNavigate();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [stats, setStats] = useState<HomeSummary>(summary ?? EMPTY_HOME_SUMMARY);
   const { logout, user } = useAuthStore();
 
@@ -161,9 +164,9 @@ export default function HomePage({ summary }: HomePageProps) {
 
   return (
     <div className="h-screen flex overflow-hidden bg-gradient-to-br from-slate-50 via-white to-blue-50/30">
-      {/* Sidebar */}
+      {/* Desktop Sidebar - Hidden on mobile */}
       <aside className={cn(
-        "flex-shrink-0 bg-white/80 backdrop-blur-xl border-r border-slate-200/60 flex flex-col transition-all duration-300",
+        "hidden sm:flex flex-shrink-0 bg-white/80 backdrop-blur-xl border-r border-slate-200/60 flex-col transition-all duration-300",
         sidebarCollapsed ? "w-16" : "w-48"
       )}>
         {/* Logo */}
@@ -206,21 +209,94 @@ export default function HomePage({ summary }: HomePageProps) {
         </button>
       </aside>
 
+      {/* Mobile Menu Overlay */}
+      {mobileMenuOpen && (
+        <div className="sm:hidden fixed inset-0 z-50 bg-black/50" onClick={() => setMobileMenuOpen(false)}>
+          <div
+            className="absolute left-0 top-0 bottom-0 w-72 bg-white shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Mobile Menu Header */}
+            <div className="h-14 flex items-center justify-between px-4 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/25">
+                  <Layers className="w-5 h-5 text-white" />
+                </div>
+                <h1 className="text-sm font-bold text-slate-900">Design Studio</h1>
+              </div>
+              <button
+                onClick={() => setMobileMenuOpen(false)}
+                className="p-2 rounded-lg hover:bg-slate-100"
+              >
+                <X className="w-5 h-5 text-slate-600" />
+              </button>
+            </div>
+
+            {/* Mobile Menu Navigation */}
+            <nav className="p-3 space-y-1">
+              {sidebarNav.map((item) => (
+                <button
+                  key={item.path}
+                  onClick={() => {
+                    navigate(item.path);
+                    setMobileMenuOpen(false);
+                  }}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm",
+                    location.pathname === item.path || (item.path === "/" && location.pathname === "/home")
+                      ? `bg-gradient-to-r ${item.gradient} text-white shadow-md`
+                      : "text-slate-600 hover:bg-slate-100"
+                  )}
+                >
+                  <span>{item.icon}</span>
+                  <span className="font-medium">{item.label}</span>
+                </button>
+              ))}
+            </nav>
+
+            {/* Mobile Menu User Section */}
+            {user && (
+              <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-slate-100 bg-slate-50">
+                <p className="text-sm text-slate-600 truncate mb-2">{user.email}</p>
+                <button
+                  onClick={handleLogout}
+                  className="w-full py-2.5 px-4 text-red-600 bg-red-50 hover:bg-red-100 rounded-xl flex items-center justify-center gap-2 transition-colors text-sm font-medium"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Logout
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Header */}
-        <header className="flex-shrink-0 h-14 bg-white/80 backdrop-blur-md border-b border-slate-200/60 px-6 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-slate-900">Dashboard</h1>
-          <div className="flex items-center gap-3">
+        <header className="flex-shrink-0 h-14 bg-white/80 backdrop-blur-md border-b border-slate-200/60 px-3 sm:px-6 flex items-center justify-between">
+          {/* Mobile: Menu button + Logo */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setMobileMenuOpen(true)}
+              className="sm:hidden p-2 -ml-1 rounded-lg hover:bg-slate-100"
+            >
+              <Menu className="w-5 h-5 text-slate-600" />
+            </button>
+            <h1 className="text-lg sm:text-xl font-bold text-slate-900">Dashboard</h1>
+          </div>
+
+          <div className="flex items-center gap-2 sm:gap-3">
             <button
               onClick={() => navigate("/2d-quotation")}
-              className="h-9 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-sm font-medium rounded-xl shadow-lg shadow-blue-500/25 flex items-center gap-2"
+              className="h-9 px-3 sm:px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-sm font-medium rounded-xl shadow-lg shadow-blue-500/25 flex items-center gap-1.5 sm:gap-2"
             >
               <Plus className="w-4 h-4" />
-              New Project
+              <span className="hidden xs:inline">New</span> <span className="hidden sm:inline">Project</span>
             </button>
+            {/* Desktop: Show user info */}
             {user && (
-              <div className="flex items-center gap-3 pl-3 border-l border-slate-200">
+              <div className="hidden sm:flex items-center gap-3 pl-3 border-l border-slate-200">
                 <span className="text-sm text-slate-600">{user.email}</span>
                 <button
                   onClick={handleLogout}
@@ -234,73 +310,73 @@ export default function HomePage({ summary }: HomePageProps) {
           </div>
         </header>
 
-        {/* Content */}
-        <div className="flex-1 p-6 flex flex-col gap-5 overflow-hidden">
-          {/* Stats Row */}
-          <div className="flex-shrink-0 grid grid-cols-4 gap-4">
-            <div className="bg-white/70 backdrop-blur-sm border border-slate-200/60 rounded-2xl p-4 flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/25">
-                <FolderOpen className="w-6 h-6 text-white" />
+        {/* Content - Scrollable on mobile */}
+        <div className="flex-1 p-3 sm:p-6 flex flex-col gap-4 sm:gap-5 overflow-y-auto">
+          {/* Stats Row - 2 cols on mobile, 4 on desktop */}
+          <div className="flex-shrink-0 grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
+            <div className="bg-white/70 backdrop-blur-sm border border-slate-200/60 rounded-xl sm:rounded-2xl p-3 sm:p-4 flex items-center gap-2.5 sm:gap-4">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/25 flex-shrink-0">
+                <FolderOpen className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
               </div>
-              <div>
-                <p className="text-2xl font-bold text-slate-800">{stats.totalProjects}</p>
-                <p className="text-xs text-slate-500">Projects</p>
-              </div>
-            </div>
-
-            <div className="bg-white/70 backdrop-blur-sm border border-slate-200/60 rounded-2xl p-4 flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-500/25">
-                <Clock className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-slate-800">{stats.pendingQuotes}</p>
-                <p className="text-xs text-slate-500">Pending</p>
+              <div className="min-w-0">
+                <p className="text-xl sm:text-2xl font-bold text-slate-800">{stats.totalProjects}</p>
+                <p className="text-[10px] sm:text-xs text-slate-500">Projects</p>
               </div>
             </div>
 
-            <div className="bg-white/70 backdrop-blur-sm border border-slate-200/60 rounded-2xl p-4 flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg shadow-emerald-500/25">
-                <TrendingUp className="w-6 h-6 text-white" />
+            <div className="bg-white/70 backdrop-blur-sm border border-slate-200/60 rounded-xl sm:rounded-2xl p-3 sm:p-4 flex items-center gap-2.5 sm:gap-4">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-500/25 flex-shrink-0">
+                <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
               </div>
-              <div>
-                <p className="text-2xl font-bold text-slate-800">
-                  <span className="text-base">₹</span>{formatCurrency(stats.thisMonthRevenue)}
+              <div className="min-w-0">
+                <p className="text-xl sm:text-2xl font-bold text-slate-800">{stats.pendingQuotes}</p>
+                <p className="text-[10px] sm:text-xs text-slate-500">Pending</p>
+              </div>
+            </div>
+
+            <div className="bg-white/70 backdrop-blur-sm border border-slate-200/60 rounded-xl sm:rounded-2xl p-3 sm:p-4 flex items-center gap-2.5 sm:gap-4">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg shadow-emerald-500/25 flex-shrink-0">
+                <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xl sm:text-2xl font-bold text-slate-800">
+                  <span className="text-sm sm:text-base">₹</span>{formatCurrency(stats.thisMonthRevenue)}
                 </p>
-                <p className="text-xs text-slate-500">Revenue</p>
+                <p className="text-[10px] sm:text-xs text-slate-500">Revenue</p>
               </div>
             </div>
 
-            <div className="bg-white/70 backdrop-blur-sm border border-slate-200/60 rounded-2xl p-4 flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-purple-500/25">
-                <Users className="w-6 h-6 text-white" />
+            <div className="bg-white/70 backdrop-blur-sm border border-slate-200/60 rounded-xl sm:rounded-2xl p-3 sm:p-4 flex items-center gap-2.5 sm:gap-4">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-purple-500/25 flex-shrink-0">
+                <Users className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
               </div>
-              <div>
-                <p className="text-2xl font-bold text-slate-800">{stats.activeClients}</p>
-                <p className="text-xs text-slate-500">Clients</p>
+              <div className="min-w-0">
+                <p className="text-xl sm:text-2xl font-bold text-slate-800">{stats.activeClients}</p>
+                <p className="text-[10px] sm:text-xs text-slate-500">Clients</p>
               </div>
             </div>
           </div>
 
           {/* Quick Access - All Pages Grid */}
           <div className="flex-1 flex flex-col min-h-0">
-            <h2 className="text-lg font-semibold text-slate-800 mb-4">Quick Access</h2>
-            <div className="grid grid-cols-4 xl:grid-cols-6 gap-3">
+            <h2 className="text-base sm:text-lg font-semibold text-slate-800 mb-3 sm:mb-4">Quick Access</h2>
+            <div className="grid grid-cols-3 sm:grid-cols-4 xl:grid-cols-6 gap-2 sm:gap-3">
               {mainPages.map((page) => (
                 <button
                   key={page.path}
                   onClick={() => navigate(page.path)}
-                  className="group bg-white/70 backdrop-blur-sm border border-slate-200/60 rounded-xl p-3 hover:shadow-xl hover:shadow-slate-200/50 transition-all text-left flex flex-col items-center"
+                  className="group bg-white/70 backdrop-blur-sm border border-slate-200/60 rounded-xl p-2.5 sm:p-3 hover:shadow-xl hover:shadow-slate-200/50 active:scale-95 transition-all text-left flex flex-col items-center"
                 >
                   <div className={cn(
-                    "w-12 h-12 rounded-xl bg-gradient-to-br flex items-center justify-center shadow-lg mb-2 group-hover:scale-110 transition-transform",
+                    "w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl bg-gradient-to-br flex items-center justify-center shadow-lg mb-1.5 sm:mb-2 group-hover:scale-110 transition-transform",
                     page.gradient, page.shadow
                   )}>
-                    <span className="text-white [&>svg]:w-6 [&>svg]:h-6">{page.icon}</span>
+                    <span className="text-white [&>svg]:w-5 [&>svg]:h-5 sm:[&>svg]:w-6 sm:[&>svg]:h-6">{page.icon}</span>
                   </div>
-                  <h3 className="font-semibold text-slate-800 text-xs text-center group-hover:text-blue-600 transition-colors">
+                  <h3 className="font-semibold text-slate-800 text-[10px] sm:text-xs text-center group-hover:text-blue-600 transition-colors leading-tight">
                     {page.label}
                   </h3>
-                  <p className="text-[10px] text-slate-500 text-center mt-0.5">{page.description}</p>
+                  <p className="hidden sm:block text-[10px] text-slate-500 text-center mt-0.5">{page.description}</p>
                 </button>
               ))}
             </div>

@@ -14,6 +14,7 @@ import { Trash2, Building2, Home, Plus, StickyNote, GripVertical, Copy, Clipboar
 import { cn } from '@/lib/utils';
 import { useQuickQuotationStore, useCopiedItem } from '../store/quickQuotationStore';
 import { AutocompleteInput } from './AutocompleteInput';
+import { DimensionInput } from './DimensionInput';
 import type { QuotationRow } from '../types';
 import { formatCurrency } from '../constants';
 
@@ -329,25 +330,23 @@ export const QuotationItemRow = memo(forwardRef<HTMLTableRowElement, QuotationIt
         </div>
       </td>
 
-      {/* Height */}
+      {/* Height - Smart dimension input */}
       <td className="py-1 sm:py-1.5 px-0.5 sm:px-1">
-        <Input
-          type="number"
-          value={row.height || ''}
-          onChange={(e) => handleFieldChange('height', parseFloat(e.target.value) || 0)}
-          className="h-8 sm:h-9 text-sm text-center w-full font-medium"
-          placeholder="H"
+        <DimensionInput
+          value={row.height}
+          onChange={(value) => handleFieldChange('height', value)}
+          className="h-8 sm:h-9 text-sm w-full"
+          placeholder="7'2"
         />
       </td>
 
-      {/* Width */}
+      {/* Width - Smart dimension input */}
       <td className="py-1 sm:py-1.5 px-0.5 sm:px-1">
-        <Input
-          type="number"
-          value={row.width || ''}
-          onChange={(e) => handleFieldChange('width', parseFloat(e.target.value) || 0)}
-          className="h-8 sm:h-9 text-sm text-center w-full font-medium"
-          placeholder="W"
+        <DimensionInput
+          value={row.width}
+          onChange={(value) => handleFieldChange('width', value)}
+          className="h-8 sm:h-9 text-sm w-full"
+          placeholder="4'6"
         />
       </td>
 
