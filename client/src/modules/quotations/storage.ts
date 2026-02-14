@@ -28,6 +28,7 @@
 
 import type { Quotation, PaymentEntry, PaymentMethod, QuotationStatus, QuotationVersion, VersionChange } from './types';
 import { generateUUID } from '@/lib/uuid';
+import { saveVersionToQuickQuote, deleteVersionFromQuickQuote } from '@/modules/quick-quotation/storage/storage';
 
 // Maximum versions per quotation
 const MAX_VERSIONS_PER_QUOTATION = 50;
@@ -130,6 +131,20 @@ function readQuickQuoteEntries(): Quotation[] {
         }
       })();
 
+      // Convert Quick Quote versions to Quotation version format
+      const rawVersions = (d.versions as Array<{ id: string; version: number; date: string; timestamp: number; grandTotal: number; settings?: { discountType?: string; discountValue?: number }; note?: string }>) || [];
+      const versions: QuotationVersion[] = rawVersions.map(v => ({
+        id: v.id,
+        version: v.version,
+        date: v.date,
+        timestamp: v.timestamp,
+        finalTotal: v.grandTotal || 0,
+        subtotal: subtotal,
+        discountPercent: v.settings?.discountType === 'percent' ? (v.settings?.discountValue || 0) : 0,
+        discountFlat: v.settings?.discountType === 'amount' ? (v.settings?.discountValue || 0) : 0,
+        note: v.note,
+      }));
+
       entries.push({
         id: `qq-${quoteNumber}`,
         clientName: String(d.clientName || ''),
@@ -150,6 +165,7 @@ function readQuickQuoteEntries(): Quotation[] {
         createdAt: savedAt,
         updatedAt: savedAt,
         source: 'quick-quote',
+        versions: versions.length > 0 ? versions : undefined,
       });
     }
 
@@ -417,7 +433,29 @@ function detectChanges(oldQuotation: Quotation, newQuotation: Quotation): Versio
 // Save current quotation state as a new version
 export function saveVersionToQuotation(quotationId: string, note?: string): QuotationVersion | null {
   const quotation = getQuotationById(quotationId);
-  if (!quotation || quotation.source === 'quick-quote') return null;
+  if (!quotation) return null;
+
+  // Handle Quick Quote entries - delegate via adapter (no direct module import)
+  if (quotation.source === 'quick-quote') {
+    const adapter = getQuickQuoteAdapter();
+    if (!adapter) return null;
+    // Extract quote number from ID (format: qq-QUOTE_NUMBER)
+    const quoteNumber = quotationId.replace(/^qq-/, '');
+    const qqVersion = adapter.saveVersion(quoteNumber, note);
+    if (!qqVersion) return null;
+    // Convert to native QuotationVersion format
+    return {
+      id: qqVersion.id,
+      version: qqVersion.version,
+      date: qqVersion.date,
+      timestamp: qqVersion.timestamp,
+      finalTotal: qqVersion.grandTotal,
+      subtotal: quotation.subtotal,
+      discountPercent: quotation.discountPercent,
+      discountFlat: quotation.discountFlat,
+      note: qqVersion.note,
+    };
+  }
 
   const versions = quotation.versions || [];
   const lastVersion = versions[versions.length - 1];
@@ -496,7 +534,13 @@ export function saveVersionToQuotation(quotationId: string, note?: string): Quot
 // Delete a specific version from quotation
 export function deleteVersionFromQuotation(quotationId: string, versionId: string): boolean {
   const quotation = getQuotationById(quotationId);
-  if (!quotation || quotation.source === 'quick-quote') return false;
+  if (!quotation) return false;
+
+  // Handle Quick Quote entries - delegate to Quick Quote storage
+  if (quotation.source === 'quick-quote') {
+    const quoteNumber = quotationId.replace(/^qq-/, '');
+    return deleteVersionFromQuickQuote(quoteNumber, versionId);
+  }
 
   const versions = quotation.versions || [];
   const filteredVersions = versions.filter(v => v.id !== versionId);

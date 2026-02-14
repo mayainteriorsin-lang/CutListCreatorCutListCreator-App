@@ -5,7 +5,7 @@
 
 import { useMemo } from "react";
 import type { LibraryModule } from "../types";
-import type { ModuleConfig } from "@/modules/design/engine/shapeGenerator";
+import type { ModuleConfig } from "@/types/moduleConfig";
 import { generateModuleShapes } from "@/modules/design/engine/shapeGenerator";
 import type { Shape, RectShape, LineShape } from "@/modules/design/types";
 

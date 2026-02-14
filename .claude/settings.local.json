@@ -77,7 +77,8 @@
       "Bash(git ls-tree:*)",
       "Bash(git check-ignore:*)",
       "Bash(npx tsx:*)",
-      "Bash(xxd:*)"
+      "Bash(xxd:*)",
+      "WebFetch(domain:localhost)"
     ],
     "additionalDirectories": [
       "c:\\Users\\hi\\workspace\\CutListCreator"

@@ -6,7 +6,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useDesignStore } from "../store/designStore";
-import { UNIT_TYPE_LABELS } from "@/modules/visual-quotation/constants";
+import { UNIT_TYPE_LABELS } from "@/constants/unitTypes";
 import { MODULE_DEFAULTS, type ModuleConfig } from "../engine/shapeGenerator";
 import { saveDesignToLibraryAsync } from "@/modules/library/storage";
 import {

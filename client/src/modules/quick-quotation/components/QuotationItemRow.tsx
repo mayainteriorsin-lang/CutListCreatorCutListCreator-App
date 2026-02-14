@@ -288,41 +288,41 @@ export const QuotationItemRow = memo(forwardRef<HTMLTableRowElement, QuotationIt
   // Item row
   return (
     <tr ref={ref} style={style} className={cn(
-      "border-b border-slate-100 hover:bg-slate-50 group",
+      "border-b border-slate-100 hover:bg-slate-50 group transition-colors",
       !row.name && !row.highlighted && "bg-red-50/50",
       isDragging && "opacity-50 shadow-lg bg-slate-100",
-      row.highlighted && "border-l-4 border-l-red-500 bg-red-50/30"
+      row.highlighted && "border-l-4 border-l-red-700 bg-red-500 text-black"
     )}>
-      {/* Drag Handle - larger touch target */}
+      {/* Drag Handle - 48px min touch target */}
       <td
-        className="py-1 sm:py-1.5 px-1 cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500"
+        className="py-1.5 sm:py-2 px-1 cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500"
         {...(dragHandleProps?.attributes || {})}
         {...(dragHandleProps?.listeners || {})}
       >
-        <div className="flex items-center justify-center min-h-[32px] sm:min-h-[36px]">
-          <GripVertical className="h-4 w-4 sm:h-5 sm:w-5" />
+        <div className="flex items-center justify-center min-h-[44px] sm:min-h-[40px]">
+          <GripVertical className="h-5 w-5 sm:h-5 sm:w-5" />
         </div>
       </td>
-      {/* Row number */}
-      <td className="py-1 sm:py-1.5 px-1 text-center">
-        <span className="w-5 h-5 sm:w-6 sm:h-6 bg-slate-100 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-semibold text-slate-600">
+      {/* Row number - larger on mobile */}
+      <td className="py-1.5 sm:py-2 px-1 text-center">
+        <span className="w-6 h-6 sm:w-6 sm:h-6 bg-slate-100 rounded-full flex items-center justify-center text-xs sm:text-xs font-semibold text-slate-600">
           {itemNumber}
         </span>
       </td>
 
       {/* Description with Autocomplete */}
-      <td className="py-1 sm:py-1.5 px-1">
+      <td className="py-1.5 sm:py-2 px-1">
         <div className="space-y-1">
           <AutocompleteInput
             value={row.name || ''}
             onChange={handleDescriptionChange}
-            className="h-8 sm:h-9 text-sm sm:text-sm"
-            placeholder="Description (type to search)"
+            className="h-11 sm:h-10 text-base sm:text-sm"
+            placeholder="Description"
           />
           {row.note && (
-            <div className="flex items-start gap-1.5 px-1 py-0.5 bg-orange-50 rounded">
-              <StickyNote className="h-3 w-3 text-orange-500 flex-shrink-0 mt-0.5" />
-              <span className="text-[10px] sm:text-xs text-orange-700 line-clamp-1">
+            <div className="flex items-start gap-1.5 px-2 py-1 bg-orange-50 rounded-lg border border-orange-100">
+              <StickyNote className="h-3.5 w-3.5 text-orange-500 flex-shrink-0 mt-0.5" />
+              <span className="text-xs sm:text-xs text-orange-700 line-clamp-1">
                 {row.note}
               </span>
             </div>
@@ -330,84 +330,84 @@ export const QuotationItemRow = memo(forwardRef<HTMLTableRowElement, QuotationIt
         </div>
       </td>
 
-      {/* Height - Smart dimension input */}
-      <td className="py-1 sm:py-1.5 px-0.5 sm:px-1">
+      {/* Height - Smart dimension input with min 16px font */}
+      <td className="py-1.5 sm:py-2 px-0.5 sm:px-1">
         <DimensionInput
           value={row.height}
           onChange={(value) => handleFieldChange('height', value)}
-          className="h-8 sm:h-9 text-sm w-full"
-          placeholder="7'2"
+          className="h-11 sm:h-10 text-base sm:text-sm w-full"
+          placeholder="H"
         />
       </td>
 
       {/* Width - Smart dimension input */}
-      <td className="py-1 sm:py-1.5 px-0.5 sm:px-1">
+      <td className="py-1.5 sm:py-2 px-0.5 sm:px-1">
         <DimensionInput
           value={row.width}
           onChange={(value) => handleFieldChange('width', value)}
-          className="h-8 sm:h-9 text-sm w-full"
-          placeholder="4'6"
+          className="h-11 sm:h-10 text-base sm:text-sm w-full"
+          placeholder="W"
         />
       </td>
 
-      {/* Sqft (calculated) */}
-      <td className="py-1 sm:py-1.5 px-0.5 sm:px-1">
-        <div className="h-8 sm:h-9 flex items-center justify-center bg-slate-50 rounded-md border border-slate-200 text-sm font-medium text-slate-600">
-          {row.sqft ? Number(row.sqft).toFixed(2) : '-'}
+      {/* Sqft (calculated) - clear visual grouping */}
+      <td className="py-1.5 sm:py-2 px-0.5 sm:px-1">
+        <div className="h-11 sm:h-10 flex items-center justify-center bg-slate-100 rounded-lg border border-slate-200 text-base sm:text-sm font-semibold text-slate-700">
+          {row.sqft ? Number(row.sqft).toFixed(1) : '-'}
         </div>
       </td>
 
-      {/* Rate */}
-      <td className="py-1 sm:py-1.5 px-0.5 sm:px-1">
+      {/* Rate - better currency formatting */}
+      <td className="py-1.5 sm:py-2 px-0.5 sm:px-1">
         <Input
           type="number"
           value={row.rate || ''}
           onChange={(e) => handleFieldChange('rate', parseFloat(e.target.value) || 0)}
-          className="h-8 sm:h-9 text-sm text-center w-full font-medium"
-          placeholder="Rate"
+          className="h-11 sm:h-10 text-base sm:text-sm text-center w-full font-medium"
+          placeholder="₹"
         />
       </td>
 
-      {/* Amount (calculated or direct) */}
-      <td className="py-1 sm:py-1.5 px-0.5 sm:px-1">
+      {/* Amount (calculated or direct) - highlighted input */}
+      <td className="py-1.5 sm:py-2 px-0.5 sm:px-1">
         <Input
           type="number"
           value={row.amount || ''}
           onChange={(e) => handleFieldChange('amount', parseFloat(e.target.value) || 0)}
-          className="h-8 sm:h-9 text-sm text-center w-full font-medium bg-blue-50/50 border-blue-200"
-          placeholder="Amount"
+          className="h-11 sm:h-10 text-base sm:text-sm text-center w-full font-medium bg-blue-50 border-blue-300 focus:border-blue-500"
+          placeholder="Amt"
         />
       </td>
 
-      {/* Qty */}
-      <td className="py-1 sm:py-1.5 px-0.5 sm:px-1">
+      {/* Qty - compact */}
+      <td className="py-1.5 sm:py-2 px-0.5 sm:px-1">
         <Input
           type="number"
           value={row.qty || 1}
           onChange={(e) => handleFieldChange('qty', parseInt(e.target.value) || 1)}
-          className="h-8 sm:h-9 text-sm text-center w-full font-medium"
+          className="h-11 sm:h-10 text-base sm:text-sm text-center w-full font-medium"
           min={1}
         />
       </td>
 
-      {/* Total (calculated) - highlighted */}
-      <td className="py-1 sm:py-1.5 px-1.5 sm:px-2 text-right">
-        <div className="text-sm sm:text-base font-bold text-slate-800">
+      {/* Total (calculated) - premium highlight */}
+      <td className="py-1.5 sm:py-2 px-2 sm:px-3 text-right">
+        <div className="text-base sm:text-base font-bold text-slate-800 whitespace-nowrap">
           {row.total ? `₹${formatCurrency(Number(row.total))}` : '-'}
         </div>
       </td>
 
-      {/* Actions - larger touch targets (48px min) */}
-      <td className="py-1 sm:py-1.5 px-1">
-        <div className="flex items-center gap-0.5 sm:gap-1">
+      {/* Actions - 48px min touch targets with better spacing */}
+      <td className="py-1.5 sm:py-2 px-1">
+        <div className="flex items-center gap-1 sm:gap-1">
           {/* Highlight Button */}
           <Button
             variant="ghost"
             size="icon"
             className={cn(
-              "h-8 w-8 sm:h-9 sm:w-9 rounded-lg",
+              "h-10 w-10 sm:h-9 sm:w-9 rounded-xl touch-manipulation",
               row.highlighted
-                ? "text-red-500 hover:text-red-600 bg-red-100"
+                ? "text-white bg-red-500 hover:bg-red-600"
                 : "text-slate-400 hover:text-red-500 hover:bg-red-50"
             )}
             onClick={handleToggleHighlight}
@@ -422,9 +422,9 @@ export const QuotationItemRow = memo(forwardRef<HTMLTableRowElement, QuotationIt
                 variant="ghost"
                 size="icon"
                 className={cn(
-                  "h-8 w-8 sm:h-9 sm:w-9 rounded-lg",
+                  "h-10 w-10 sm:h-9 sm:w-9 rounded-xl touch-manipulation",
                   row.note
-                    ? "text-orange-500 hover:text-orange-600 bg-orange-100"
+                    ? "text-orange-600 bg-orange-100 hover:bg-orange-200"
                     : "text-slate-400 hover:text-orange-500 hover:bg-orange-50"
                 )}
                 title={row.note ? "Edit note" : "Add note"}
@@ -432,22 +432,23 @@ export const QuotationItemRow = memo(forwardRef<HTMLTableRowElement, QuotationIt
                 <StickyNote className="h-4 w-4" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-72 p-3" align="end">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">Note</label>
+            <PopoverContent className="w-80 p-4" align="end">
+              <div className="space-y-3">
+                <label className="text-sm font-semibold text-slate-700">Add Note</label>
                 <Textarea
                   value={row.note || ''}
                   onChange={(e) => handleFieldChange('note', e.target.value)}
                   placeholder="Add a note for this item..."
-                  className="min-h-[100px] text-sm resize-none"
+                  className="min-h-[120px] text-base sm:text-sm resize-none"
                 />
               </div>
             </PopoverContent>
           </Popover>
+          {/* Copy - hidden on mobile to save space */}
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg text-slate-400 hover:text-blue-500 hover:bg-blue-50"
+            className="hidden sm:flex h-9 w-9 rounded-xl text-slate-400 hover:text-blue-500 hover:bg-blue-50"
             onClick={handleCopy}
             title="Copy row"
           >
@@ -457,26 +458,28 @@ export const QuotationItemRow = memo(forwardRef<HTMLTableRowElement, QuotationIt
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg text-blue-500 hover:text-blue-600 bg-blue-50"
+              className="hidden sm:flex h-9 w-9 rounded-xl text-blue-500 hover:text-blue-600 bg-blue-50"
               onClick={handlePaste}
               title="Paste after"
             >
               <ClipboardPaste className="h-4 w-4" />
             </Button>
           )}
+          {/* Add Item - always visible */}
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg text-slate-400 hover:text-green-500 hover:bg-green-50"
+            className="h-10 w-10 sm:h-9 sm:w-9 rounded-xl touch-manipulation text-slate-400 hover:text-green-500 hover:bg-green-50"
             onClick={handleAddItem}
             title="Add item below"
           >
             <Plus className="h-4 w-4" />
           </Button>
+          {/* Delete - always visible */}
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50"
+            className="h-10 w-10 sm:h-9 sm:w-9 rounded-xl touch-manipulation text-slate-400 hover:text-red-500 hover:bg-red-50"
             onClick={handleDelete}
           >
             <Trash2 className="h-4 w-4" />

@@ -14,6 +14,7 @@ import type {
   MayaClientEntry,
   MayaQuotationState,
   BankAccount,
+  QuotationVersion,
 } from '../types';
 
 import {
@@ -246,6 +247,115 @@ export function deleteClient(quoteNumber: string): boolean {
 
 export function getClientCount(): number {
   return Object.keys(loadAllClients()).length;
+}
+
+// ============================================
+// Version History for Quick Quote Entries
+// ============================================
+
+/**
+ * Save a version snapshot of a Quick Quote entry.
+ * Returns the created version or null on failure.
+ */
+export function saveVersionToQuickQuote(quoteNumber: string, note?: string): QuotationVersion | null {
+  if (!isBrowser()) return null;
+
+  try {
+    const clients = loadAllClients();
+    const entry = clients[quoteNumber];
+    if (!entry) return null;
+
+    const versions = entry.versions || [];
+    const lastVersion = versions[versions.length - 1];
+    const newVersionNumber = lastVersion ? lastVersion.version + 1 : 1;
+
+    // Calculate item count
+    const itemCount = (entry.mainItems || []).filter(i => i.type === 'item').length +
+                      (entry.additionalItems || []).filter(i => i.type === 'item').length;
+
+    // Parse grand total (stored as formatted string like "Rs.1,50,000")
+    const grandTotal = parseFloat((entry.grandTotal || '0').replace(/[^\d.-]/g, '')) || 0;
+
+    // Create version snapshot
+    const version: QuotationVersion = {
+      id: `v${newVersionNumber}-${Date.now()}`,
+      version: newVersionNumber,
+      date: new Date().toISOString().split('T')[0],
+      timestamp: Date.now(),
+      client: {
+        name: entry.clientName || '',
+        address: entry.clientAddress || '',
+        contact: entry.clientContact || '',
+        email: entry.clientEmail || '',
+      },
+      quotationMeta: {
+        date: entry.quoteDate || '',
+        number: quoteNumber,
+      },
+      mainItems: entry.mainItems || [],
+      additionalItems: entry.additionalItems || [],
+      settings: {
+        gstEnabled: entry.gstEnabled ?? false,
+        gstRate: (entry.gstRate ?? 18) as 5 | 12 | 18 | 28,
+        discountType: entry.discountType ?? 'amount',
+        discountValue: entry.discountValue ?? 0,
+        paidAmount: entry.paidAmount ?? 0,
+        selectedBank: 0,
+        bankAccounts: [],
+        contactInfo: { phone: '', email: '', location: '' },
+      },
+      grandTotal,
+      itemCount,
+      note,
+    };
+
+    // Add version to entry
+    entry.versions = [...versions, version];
+    clients[quoteNumber] = entry;
+    localStorage.setItem(STORAGE_KEYS.CLIENTS, JSON.stringify(clients));
+
+    // Notify quotations page of update
+    window.dispatchEvent(new CustomEvent('quotations:update'));
+
+    return version;
+  } catch (error) {
+    console.error('[QuickQuotation] Failed to save version:', error);
+    return null;
+  }
+}
+
+/**
+ * Delete a specific version from a Quick Quote entry.
+ */
+export function deleteVersionFromQuickQuote(quoteNumber: string, versionId: string): boolean {
+  if (!isBrowser()) return false;
+
+  try {
+    const clients = loadAllClients();
+    const entry = clients[quoteNumber];
+    if (!entry || !entry.versions) return false;
+
+    entry.versions = entry.versions.filter(v => v.id !== versionId);
+    clients[quoteNumber] = entry;
+    localStorage.setItem(STORAGE_KEYS.CLIENTS, JSON.stringify(clients));
+
+    // Notify quotations page of update
+    window.dispatchEvent(new CustomEvent('quotations:update'));
+
+    return true;
+  } catch (error) {
+    console.error('[QuickQuotation] Failed to delete version:', error);
+    return false;
+  }
+}
+
+/**
+ * Get all versions for a Quick Quote entry.
+ */
+export function getQuickQuoteVersions(quoteNumber: string): QuotationVersion[] {
+  const clients = loadAllClients();
+  const entry = clients[quoteNumber];
+  return entry?.versions || [];
 }
 
 // ============================================

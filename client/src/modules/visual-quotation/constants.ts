@@ -1,22 +1,8 @@
-// Shared constants for visual-quotation module
-// Centralized to avoid duplication across files
+// Visual-quotation module constants
+// UNIT_TYPE_LABELS and formatUnitTypeLabel re-exported from shared domain constants
+// (extracted to @/constants/unitTypes to eliminate cross-module circular dependencies)
 
-export const UNIT_TYPE_LABELS: Record<string, string> = {
-  wardrobe_carcass: "Wardrobe (Shutter)",
-  wardrobe: "Wardrobe",
-  kitchen: "Kitchen",
-  tv_unit: "TV Unit",
-  dresser: "Dresser",
-  study_table: "Study Table",
-  shoe_rack: "Shoe Rack",
-  book_shelf: "Book Shelf",
-  crockery_unit: "Crockery Unit",
-  pooja_unit: "Pooja Unit",
-  vanity: "Vanity",
-  bar_unit: "Bar Unit",
-  display_unit: "Display Unit",
-  other: "Other",
-};
+export { UNIT_TYPE_LABELS, formatUnitTypeLabel } from "@/constants/unitTypes";
 
 export const FLOOR_OPTIONS = [
   { value: "ground", label: "Ground" },
@@ -55,12 +41,6 @@ export const ROOM_OPTIONS = [
   { value: "balcony", label: "Balcony" },
   { value: "other", label: "Other" },
 ] as const;
-
-// Helper function to format unit type label
-export function formatUnitTypeLabel(value: string): string {
-  if (UNIT_TYPE_LABELS[value]) return UNIT_TYPE_LABELS[value];
-  return value.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
-}
 
 // Helper function to generate room name from room and floor values
 export function generateRoomName(roomValue: string, floorValue: string): string {

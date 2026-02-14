@@ -5,7 +5,7 @@
  * Clean, minimal design maximizing canvas space.
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Stage, Layer, Rect, Line, Group, Image as KonvaImage } from "react-konva";
 import type { KonvaEventObject } from "konva/lib/Node";
@@ -43,6 +43,7 @@ import {
   ZoomIn,
   ZoomOut,
   RotateCcw,
+  History,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -218,6 +219,8 @@ const Quotation2DPage: React.FC = () => {
     addCustomRoom,
     getAllFloors,
     getAllRooms,
+    // Recent work support
+    roomUnits,
   } = useDesignCanvasStore();
 
   const { client, setClientField } = useQuotationMetaStore();
@@ -226,6 +229,58 @@ const Quotation2DPage: React.FC = () => {
 
   // Calculate totals
   const totalPrice = drawnUnits.reduce((sum, u) => sum + (u.price || 0), 0);
+
+  // Compute rooms with units for "Recent Work" dropdown
+  const roomsWithUnits = useMemo(() => {
+    const rooms: { floorId: string; roomId: string; unitCount: number; floorLabel: string; roomLabel: string }[] = [];
+    const seenRooms = new Set<string>();
+
+    // Get floor and room labels
+    const allFloors = getAllFloors();
+    const allRooms = getAllRooms();
+    const floorLabelMap = Object.fromEntries(allFloors.map(f => [f.value, f.label]));
+    const roomLabelMap = Object.fromEntries(allRooms.map(r => [r.value, r.label]));
+
+    for (const key of Object.keys(roomUnits)) {
+      const units = roomUnits[key];
+      if (!units || units.length === 0) continue;
+
+      // Key format: "floorId_roomId_canvasIndex"
+      const parts = key.split('_');
+      if (parts.length < 3) continue;
+
+      const canvasIndex = parts.pop()!;
+      const roomId = parts.pop()!;
+      const floorId = parts.join('_'); // Handle floor IDs with underscores like "ground_2"
+
+      const roomKey = `${floorId}_${roomId}`;
+      if (seenRooms.has(roomKey)) {
+        // Add to existing room's count
+        const existing = rooms.find(r => r.floorId === floorId && r.roomId === roomId);
+        if (existing) existing.unitCount += units.length;
+      } else {
+        seenRooms.add(roomKey);
+        rooms.push({
+          floorId,
+          roomId,
+          unitCount: units.length,
+          floorLabel: floorLabelMap[floorId] || floorId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+          roomLabel: roomLabelMap[roomId] || roomId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+        });
+      }
+    }
+
+    // Sort by unit count (most first)
+    return rooms.sort((a, b) => b.unitCount - a.unitCount);
+  }, [roomUnits, getAllFloors, getAllRooms]);
+
+  // Handler to navigate to a room from Recent Work dropdown
+  const handleNavigateToRoom = (floorId: string, roomId: string) => {
+    if (floorId !== floor) {
+      handleFloorChange(floorId);
+    }
+    handleRoomChange(roomId);
+  };
 
   // Handler for library unit
   const handleAddLibraryUnit = (unit: DrawnUnit) => {
@@ -719,15 +774,61 @@ const Quotation2DPage: React.FC = () => {
         {/* Canvas Area */}
         <div className="flex-1 flex flex-col min-w-0 min-h-0">
           {/* Current Location Indicator - Always visible with dropdowns */}
-          <div className="flex-shrink-0 bg-blue-600 px-1 sm:px-3 py-0.5 sm:py-1.5 flex items-center gap-0.5 sm:gap-1 overflow-x-auto scrollbar-hide">
+          <div className="flex-shrink-0 bg-blue-600 px-1.5 sm:px-3 py-1 sm:py-1.5 flex items-center gap-1 sm:gap-1 overflow-x-auto scrollbar-hide">
+            {/* Recent Work Dropdown - Show rooms with units */}
+            {roomsWithUnits.length > 0 && (
+              <>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="text-[10px] sm:text-xs text-amber-300 hover:text-amber-200 hover:bg-blue-500 px-1.5 sm:px-2 py-1 sm:py-0.5 rounded flex items-center gap-1 transition-colors flex-shrink-0 min-h-[32px] sm:min-h-0 border border-amber-400/40">
+                      <History className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
+                      <span className="hidden xs:inline font-medium">Recent</span>
+                      <span className="text-[9px] bg-amber-500 text-white px-1 rounded-full">
+                        {roomsWithUnits.reduce((sum, r) => sum + r.unitCount, 0)}
+                      </span>
+                      <ChevronDown className="h-3 w-3 sm:h-3 sm:w-3" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-56 max-h-72 overflow-y-auto">
+                    <DropdownMenuLabel className="text-[10px] text-slate-500 flex items-center gap-1.5">
+                      <History className="h-3 w-3" />
+                      Rooms with Units
+                    </DropdownMenuLabel>
+                    {roomsWithUnits.map((r) => {
+                      const isCurrentRoom = r.floorId === floor && r.roomId === room;
+                      return (
+                        <DropdownMenuItem
+                          key={`${r.floorId}_${r.roomId}`}
+                          onClick={() => handleNavigateToRoom(r.floorId, r.roomId)}
+                          className={cn(
+                            "text-xs flex items-center justify-between gap-2",
+                            isCurrentRoom && "bg-amber-100 dark:bg-amber-900"
+                          )}
+                        >
+                          <div className="flex flex-col min-w-0">
+                            <span className="font-medium truncate">{r.roomLabel}</span>
+                            <span className="text-[10px] text-slate-500 truncate">{r.floorLabel}</span>
+                          </div>
+                          <span className="text-[10px] bg-green-500 text-white px-1.5 py-0.5 rounded-full flex-shrink-0">
+                            {r.unitCount} {r.unitCount === 1 ? 'unit' : 'units'}
+                          </span>
+                        </DropdownMenuItem>
+                      );
+                    })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <ChevronRight className="h-3 w-3 sm:h-3 sm:w-3 text-white/50 flex-shrink-0" />
+              </>
+            )}
+
             {/* Floor Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="text-[9px] sm:text-xs text-white/90 hover:text-white hover:bg-blue-500 px-1 sm:px-2 py-0.5 rounded flex items-center gap-0.5 transition-colors flex-shrink-0">
-                  <span className="max-w-[50px] sm:max-w-none truncate">
+                <button className="text-[10px] sm:text-xs text-white/90 hover:text-white hover:bg-blue-500 px-1.5 sm:px-2 py-1 sm:py-0.5 rounded flex items-center gap-1 transition-colors flex-shrink-0 min-h-[32px] sm:min-h-0">
+                  <span className="max-w-[60px] sm:max-w-none truncate font-medium">
                     {getAllFloors().find(f => f.value === floor)?.label || floor.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
                   </span>
-                  <ChevronDown className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                  <ChevronDown className="h-3 w-3 sm:h-3 sm:w-3" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-40">
@@ -747,36 +848,32 @@ const Quotation2DPage: React.FC = () => {
                     </DropdownMenuItem>
                   );
                 })}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={addCustomFloor} className="text-xs text-blue-600">
+                  <Plus className="h-3 w-3 mr-1" />
+                  Add Floor
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Add New Floor Button */}
-            <button
-              onClick={addCustomFloor}
-              className="h-7 w-7 sm:h-6 sm:w-6 rounded bg-blue-500 text-white hover:bg-blue-400 transition-colors flex-shrink-0 flex items-center justify-center active:bg-blue-300"
-              title="Add new floor"
-            >
-              <Plus className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
-            </button>
-
-            <ChevronRight className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-white/50 flex-shrink-0" />
+            <ChevronRight className="h-3 w-3 sm:h-3 sm:w-3 text-white/50 flex-shrink-0" />
 
             {/* Room Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="text-[9px] sm:text-xs text-white font-medium hover:bg-blue-500 px-1 sm:px-2 py-0.5 rounded flex items-center gap-0.5 transition-colors flex-shrink-0">
-                  <span className="max-w-[60px] sm:max-w-none truncate">
+                <button className="text-[10px] sm:text-xs text-white font-medium hover:bg-blue-500 px-1.5 sm:px-2 py-1 sm:py-0.5 rounded flex items-center gap-1 transition-colors flex-shrink-0 min-h-[32px] sm:min-h-0">
+                  <span className="max-w-[70px] sm:max-w-none truncate">
                     {getAllRooms().find(r => r.value === room)?.label || room.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
                   </span>
-                  <ChevronDown className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                  <ChevronDown className="h-3 w-3 sm:h-3 sm:w-3" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-44 max-h-64 overflow-y-auto">
                 <DropdownMenuLabel className="text-[10px] text-slate-500">Select Room</DropdownMenuLabel>
                 {getAllRooms().map((r) => {
                   const roomKey = `${floor}_${r.value}`;
-                  const roomUnits = useDesignCanvasStore.getState().roomUnits[roomKey];
-                  const unitCount = roomUnits?.length || 0;
+                  const roomUnitsData = useDesignCanvasStore.getState().roomUnits[roomKey];
+                  const unitCount = roomUnitsData?.length || 0;
                   const isCurrentRoom = room === r.value;
                   const currentUnits = isCurrentRoom ? drawnUnits.length : unitCount;
                   return (
@@ -794,32 +891,28 @@ const Quotation2DPage: React.FC = () => {
                     </DropdownMenuItem>
                   );
                 })}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={addCustomRoom} className="text-xs text-blue-600">
+                  <Plus className="h-3 w-3 mr-1" />
+                  Add Room
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Add New Room Button */}
-            <button
-              onClick={addCustomRoom}
-              className="h-7 w-7 sm:h-6 sm:w-6 rounded bg-blue-500 text-white hover:bg-blue-400 transition-colors flex-shrink-0 flex items-center justify-center active:bg-blue-300"
-              title="Add new room"
-            >
-              <Plus className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
-            </button>
-
             {/* Unit Type Dropdown - always shown, changes selected unit or sets default for new units */}
-            <ChevronRight className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-white/50 flex-shrink-0" />
+            <ChevronRight className="h-3 w-3 sm:h-3 sm:w-3 text-white/50 flex-shrink-0" />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className={cn(
-                  "text-[9px] sm:text-[10px] font-medium hover:bg-blue-500 px-1 sm:px-2 py-0.5 rounded flex items-center gap-0.5 transition-colors flex-shrink-0",
+                  "text-[10px] sm:text-[10px] font-medium hover:bg-blue-500 px-1.5 sm:px-2 py-1 sm:py-0.5 rounded flex items-center gap-1 transition-colors flex-shrink-0 min-h-[32px] sm:min-h-0",
                   activeDrawnUnit
                     ? "text-yellow-300 border border-yellow-400/50"
                     : "text-white/80 border border-white/30"
                 )}>
-                  <span className="max-w-[55px] sm:max-w-none truncate">
+                  <span className="max-w-[60px] sm:max-w-none truncate">
                     {formatUnitTypeLabel(activeDrawnUnit?.unitType || unitType || 'wardrobe')}
                   </span>
-                  <ChevronDown className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                  <ChevronDown className="h-3 w-3 sm:h-3 sm:w-3" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-44 max-h-64 overflow-y-auto">
@@ -847,6 +940,10 @@ const Quotation2DPage: React.FC = () => {
                   );
                 })}
                 <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={addNewCanvas} className="text-xs text-emerald-600">
+                  <Plus className="h-3 w-3 mr-1" />
+                  Add Canvas
+                </DropdownMenuItem>
                 {!showAddUnitTypeInput ? (
                   <DropdownMenuItem
                     onClick={(e) => { e.preventDefault(); setShowAddUnitTypeInput(true); }}
@@ -905,26 +1002,17 @@ const Quotation2DPage: React.FC = () => {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Add New Canvas Button - right next to Unit Type dropdown */}
-            <button
-              onClick={addNewCanvas}
-              className="h-7 w-7 sm:h-6 sm:w-6 rounded bg-emerald-600 text-white hover:bg-emerald-500 transition-colors flex-shrink-0 flex items-center justify-center active:bg-emerald-400"
-              title="Add new canvas"
-            >
-              <Plus className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
-            </button>
-
             {/* Units - show all units as clickable chips - hidden on very small screens */}
             {drawnUnits.length > 0 && (
               <>
-                <ChevronRight className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-white/50 flex-shrink-0 hidden xs:block" />
-                <div className="hidden xs:flex items-center gap-1 sm:gap-1 overflow-x-auto max-w-[120px] sm:max-w-[300px] md:max-w-[400px] scrollbar-hide">
+                <ChevronRight className="h-3 w-3 sm:h-3 sm:w-3 text-white/50 flex-shrink-0 hidden xs:block" />
+                <div className="hidden xs:flex items-center gap-1 sm:gap-1 overflow-x-auto max-w-[100px] sm:max-w-[300px] md:max-w-[400px] scrollbar-hide">
                   {drawnUnits.map((unit, idx) => (
                     <button
                       key={unit.id}
                       onClick={() => setActiveUnitIndex(idx)}
                       className={cn(
-                        "text-[9px] sm:text-[10px] px-2 sm:px-2 py-1 sm:py-0.5 rounded whitespace-nowrap transition-colors flex-shrink-0 min-h-[28px] sm:min-h-0",
+                        "text-[10px] sm:text-[10px] px-2 sm:px-2 py-1 sm:py-0.5 rounded whitespace-nowrap transition-colors flex-shrink-0 min-h-[32px] sm:min-h-0",
                         activeUnitIndex === idx
                           ? "bg-yellow-400 text-slate-900 font-semibold"
                           : "bg-blue-500/50 text-white/80 hover:bg-blue-400/70 hover:text-white active:bg-blue-300/70"
@@ -942,12 +1030,12 @@ const Quotation2DPage: React.FC = () => {
 
             {/* Canvas Tabs - Multiple canvases per room (only show if more than 1 canvas) */}
             {getCanvasNames().length > 1 && (
-              <div className="ml-auto flex items-center gap-0.5 sm:gap-1 flex-shrink-0 overflow-x-auto scrollbar-hide">
+              <div className="ml-auto flex items-center gap-1 sm:gap-1 flex-shrink-0 overflow-x-auto scrollbar-hide">
                 {getCanvasNames().map(({ index, name }) => (
                   <div
                     key={`canvas-${index}`}
                     className={cn(
-                      "text-[8px] sm:text-[10px] px-1 sm:px-2 py-0.5 rounded whitespace-nowrap transition-colors flex items-center gap-0.5 flex-shrink-0",
+                      "text-[10px] sm:text-[10px] px-1.5 sm:px-2 py-1 sm:py-0.5 rounded whitespace-nowrap transition-colors flex items-center gap-1 flex-shrink-0 min-h-[32px] sm:min-h-0",
                       activeCanvasIndex === index
                         ? "bg-emerald-500 text-white font-semibold"
                         : "bg-slate-600 text-white/70 hover:bg-slate-500 hover:text-white"
@@ -962,10 +1050,10 @@ const Quotation2DPage: React.FC = () => {
                         e.stopPropagation();
                         deleteCanvas(index);
                       }}
-                      className="hover:bg-red-500 hover:text-white rounded-full p-0.5 -mr-0.5"
+                      className="hover:bg-red-500 hover:text-white rounded-full p-0.5"
                       title="Delete canvas (Ctrl+Z to undo)"
                     >
-                      <X className="h-2 w-2 sm:h-2.5 sm:w-2.5" />
+                      <X className="h-3 w-3 sm:h-2.5 sm:w-2.5" />
                     </button>
                   </div>
                 ))}

@@ -301,41 +301,41 @@ ${settings.contactInfo.phone}`;
               </div>
             </div>
 
-            {/* Right: Actions - scrollable on mobile */}
-            <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto scrollbar-hide -mx-2 px-2 sm:mx-0 sm:px-0">
-              {/* Undo/Redo */}
-              <div className="flex items-center border-r pr-1 sm:pr-2 mr-1 sm:mr-2 flex-shrink-0">
+            {/* Right: Actions - scrollable on mobile with better touch targets */}
+            <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto scrollbar-hide -mx-2 px-2 sm:mx-0 sm:px-0 py-1">
+              {/* Undo/Redo - larger touch targets */}
+              <div className="flex items-center border-r border-slate-200 pr-2 mr-1 flex-shrink-0">
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7 sm:h-8 sm:w-8"
+                  className="h-9 w-9 sm:h-8 sm:w-8 rounded-xl touch-manipulation"
                   onClick={undo}
                   disabled={!canUndo()}
                   title="Undo (Ctrl+Z)"
                 >
-                  <Undo2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  <Undo2 className="h-4 w-4 sm:h-4 sm:w-4" />
                 </Button>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7 sm:h-8 sm:w-8"
+                  className="h-9 w-9 sm:h-8 sm:w-8 rounded-xl touch-manipulation"
                   onClick={redo}
                   disabled={!canRedo()}
                   title="Redo (Ctrl+Y)"
                 >
-                  <Redo2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  <Redo2 className="h-4 w-4 sm:h-4 sm:w-4" />
                 </Button>
               </div>
 
-              {/* New */}
-              <Button variant="outline" size="sm" onClick={handleNewQuotation} className="h-7 sm:h-8 px-2 sm:px-3 flex-shrink-0">
-                <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-1" />
-                <span className="hidden sm:inline">New</span>
+              {/* New - hidden on mobile (in bottom bar) */}
+              <Button variant="outline" size="sm" onClick={handleNewQuotation} className="hidden sm:flex h-8 px-3 rounded-xl flex-shrink-0">
+                <Plus className="h-4 w-4 mr-1" />
+                <span>New</span>
               </Button>
 
               {/* Duplicate */}
-              <Button variant="outline" size="sm" onClick={handleDuplicateQuotation} className="h-7 sm:h-8 px-2 sm:px-3 flex-shrink-0" title="Duplicate for new client">
-                <Copy className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-1" />
+              <Button variant="outline" size="sm" onClick={handleDuplicateQuotation} className="h-9 sm:h-8 px-3 rounded-xl flex-shrink-0 touch-manipulation" title="Duplicate for new client">
+                <Copy className="h-4 w-4 sm:mr-1" />
                 <span className="hidden lg:inline">Duplicate</span>
               </Button>
 
@@ -344,20 +344,20 @@ ${settings.contactInfo.phone}`;
                 variant="outline"
                 size="sm"
                 onClick={() => setActiveDialog('shortcuts')}
-                className="h-7 sm:h-8 px-2 sm:px-3 flex-shrink-0"
+                className="h-9 sm:h-8 px-3 rounded-xl flex-shrink-0 touch-manipulation"
               >
-                <Keyboard className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-1" />
+                <Keyboard className="h-4 w-4 sm:mr-1" />
                 <span className="hidden md:inline">Shortcuts</span>
               </Button>
 
-              {/* Clients */}
+              {/* Clients - hidden on mobile (in bottom bar) */}
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setActiveDialog('clients')}
-                className="h-7 sm:h-8 px-2 sm:px-3 flex-shrink-0"
+                className="hidden sm:flex h-8 px-3 rounded-xl flex-shrink-0"
               >
-                <FolderOpen className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-1" />
+                <FolderOpen className="h-4 w-4 mr-1" />
                 <span className="hidden md:inline">Saved</span>
               </Button>
 
@@ -366,21 +366,21 @@ ${settings.contactInfo.phone}`;
                 variant="outline"
                 size="sm"
                 onClick={() => setActiveDialog('bank')}
-                className="h-7 sm:h-8 px-2 sm:px-3 flex-shrink-0"
+                className="h-9 sm:h-8 px-3 rounded-xl flex-shrink-0 touch-manipulation"
               >
-                <Building className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-1" />
+                <Building className="h-4 w-4 sm:mr-1" />
                 <span className="hidden md:inline">Bank</span>
               </Button>
 
-              {/* WhatsApp Share */}
+              {/* WhatsApp Share - hidden on mobile (in bottom bar) */}
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleWhatsAppShare}
-                className="h-7 sm:h-8 px-2 sm:px-3 flex-shrink-0 text-green-600 border-green-200 hover:bg-green-50 hover:text-green-700"
+                className="hidden sm:flex h-8 px-3 rounded-xl flex-shrink-0 text-green-600 border-green-200 hover:bg-green-50 hover:text-green-700"
                 title="Share via WhatsApp"
               >
-                <Share2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-1" />
+                <Share2 className="h-4 w-4 mr-1" />
                 <span className="hidden lg:inline">WhatsApp</span>
               </Button>
 
@@ -390,29 +390,29 @@ ${settings.contactInfo.phone}`;
                 size="sm"
                 onClick={handlePrint}
                 disabled={ui.isGeneratingPdf}
-                className="h-7 sm:h-8 px-2 sm:px-3 flex-shrink-0"
+                className="h-9 sm:h-8 px-3 rounded-xl flex-shrink-0 touch-manipulation"
                 title="Print quotation"
               >
-                <Printer className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-1" />
+                <Printer className="h-4 w-4 sm:mr-1" />
                 <span className="hidden lg:inline">Print</span>
               </Button>
 
-              {/* Export PDF */}
+              {/* Export PDF - hidden on mobile (in bottom bar) */}
               <Button
                 onClick={handleExportPDF}
                 disabled={ui.isGeneratingPdf}
-                className="bg-gradient-to-r from-blue-600 to-indigo-600 h-7 sm:h-8 px-2 sm:px-3 flex-shrink-0"
+                className="hidden sm:flex bg-gradient-to-r from-blue-600 to-indigo-600 h-8 px-4 rounded-xl shadow-md shadow-blue-500/25"
               >
-                <FileDown className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-1" />
-                <span className="hidden sm:inline">{ui.isGeneratingPdf ? 'Generating...' : 'Export PDF'}</span>
+                <FileDown className="h-4 w-4 mr-1.5" />
+                <span>{ui.isGeneratingPdf ? 'Generating...' : 'Export PDF'}</span>
               </Button>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-2 sm:px-4 py-2 sm:py-3 space-y-2 sm:space-y-3">
+      {/* Main Content - proper mobile padding (16px) */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-4 py-3 sm:py-4 space-y-3 sm:space-y-4">
         {/* Top: Client Info */}
         <ClientInfoCard />
 
@@ -420,7 +420,7 @@ ${settings.contactInfo.phone}`;
         <QuotationTable />
 
         {/* Bottom: Summary + Payment Schedule (stacked) */}
-        <div className="space-y-2">
+        <div className="space-y-3 sm:space-y-4">
           <SummaryPanel />
           <PaymentStages />
         </div>
@@ -442,54 +442,60 @@ ${settings.contactInfo.phone}`;
         </div>
       </footer>
 
-      {/* Mobile Sticky Bottom Bar - Quick Actions */}
-      <div className="sm:hidden fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-50">
-        <div className="flex items-center justify-around py-2 px-3 max-w-md mx-auto">
-          {/* WhatsApp */}
-          <button
-            onClick={handleWhatsAppShare}
-            className="flex flex-col items-center justify-center w-14 h-14 rounded-full bg-green-50 text-green-600 active:bg-green-100 transition-colors"
-            title="Share via WhatsApp"
-          >
-            <Share2 className="h-5 w-5" />
-            <span className="text-[9px] font-medium mt-0.5">WhatsApp</span>
-          </button>
+      {/* Mobile Sticky Bottom Bar - Premium Design with Safe Area */}
+      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-50">
+        {/* Glass background with blur */}
+        <div className="bg-white/95 backdrop-blur-lg border-t border-slate-200 shadow-2xl shadow-slate-900/10">
+          {/* Safe area padding for notched devices */}
+          <div className="px-4 py-3 pb-[max(12px,env(safe-area-inset-bottom))]">
+            <div className="flex items-center justify-between gap-2 max-w-md mx-auto">
+              {/* WhatsApp - Primary action */}
+              <button
+                onClick={handleWhatsAppShare}
+                className="flex-1 flex flex-col items-center justify-center min-h-[56px] rounded-2xl bg-gradient-to-br from-green-500 to-green-600 text-white active:scale-95 transition-all shadow-lg shadow-green-500/30"
+                title="Share via WhatsApp"
+              >
+                <Share2 className="h-5 w-5" />
+                <span className="text-[10px] font-semibold mt-0.5">WhatsApp</span>
+              </button>
 
-          {/* PDF Export */}
-          <button
-            onClick={handleExportPDF}
-            disabled={ui.isGeneratingPdf}
-            className="flex flex-col items-center justify-center w-14 h-14 rounded-full bg-blue-50 text-blue-600 active:bg-blue-100 transition-colors disabled:opacity-50"
-            title="Export PDF"
-          >
-            <FileDown className="h-5 w-5" />
-            <span className="text-[9px] font-medium mt-0.5">PDF</span>
-          </button>
+              {/* PDF Export - Primary action */}
+              <button
+                onClick={handleExportPDF}
+                disabled={ui.isGeneratingPdf}
+                className="flex-1 flex flex-col items-center justify-center min-h-[56px] rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white active:scale-95 transition-all shadow-lg shadow-blue-500/30 disabled:opacity-50 disabled:shadow-none"
+                title="Export PDF"
+              >
+                <FileDown className="h-5 w-5" />
+                <span className="text-[10px] font-semibold mt-0.5">{ui.isGeneratingPdf ? 'Wait...' : 'PDF'}</span>
+              </button>
 
-          {/* Saved Clients */}
-          <button
-            onClick={() => setActiveDialog('clients')}
-            className="flex flex-col items-center justify-center w-14 h-14 rounded-full bg-amber-50 text-amber-600 active:bg-amber-100 transition-colors"
-            title="Saved Clients"
-          >
-            <FolderOpen className="h-5 w-5" />
-            <span className="text-[9px] font-medium mt-0.5">Saved</span>
-          </button>
+              {/* Saved Clients - Secondary */}
+              <button
+                onClick={() => setActiveDialog('clients')}
+                className="flex flex-col items-center justify-center min-h-[56px] min-w-[56px] rounded-2xl bg-slate-100 text-slate-700 active:bg-slate-200 active:scale-95 transition-all"
+                title="Saved Clients"
+              >
+                <FolderOpen className="h-5 w-5" />
+                <span className="text-[9px] font-medium mt-0.5">Saved</span>
+              </button>
 
-          {/* New Quote */}
-          <button
-            onClick={handleNewQuotation}
-            className="flex flex-col items-center justify-center w-14 h-14 rounded-full bg-slate-100 text-slate-600 active:bg-slate-200 transition-colors"
-            title="New Quotation"
-          >
-            <Plus className="h-5 w-5" />
-            <span className="text-[9px] font-medium mt-0.5">New</span>
-          </button>
+              {/* New Quote - Secondary */}
+              <button
+                onClick={handleNewQuotation}
+                className="flex flex-col items-center justify-center min-h-[56px] min-w-[56px] rounded-2xl bg-slate-100 text-slate-700 active:bg-slate-200 active:scale-95 transition-all"
+                title="New Quotation"
+              >
+                <Plus className="h-5 w-5" />
+                <span className="text-[9px] font-medium mt-0.5">New</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Mobile bottom bar spacer */}
-      <div className="sm:hidden h-20" />
+      {/* Mobile bottom bar spacer - accounts for safe area */}
+      <div className="sm:hidden h-24" />
 
       {/* Dialogs */}
       <ClientManagerDialog />

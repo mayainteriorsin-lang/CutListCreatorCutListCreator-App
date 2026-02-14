@@ -41,6 +41,8 @@ export interface QuotationRow {
   amount?: number;        // Calculated or direct input
   qty?: number;           // Quantity (default 1)
   total?: number;         // Calculated: amount * qty
+  note?: string;          // Optional note for the item
+  highlighted?: boolean;  // Red highlight for PDF export
 }
 
 // ============================================
@@ -163,6 +165,47 @@ export interface QuotationVersion {
 }
 
 // ============================================
+// Version Comparison
+// ============================================
+
+export type ChangeType = 'added' | 'deleted' | 'modified';
+
+export interface ItemChange {
+  type: ChangeType;
+  item: QuotationRow;
+  oldItem?: QuotationRow;       // For modified items
+  section: 'main' | 'additional';
+  location?: string;            // e.g., "Ground Floor > Kitchen"
+  fieldChanges?: {              // For modified items, what fields changed
+    field: string;
+    oldValue: string | number | undefined;
+    newValue: string | number | undefined;
+  }[];
+}
+
+export interface SettingsChange {
+  field: string;
+  label: string;
+  oldValue: string | number | boolean;
+  newValue: string | number | boolean;
+}
+
+export interface VersionDiff {
+  fromVersion: number;
+  toVersion: number;
+  fromDate: string;
+  toDate: string;
+  // Summary
+  totalChange: number;          // grandTotal difference
+  itemCountChange: number;      // item count difference
+  // Detailed changes
+  addedItems: ItemChange[];
+  deletedItems: ItemChange[];
+  modifiedItems: ItemChange[];
+  settingsChanges: SettingsChange[];
+}
+
+// ============================================
 // UI State
 // ============================================
 
@@ -197,6 +240,8 @@ export interface MayaClientEntry {
   discountValue: number;
   paidAmount: number;
   savedAt: string;        // ISO timestamp
+  // Version history support
+  versions?: QuotationVersion[];
 }
 
 /** Format stored in mayaQuotation localStorage */

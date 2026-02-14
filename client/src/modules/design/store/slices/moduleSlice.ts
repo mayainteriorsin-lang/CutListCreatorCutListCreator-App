@@ -7,7 +7,7 @@ import type { StateCreator } from "zustand";
 import type { ModuleConfig } from "../../engine/shapeGenerator";
 import type { Shape, HistoryEntry } from "../../types";
 import { generateModuleShapes } from "../../engine/shapeGenerator";
-import { UNIT_TYPE_LABELS } from "@/modules/visual-quotation/constants";
+import { UNIT_TYPE_LABELS } from "@/constants/unitTypes";
 import { DEFAULT_DEPTH, MAX_HISTORY_SIZE } from "../../utils/constants";
 
 // =============================================================================

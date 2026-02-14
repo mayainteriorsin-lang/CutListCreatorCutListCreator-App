@@ -5,7 +5,7 @@
 
 import { cn } from "@/lib/utils";
 import type { LibraryModule } from "../types";
-import { UNIT_TYPE_LABELS } from "@/modules/visual-quotation/constants";
+import { UNIT_TYPE_LABELS } from "@/constants/unitTypes";
 import { Edit3, Trash2, Star, Layers, Maximize2, Ruler, CreditCard } from "lucide-react";
 import RealModelPreview from "./RealModelPreview";
 

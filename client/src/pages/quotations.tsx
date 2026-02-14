@@ -49,6 +49,7 @@ import {
   StickyNote,
   Tag,
   Heart,
+  Import,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Quotation, QuotationStatus, PaymentMethod } from '@/modules/quotations/types';
@@ -67,6 +68,11 @@ import {
   deleteVersionFromQuotation,
 } from '@/modules/quotations/storage';
 import QuickQuotationPage from '@/pages/quick-quotation';
+import { VersionComparisonDialog } from '@/modules/quick-quotation/components/VersionComparisonDialog';
+import { compareVersions } from '@/modules/quick-quotation/utils/versionComparison';
+import { getQuickQuoteVersions, loadAllClients, loadClient } from '@/modules/quick-quotation/storage/storage';
+import { useQuickQuotationStore } from '@/modules/quick-quotation/store/quickQuotationStore';
+import type { VersionDiff, QuotationVersion } from '@/modules/quick-quotation/types';
 
 type FolderTab = 'payment' | 'quote' | 'info' | 'versions' | 'timeline' | 'documents' | 'notes';
 
@@ -199,6 +205,69 @@ export default function QuotationsPage() {
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [showVersions, setShowVersions] = useState(false);
+  const [versionDiff, setVersionDiff] = useState<VersionDiff | null>(null);
+  const [showVersionComparison, setShowVersionComparison] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [importSearch, setImportSearch] = useState('');
+
+  // Import items action from quick quotation store
+  const importItems = useQuickQuotationStore(state => state.importItems);
+
+  // Get all clients for import selection (combines native + quick-quotation clients)
+  const savedClients = useMemo(() => {
+    const quickQuoteClients = loadAllClients();
+    const clientMap = new Map<string, { quoteNumber: string; clientName: string; itemCount: number; hasItems: boolean }>();
+
+    // Add quick-quotation clients (have items)
+    Object.entries(quickQuoteClients).forEach(([quoteNumber, data]) => {
+      const itemCount = (data.mainItems?.length || 0) + (data.additionalItems?.length || 0);
+      clientMap.set(quoteNumber, {
+        quoteNumber,
+        clientName: data.client?.name || 'Unnamed',
+        itemCount,
+        hasItems: itemCount > 0,
+      });
+    });
+
+    // Add native clients (may or may not have items)
+    quotations.forEach(q => {
+      if (!clientMap.has(q.quotationNumber)) {
+        clientMap.set(q.quotationNumber, {
+          quoteNumber: q.quotationNumber,
+          clientName: q.clientName || 'Unnamed',
+          itemCount: 0,
+          hasItems: false,
+        });
+      } else {
+        // Update name from native if quick-quote name is "Unnamed"
+        const existing = clientMap.get(q.quotationNumber)!;
+        if (existing.clientName === 'Unnamed' && q.clientName) {
+          existing.clientName = q.clientName;
+        }
+      }
+    });
+
+    return Array.from(clientMap.values());
+  }, [showImportDialog, quotations]); // Refresh when dialog opens or quotations change
+
+  // Handle import from another client
+  const handleImportFromClient = (sourceQuoteNumber: string) => {
+    const sourceData = loadClient(sourceQuoteNumber);
+    if (!sourceData) {
+      toast({ variant: 'destructive', title: 'Failed to load client data' });
+      return;
+    }
+
+    // Import items (without client info)
+    importItems(sourceData.mainItems || [], sourceData.additionalItems || []);
+
+    setShowImportDialog(false);
+    setImportSearch('');
+    toast({
+      title: 'Items Imported',
+      description: `Loaded ${(sourceData.mainItems?.length || 0) + (sourceData.additionalItems?.length || 0)} items from ${sourceData.client?.name || sourceQuoteNumber}`,
+    });
+  };
 
   // Form state
   const [formData, setFormData] = useState<Partial<Quotation>>({});
@@ -350,9 +419,9 @@ export default function QuotationsPage() {
     toast({ title: `Status changed to ${status}` });
   };
 
-  // Handle save version
+  // Handle save version (works for both native and Quick Quote entries)
   const handleSaveVersion = () => {
-    if (!openFolderId || isQuickQuote(openFolder)) return;
+    if (!openFolderId) return;
     const note = prompt('Version note (optional):') || undefined;
     const version = saveVersionToQuotation(openFolderId, note);
     if (version) {
@@ -368,6 +437,36 @@ export default function QuotationsPage() {
       deleteVersionFromQuotation(openFolderId, versionId);
       refreshQuotations();
       toast({ title: 'Version deleted' });
+    }
+  };
+
+  // Handle view version changes (compare with previous version)
+  const handleViewVersionChanges = (versionIndex: number) => {
+    if (!openFolder) return;
+
+    // For Quick Quote entries, get full versions from storage
+    if (isQuickQuote(openFolder)) {
+      const quoteNumber = openFolder.id.replace(/^qq-/, '');
+      const fullVersions = getQuickQuoteVersions(quoteNumber);
+      if (fullVersions.length === 0) return;
+
+      // Version at index 0 is the first version (no previous to compare)
+      if (versionIndex === 0) {
+        toast({ title: 'This is the first version', description: 'No previous version to compare' });
+        return;
+      }
+
+      const newVersion = fullVersions[versionIndex];
+      const oldVersion = fullVersions[versionIndex - 1];
+
+      if (newVersion && oldVersion) {
+        const diff = compareVersions(oldVersion, newVersion);
+        setVersionDiff(diff);
+        setShowVersionComparison(true);
+      }
+    } else {
+      // Native quotations don't store full snapshots, just totals
+      toast({ title: 'Detailed comparison', description: 'Not available for native quotations' });
     }
   };
 
@@ -742,6 +841,18 @@ export default function QuotationsPage() {
                 {/* Quick Quote Tab */}
                 {activeTab === 'quote' && (
                   <div>
+                    {/* Import from Client Button */}
+                    <div className="flex justify-end mb-2">
+                      <Button
+                        onClick={() => setShowImportDialog(true)}
+                        variant="outline"
+                        size="sm"
+                        className="h-7 sm:h-8 text-[10px] sm:text-xs border-indigo-200 text-indigo-600 hover:bg-indigo-50"
+                      >
+                        <Import className="h-3 sm:h-3.5 w-3 sm:w-3.5 mr-1" />
+                        Import from Client
+                      </Button>
+                    </div>
                     {isQuickQuote(openFolder) ? (
                       <QuickQuotationPage />
                     ) : (
@@ -774,16 +885,14 @@ export default function QuotationsPage() {
                           </span>
                           <span className="text-[10px] sm:text-sm text-slate-500">Updated: {openFolder.updatedAt.split('T')[0]}</span>
                         </div>
-                        {!isQuickQuote(openFolder) && (
-                          <Button
-                            onClick={handleSaveVersion}
-                            size="sm"
-                            className="bg-indigo-500 hover:bg-indigo-600 h-7 sm:h-8 text-xs"
-                          >
-                            <Save className="h-3 sm:h-3.5 w-3 sm:w-3.5 mr-1" />
-                            Save Version
-                          </Button>
-                        )}
+                        <Button
+                          onClick={handleSaveVersion}
+                          size="sm"
+                          className="bg-indigo-500 hover:bg-indigo-600 h-7 sm:h-8 text-xs"
+                        >
+                          <Save className="h-3 sm:h-3.5 w-3 sm:w-3.5 mr-1" />
+                          Save Version
+                        </Button>
                       </div>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
                         <div>
@@ -833,14 +942,28 @@ export default function QuotationsPage() {
                                     <span className="hidden sm:inline text-xs text-slate-400 italic">"{v.note}"</span>
                                   )}
                                 </div>
-                                <Button
-                                  onClick={() => handleDeleteVersion(v.id)}
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-6 sm:h-7 w-6 sm:w-7 p-0 text-slate-400 hover:text-red-500"
-                                >
-                                  <Trash2 className="h-3 sm:h-3.5 w-3 sm:w-3.5" />
-                                </Button>
+                                <div className="flex items-center gap-1">
+                                  {/* View Changes button - only show if not first version and is Quick Quote */}
+                                  {isQuickQuote(openFolder) && v.version > 1 && (
+                                    <Button
+                                      onClick={() => handleViewVersionChanges((openFolder.versions?.length || 0) - 1 - idx)}
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-6 sm:h-7 px-2 text-xs text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50"
+                                    >
+                                      <ArrowLeftRight className="h-3 sm:h-3.5 w-3 sm:w-3.5 mr-1" />
+                                      <span className="hidden sm:inline">Changes</span>
+                                    </Button>
+                                  )}
+                                  <Button
+                                    onClick={() => handleDeleteVersion(v.id)}
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 sm:h-7 w-6 sm:w-7 p-0 text-slate-400 hover:text-red-500"
+                                  >
+                                    <Trash2 className="h-3 sm:h-3.5 w-3 sm:w-3.5" />
+                                  </Button>
+                                </div>
                               </div>
                               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-4 text-xs sm:text-sm">
                                 <div>
@@ -1449,6 +1572,184 @@ export default function QuotationsPage() {
             </Button>
             <Button onClick={handleDelete} variant="destructive">
               Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Version Comparison Dialog */}
+      <VersionComparisonDialog
+        isOpen={showVersionComparison}
+        onClose={() => setShowVersionComparison(false)}
+        diff={versionDiff}
+      />
+
+      {/* Import from Client Dialog */}
+      <Dialog open={showImportDialog} onOpenChange={(open) => { setShowImportDialog(open); if (!open) setImportSearch(''); }}>
+        <DialogContent className="max-w-md max-h-[80vh] overflow-hidden flex flex-col mx-2 sm:mx-auto">
+          <DialogHeader>
+            <DialogTitle className="text-sm sm:text-base flex items-center gap-2">
+              <Import className="h-4 w-4 text-indigo-500" />
+              Import Items from Client
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto py-2 sm:py-4 space-y-2">
+            <p className="text-xs text-slate-500 mb-3">
+              Select a client to copy their quotation items. Your current client info will be preserved.
+            </p>
+            {/* Search Input */}
+            <div className="relative mb-3">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Input
+                placeholder="Search by name or quote number..."
+                value={importSearch}
+                onChange={(e) => setImportSearch(e.target.value)}
+                className="pl-9 h-9 bg-white border-slate-200"
+                autoFocus
+              />
+              {importSearch && (
+                <button
+                  onClick={() => setImportSearch('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 hover:text-slate-600"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+            {(() => {
+              // Advanced fuzzy search function
+              const fuzzyMatch = (text: string, query: string): { match: boolean; score: number } => {
+                const t = text.toLowerCase();
+                const q = query.toLowerCase();
+
+                // Exact match = highest score
+                if (t === q) return { match: true, score: 100 };
+                // Starts with = very high score
+                if (t.startsWith(q)) return { match: true, score: 90 };
+                // Contains = high score
+                if (t.includes(q)) return { match: true, score: 80 };
+
+                // Fuzzy: check if all query chars exist in order
+                let qi = 0;
+                let consecutiveBonus = 0;
+                let lastMatchIndex = -1;
+                for (let i = 0; i < t.length && qi < q.length; i++) {
+                  if (t[i] === q[qi]) {
+                    if (lastMatchIndex === i - 1) consecutiveBonus += 5;
+                    lastMatchIndex = i;
+                    qi++;
+                  }
+                }
+                if (qi === q.length) {
+                  return { match: true, score: 50 + consecutiveBonus };
+                }
+
+                // Word boundary match (initials like "KS" for "Kamal Singh")
+                const words = t.split(/\s+/);
+                const initials = words.map(w => w[0] || '').join('');
+                if (initials.includes(q)) return { match: true, score: 60 };
+
+                return { match: false, score: 0 };
+              };
+
+              const searchQuery = importSearch.trim();
+              const availableClients = savedClients.filter(c => c.quoteNumber !== openFolder?.quotationNumber);
+
+              let filteredClients = availableClients
+                .map(c => ({ ...c, score: 0, matched: true }))
+                .sort((a, b) => (b.hasItems ? 1 : 0) - (a.hasItems ? 1 : 0)); // Items first
+
+              if (searchQuery) {
+                filteredClients = availableClients
+                  .map(c => {
+                    const nameMatch = fuzzyMatch(c.clientName, searchQuery);
+                    const quoteMatch = fuzzyMatch(c.quoteNumber, searchQuery);
+                    const bestScore = Math.max(nameMatch.score, quoteMatch.score);
+                    return { ...c, score: bestScore, matched: nameMatch.match || quoteMatch.match };
+                  })
+                  .filter(c => c.matched)
+                  .sort((a, b) => {
+                    // First sort by hasItems, then by score
+                    if (a.hasItems !== b.hasItems) return b.hasItems ? 1 : -1;
+                    return b.score - a.score;
+                  });
+              }
+
+              // Highlight matching text
+              const highlightMatch = (text: string, query: string) => {
+                if (!query) return text;
+                const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+                const parts = text.split(regex);
+                return parts.map((part, i) =>
+                  regex.test(part) ? <mark key={i} className="bg-yellow-200 rounded px-0.5">{part}</mark> : part
+                );
+              };
+
+              if (savedClients.length === 0) {
+                return (
+                  <div className="text-center py-8 text-slate-400">
+                    <FolderOpen className="h-10 w-10 mx-auto mb-2" />
+                    <p className="text-sm">No saved quotations found</p>
+                  </div>
+                );
+              }
+
+              if (filteredClients.length === 0) {
+                return (
+                  <div className="text-center py-8 text-slate-400">
+                    <Search className="h-10 w-10 mx-auto mb-2" />
+                    <p className="text-sm">No clients match "{importSearch}"</p>
+                    <p className="text-xs mt-2">Try different keywords or initials</p>
+                  </div>
+                );
+              }
+
+              return (
+                <>
+                  {searchQuery && (
+                    <p className="text-[10px] text-slate-400 mb-2">
+                      Found {filteredClients.length} result{filteredClients.length !== 1 ? 's' : ''}
+                    </p>
+                  )}
+                  {filteredClients.map((client) => (
+                    <button
+                      key={client.quoteNumber}
+                      onClick={() => client.hasItems && handleImportFromClient(client.quoteNumber)}
+                      disabled={!client.hasItems}
+                      className={cn(
+                        "w-full flex items-center justify-between p-3 rounded-lg border transition-colors text-left",
+                        client.hasItems
+                          ? "border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/50 cursor-pointer"
+                          : "border-slate-100 bg-slate-50/50 cursor-not-allowed opacity-60"
+                      )}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className={cn("font-medium text-sm truncate", client.hasItems ? "text-slate-800" : "text-slate-500")}>
+                          {highlightMatch(client.clientName, searchQuery)}
+                        </p>
+                        <p className="text-xs text-slate-500 font-mono">
+                          {highlightMatch(client.quoteNumber, searchQuery)}
+                        </p>
+                      </div>
+                      <div className="flex-shrink-0 ml-3 text-right">
+                        {client.hasItems ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 text-xs font-medium">
+                            <Layers className="h-3 w-3" />
+                            {client.itemCount}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-400">No items</span>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </>
+              );
+            })()}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowImportDialog(false)} className="h-8 sm:h-9 text-xs sm:text-sm">
+              Cancel
             </Button>
           </DialogFooter>
         </DialogContent>

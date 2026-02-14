@@ -98,6 +98,7 @@ interface QuickQuotationStore {
   additionalItems: QuotationRow[];
   settings: QuickQuoteSettings;
   shortcuts: Shortcuts;
+  copiedItem: QuotationRow | null;
   history: HistoryEntry[];
   historyIndex: number;
   ui: UIState;
@@ -122,8 +123,14 @@ interface QuickQuotationStore {
   addFloor: (name: string, isAdditional?: boolean) => void;
   addRoom: (name: string, isAdditional?: boolean) => void;
   moveItem: (id: string, direction: 'up' | 'down') => void;
+  reorderItems: (activeId: string, overId: string, section: 'main' | 'additional') => void;
+  copyItem: (id: string) => void;
+  pasteItemAfter: (afterId: string) => void;
+  clearCopiedItem: () => void;
   setSelectedItem: (id: string | null) => void;
   clearAllItems: () => void;
+  importItems: (mainItems: QuotationRow[], additionalItems: QuotationRow[]) => void;
+  toggleHighlight: (id: string) => void;
 
   // === Settings Actions ===
   setGstEnabled: (enabled: boolean) => void;
@@ -191,6 +198,7 @@ export const useQuickQuotationStore = create<QuickQuotationStore>()(
       additionalItems: [],
       settings: initialSettings,
       shortcuts: loadShortcuts(),
+      copiedItem: null,
       history: [],
       historyIndex: -1,
       ui: initialUI,
@@ -388,6 +396,74 @@ export const useQuickQuotationStore = create<QuickQuotationStore>()(
         get().pushHistory();
       },
 
+      reorderItems: (activeId, overId, section) => {
+        set(state => {
+          const key = section === 'main' ? 'mainItems' : 'additionalItems';
+          const items = [...state[key]];
+
+          const activeIndex = items.findIndex(item => item.id === activeId);
+          const overIndex = items.findIndex(item => item.id === overId);
+
+          if (activeIndex < 0 || overIndex < 0) return {};
+
+          // Remove item from old position and insert at new position
+          const [movedItem] = items.splice(activeIndex, 1);
+          if (movedItem) {
+            items.splice(overIndex, 0, movedItem);
+          }
+
+          return { [key]: recalculateSection(items) };
+        });
+
+        get().pushHistory();
+      },
+
+      copyItem: (id) => {
+        const { mainItems, additionalItems } = get();
+        const allItems = [...mainItems, ...additionalItems];
+        const item = allItems.find(i => i.id === id);
+        if (item) {
+          // Create a deep copy without the id (will get new id on paste)
+          const copiedItem = { ...item };
+          set({ copiedItem });
+        }
+      },
+
+      pasteItemAfter: (afterId) => {
+        const { copiedItem, mainItems, additionalItems } = get();
+        if (!copiedItem) return;
+
+        // Find which section the target item is in
+        const mainIndex = mainItems.findIndex(i => i.id === afterId);
+        const additionalIndex = additionalItems.findIndex(i => i.id === afterId);
+
+        if (mainIndex >= 0) {
+          // Paste into main items
+          const newItem: QuotationRow = {
+            ...copiedItem,
+            id: generateId(copiedItem.type),
+          };
+          const newItems = [...mainItems];
+          newItems.splice(mainIndex + 1, 0, newItem);
+          set({ mainItems: recalculateSection(newItems) });
+        } else if (additionalIndex >= 0) {
+          // Paste into additional items
+          const newItem: QuotationRow = {
+            ...copiedItem,
+            id: generateId(copiedItem.type),
+          };
+          const newItems = [...additionalItems];
+          newItems.splice(additionalIndex + 1, 0, newItem);
+          set({ additionalItems: recalculateSection(newItems) });
+        }
+
+        get().pushHistory();
+      },
+
+      clearCopiedItem: () => {
+        set({ copiedItem: null });
+      },
+
       setSelectedItem: (id) => {
         set(state => ({
           ui: { ...state.ui, selectedItemId: id },
@@ -396,6 +472,45 @@ export const useQuickQuotationStore = create<QuickQuotationStore>()(
 
       clearAllItems: () => {
         set({ mainItems: [], additionalItems: [] });
+        get().pushHistory();
+      },
+
+      importItems: (mainItems, additionalItems) => {
+        // Regenerate IDs to avoid conflicts and recalculate
+        const regenerateIds = (items: QuotationRow[]): QuotationRow[] => {
+          return items.map(item => ({
+            ...item,
+            id: generateId(item.type),
+          }));
+        };
+
+        const newMainItems = recalculateSection(regenerateIds(mainItems));
+        const newAdditionalItems = recalculateSection(regenerateIds(additionalItems));
+
+        set({
+          mainItems: newMainItems,
+          additionalItems: newAdditionalItems,
+          ui: {
+            ...get().ui,
+            additionalSectionVisible: newAdditionalItems.length > 0,
+          },
+        });
+        get().pushHistory();
+      },
+
+      toggleHighlight: (id) => {
+        set(state => {
+          const toggleInArray = (items: QuotationRow[]): QuotationRow[] => {
+            return items.map(item =>
+              item.id === id ? { ...item, highlighted: !item.highlighted } : item
+            );
+          };
+
+          return {
+            mainItems: toggleInArray(state.mainItems),
+            additionalItems: toggleInArray(state.additionalItems),
+          };
+        });
         get().pushHistory();
       },
 
@@ -884,6 +999,7 @@ export const useSettings = () => useQuickQuotationStore(state => state.settings)
 export const useShortcuts = () => useQuickQuotationStore(state => state.shortcuts);
 export const useUI = () => useQuickQuotationStore(state => state.ui);
 export const useVersions = () => useQuickQuotationStore(state => state.versions);
+export const useCopiedItem = () => useQuickQuotationStore(state => state.copiedItem);
 // Return the getTotals function - consumers should use useMemo to call it
 export const useGetTotals = () => useQuickQuotationStore(state => state.getTotals);
 // Deprecated: use useGetTotals or calculate in component with useMemo

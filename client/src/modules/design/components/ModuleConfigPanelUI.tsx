@@ -9,7 +9,7 @@
 import { useMemo } from "react";
 import type { ModuleConfig, WardrobeSection, WardrobeSectionType } from "../engine/shapeGenerator";
 import { DEFAULT_WARDROBE_SECTIONS } from "../engine/shapeGenerator";
-import { UNIT_TYPE_LABELS } from "@/modules/visual-quotation/constants";
+import { UNIT_TYPE_LABELS } from "@/constants/unitTypes";
 import { validateModuleConfig } from "../engine/validation";
 import CuttingListPreview from "./CuttingListPreview";
 import SkirtingInput from "./SkirtingInput";

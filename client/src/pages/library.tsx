@@ -28,7 +28,7 @@ import {
 import { useLibraryStore } from "@/modules/library/store/useLibraryStore";
 import { PREDEFINED_TEMPLATES } from "@/modules/library/presets";
 import { DEFAULT_UNIT_TYPES } from "@/modules/visual-quotation/types/core";
-import { UNIT_TYPE_LABELS } from "@/modules/visual-quotation/constants";
+import { UNIT_TYPE_LABELS } from "@/constants/unitTypes";
 import { CategorySidebar, ModuleCard, ModulePreviewModal } from "@/modules/library/components";
 import type { CategoryCount } from "@/modules/library/components";
 

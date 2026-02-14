@@ -1,7 +1,7 @@
 import type { DrawnUnit, ProductionSettings, QuotationRoom } from "../types";
 import { UNIT_TYPE_LABELS } from "../constants";
 import { generateModuleCutlistPanels, type ModuleCutlistPanel } from "@/modules/design/engine/panelGenerator";
-import type { ModuleConfig } from "@/modules/design/engine/shapeGenerator";
+import type { ModuleConfig } from "@/types/moduleConfig";
 
 export type ProductionPanelType = "SHUTTER" | "LOFT" | "KITCHEN_BASE" | "KITCHEN_WALL";
 

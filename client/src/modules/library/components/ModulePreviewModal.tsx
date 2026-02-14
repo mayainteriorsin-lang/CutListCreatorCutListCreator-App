@@ -13,7 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { LibraryModule } from "../types";
-import { UNIT_TYPE_LABELS } from "@/modules/visual-quotation/constants";
+import { UNIT_TYPE_LABELS } from "@/constants/unitTypes";
 import { generateHumanReadableId } from "../storage";
 import RealModelPreview from "./RealModelPreview";
 import {

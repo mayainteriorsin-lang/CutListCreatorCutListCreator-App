@@ -2,12 +2,15 @@
  * Quick Quotation Module - Auto-Save Hook
  *
  * Automatically saves quotation state to localStorage with debouncing.
+ * Saves to both:
+ * - mayaQuotation (working state)
+ * - mayaClients (permanent list, syncs with Client Folders)
  */
 
 import { useEffect, useRef } from 'react';
 import { useQuickQuotationStore } from '../store/quickQuotationStore';
 
-const AUTO_SAVE_DELAY_MS = 1000; // 1 second debounce
+const AUTO_SAVE_DELAY_MS = 1500; // 1.5 second debounce for auto-save
 
 export function useAutoSave() {
   const client = useQuickQuotationStore(state => state.client);
@@ -16,6 +19,7 @@ export function useAutoSave() {
   const additionalItems = useQuickQuotationStore(state => state.additionalItems);
   const settings = useQuickQuotationStore(state => state.settings);
   const saveToLocalStorage = useQuickQuotationStore(state => state.saveToLocalStorage);
+  const saveAsClient = useQuickQuotationStore(state => state.saveAsClient);
 
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isFirstMount = useRef(true);
@@ -34,7 +38,14 @@ export function useAutoSave() {
 
     // Schedule new save
     timeoutRef.current = setTimeout(() => {
+      // Always save working state
       saveToLocalStorage();
+
+      // Also save to permanent client list (syncs with Client Folders)
+      // Only if client name exists
+      if (client.name && client.name.trim()) {
+        saveAsClient(quotationMeta.number);
+      }
     }, AUTO_SAVE_DELAY_MS);
 
     // Cleanup
@@ -43,5 +54,5 @@ export function useAutoSave() {
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [client, quotationMeta, mainItems, additionalItems, settings, saveToLocalStorage]);
+  }, [client, quotationMeta, mainItems, additionalItems, settings, saveToLocalStorage, saveAsClient]);
 }

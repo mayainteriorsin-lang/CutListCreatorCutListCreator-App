@@ -28,7 +28,7 @@
  */
 
 import type { LibraryModule, LibraryWardrobeSection, LibraryCategory } from "./types";
-import type { ModuleConfig, WardrobeSection } from "@/modules/design/engine/shapeGenerator";
+import type { ModuleConfig, WardrobeSection } from "@/types/moduleConfig";
 import { generateUUID } from "@/lib/uuid";
 import {
   fetchLibraryModules,
